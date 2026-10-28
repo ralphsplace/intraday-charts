@@ -291,6 +291,25 @@ def test_session_structure_studies(tab):
     assert "Profiles" in p.locator("#catalogList h4").all_text_contents()
     p.keyboard.press("Escape")
 
+
+def test_context_studies_ask_for_the_symbols_they_read(tab):
+    """Relative strength and the heavyweights strip read other symbols: the page asks the collector for them."""
+    p = tab.goto("/QQQs", 2500)
+    asked = []
+    p.on("request", lambda r: asked.append(json.loads(r.post_data)) if r.url.endswith("/api/fetch") else None)
+    for type in ("relative_strength", "heavyweights", "range_meter"):
+        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+    wait_state(p, "Object.keys(a.panels[0].view.studies).length === 3")
+    p.wait_for_timeout(800)
+    syms = {s for a in asked for s in a["symbols"]}
+    assert {"SPY", "NVDA", "AAPL", "MSFT"} <= syms and "QQQ" not in syms        # not the chart's own symbol
+    legend = p.locator(".panel").first.locator(".legends")
+    assert "Relative strength vs SPY" in legend.inner_text() and "QQQ vs SPY:" in legend.inner_text()
+    boxes = legend.locator(".labels .lbl").all_inner_texts()
+    assert boxes[0].startswith("Top 10:") and "NVDA \u2026" in boxes                 # no NVDA bars in the test data
+    assert any(b.startswith("Day range") for b in boxes)
+    assert "weights as of 2026-10-02" in legend.inner_text()
+
 def test_symbol_input_accepts_and_rejects(tab):
     p = tab.goto("/QQQs")
     box = p.locator("input.sym").first
@@ -482,6 +501,7 @@ def test_switcher_and_addresses(tab):
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/dashboards")
+    p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
     assert p.locator("table.dash tbody tr").count() == 2          # QQQs and the built-in Internals
     assert p.locator("#newType").count() == 0                    # one kind of dashboard: no type to pick
     p.select_option(".dashsel", "QQQs")

@@ -23,7 +23,8 @@ OUTPUTS: dict[str, tuple[str, dict[str, str]]] = {
     "verticals":  (LIST, {"time": NUM, "label": TEXT}),               # event lines
     "labels":     (LIST, {"text": TEXT, "bg": TEXT}),                 # coloured boxes at the top of the chart
 }
-OTHER = {"note": TEXT}       # text shown next to the study's name
+OTHER = {"note": TEXT,       # text shown next to the study's name
+         "needs": LIST}      # other symbols the study reads (e.g. SPY): the page asks the collector for them
 
 
 def _is(value, kind: str) -> bool:
@@ -39,6 +40,8 @@ def problems(out: dict) -> list[str]:
         if key in OTHER:
             if not _is(value, OTHER[key]):
                 found.append(f"{key} should be {OTHER[key]}")
+            elif key == "needs" and not all(isinstance(s, str) for s in value):
+                found.append("needs should be a list of symbols")
             continue
         if key not in OUTPUTS:
             found.append(f"unknown output '{key}'")

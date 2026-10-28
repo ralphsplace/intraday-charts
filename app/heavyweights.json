@@ -1,0 +1,9 @@
+{
+  "_about": "Top holdings and their weights (% of the fund) for the Heavyweights study. To update, put a file with the same shape at data/heavyweights.json: a fund listed there replaces the one here, and survives updates of the app.",
+  "QQQ": {
+    "as_of": "2026-10-02",
+    "source": "Zacks Investment Research, ETF holdings as of 2026-10-02",
+    "weights": {"NVDA": 8.43, "AAPL": 7.28, "MSFT": 5.75, "MU": 5.01, "AMD": 4.27,
+                "AMZN": 4.06, "META": 3.24, "GOOGL": 3.01, "TSLA": 2.91, "GOOG": 2.81}
+  }
+}

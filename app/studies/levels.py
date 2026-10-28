@@ -216,6 +216,41 @@ def _initial_balance(ctx, p):
                    else f"range {rng:.2f}, {ib_state(hi, lo, hod, lod)}")
     return out
 
+
+# ---------------------------------------------------------------- daily range meter
+def average_range(daily: pd.DataFrame, n: int) -> tuple[float | None, int]:
+    """Average high - low of the last n days (regular hours), and how many days that used."""
+    d = daily.tail(n)
+    if d.empty:
+        return None, 0
+    return float((d["high"] - d["low"]).mean()), len(d)
+
+
+@study("range_meter", "Daily range meter", "Levels", "price",
+       [P("length", "Average of the last N days", "int", 14, min=2, max=100),
+        P("targets", "Show where an average day would end (LOD + avg, HOD - avg)", "bool", False),
+        color("#2bb39a", "low_bg", "Label: under half used"), color("#e6b450", "mid_bg", "Label: half to all used"),
+        color("#ef5350", "high_bg", "Label: more than average")],
+       lambda p: f"Daily range meter ({p['length']} days)",
+       "Today's regular-hours range (high - low so far) as a percentage of the average daily range of the last N "
+       "days. Under 50% there's usually room left to move; past 100% the day has already moved more than an "
+       "average day. A gauge, not a signal. Optionally marks where an average-sized day would put the high and low.",
+       plots=[plot("target", "Average-day targets", GRAY, 1, "large_dashed")], intraday=True)
+def _range_meter(ctx, p):
+    avg, n = average_range(ctx.daily, p["length"])
+    hod, lod = ctx.hod_lod
+    if not avg:
+        return {"note": "needs earlier days cached"}
+    if hod is None:
+        return {"labels": [{"text": f"Average daily range {avg:.2f} ({n} days); today starts at 09:30", "bg": p["low_bg"]}]}
+    rng = hod - lod
+    pct = rng / avg * 100
+    bg = p["low_bg"] if pct < 50 else p["mid_bg"] if pct <= 100 else p["high_bg"]
+    out = {"labels": [{"text": f"Day range {rng:.2f} = {pct:.0f}% of the {n}-day average ({avg:.2f})", "bg": bg}]}
+    if p["targets"]:
+        out["levels"] = [level(p, "target", lod + avg, "Avg day \u2191", ctx), level(p, "target", hod - avg, "Avg day \u2193", ctx)]
+    return out
+
 # ---------------------------------------------------------------- Saty ATR levels
 ATR_FIBS = (0.382, 0.5, 0.618, 0.786)
 ATR_EXTS = (1.236, 1.382, 1.5, 1.618, 1.786, 2.0)
@@ -288,9 +323,12 @@ def _saty_atr(ctx, p):
 
 @study("events", "Events", "Levels", "price",
        [P("scheduled", "Scheduled events", "bool", True), P("headlines", "Headlines", "bool", True),
-        P("moves", "Significant moves (tools/market_events.py)", "bool", True)],
-       lambda p: "Events", "Vertical lines for entries in data/events.json, drawn into the future too. "
-       "tools/market_events.py adds scheduled releases and the day's significant moves with their likely cause.",
+        P("moves", "Significant moves (tools/market_events.py)", "bool", True),
+        P("countdown", "Countdown to the next scheduled event", "bool", True),
+        color(PURPLE, "countdown_bg", "Countdown label")],
+       lambda p: "Events", "Vertical lines for entries in data/events.json, drawn into the future too, and a "
+       "countdown to the next scheduled one. tools/market_events.py adds scheduled releases and the day's "
+       "significant moves with their likely cause.",
        plots=[plot("scheduled", "Scheduled event lines", PURPLE, 1, "dashed"),
               plot("headline", "Headline lines", PURPLE, 1, "dotted"),
               plot("move", "Significant move lines", ORANGE, 1, "solid")], intraday=True)
@@ -301,4 +339,16 @@ def _events(ctx, p):
         kind = e.get("kind", "scheduled")
         if kind in keep:
             out.append({"time": e["chart_time"], "label": f"{e['time']} {e['label']}", "kind": kind, "plot": kind})
-    return {"verticals": out}
+    res = {"verticals": out}
+    nxt = next((e for e in ctx.events if e.get("kind", "scheduled") == "scheduled" and e["minute"] > ctx.cursor), None)
+    if p["countdown"] and nxt:
+        res["labels"] = [{"text": f"Next: {nxt['label']} {nxt['time']}, in {countdown(nxt['minute'] - ctx.cursor)}",
+                          "bg": p["countdown_bg"]}]
+    return res
+
+
+def countdown(minutes: int) -> str:
+    """3h 05m, 42m, or under a minute."""
+    if minutes < 1:
+        return "under a minute"
+    return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
