@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"        # same as the Dockerfile
+          cache: pip
+      - name: Install
+        run: |
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Lint
+        run: ruff check app tools tests
+      - name: Known vulnerabilities in the pinned dependencies
+        run: pip-audit -r requirements.txt
+      - name: Tests (with browser tests and coverage)
+        run: |
+          set -o pipefail
+          pytest --cov --cov-report=term-missing -rfE 2>&1 | tee pytest.log
+      - name: Failing tests as annotations (readable on the PR without opening the log)
+        if: failure()
+        run: grep -E "^(FAILED|ERROR) " pytest.log | cut -c1-900 | sed 's/^/::error title=pytest::/' || true
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image and check the container's protections
+        run: sh tests/docker_smoke.sh

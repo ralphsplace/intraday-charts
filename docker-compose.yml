@@ -1,0 +1,66 @@
+# Chart + collector (fetches from TWS what the chart page asks for, and streams today's bars):
+#   cp .env.example .env    # IB_HOST defaults to host.docker.internal (TWS on the machine running Docker)
+#   docker compose --profile collector up -d --build
+#
+# Chart only (when the collector runs on the TWS PC instead, see tools/run_collector_windows.bat):
+#   docker compose up -d --build
+#
+# Security (README, "Purpose and security model"): only devices on your home network get answers
+# (ALLOWED_NETWORKS), the containers run as a normal user with a read-only system, and TWS is used read-only.
+
+x-hardening: &hardening
+  read_only: true                      # nothing but the data folder (and /tmp) can be written
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  # used only by start.sh to hand the data folder to the app user before it drops root (and every capability)
+  cap_add: [CHOWN, DAC_READ_SEARCH, SETUID, SETGID]
+  extra_hosts:
+    # host.docker.internal = the machine running Docker (built in on Docker Desktop; this adds it on Linux)
+    - "host.docker.internal:host-gateway"
+  environment: &env
+    IB_HOST: ${IB_HOST:-host.docker.internal}   # where TWS runs; see .env.example
+    IB_PORT: ${IB_PORT:-7496}
+    APP_UID: ${APP_UID:-1000}
+    APP_GID: ${APP_GID:-1000}
+    ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
+    SEC_CONTACT: ${SEC_CONTACT:-}               # earnings page: see .env.example
+
+services:
+  chart:
+    <<: *hardening
+    build: .
+    image: intraday-chart:latest
+    container_name: intraday-chart
+    environment:
+      <<: *env
+      WEB_WORKERS: ${WEB_WORKERS:-2}
+    ports:
+      # CHART_BIND: the NAS address to listen on (default: all of the NAS's addresses)
+      - "${CHART_BIND:-0.0.0.0}:${CHART_PORT:-8050}:8050"
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped
+
+  collector:
+    <<: *hardening
+    profiles: ["collector"]
+    image: intraday-chart:latest
+    container_name: intraday-collector
+    command: >
+      python tools/fetch_ibkr.py --symbols ${SYMBOLS:-QQQ SPY}
+      --days ${BACKFILL_DAYS:-30} --live
+    environment:
+      <<: *env
+      IB_CLIENT_ID: ${IB_CLIENT_ID:-17}
+      LIVE_WRITE_SECONDS: ${LIVE_WRITE_SECONDS:-5}
+      COMPANIONS: ${COMPANIONS:-TICK-NYSE TRIN-NYSE}
+      RECORD: ${RECORD-ADD-NYSE VOLD-NYSE}         # recorded from live quotes (Internals); empty to turn off
+      DAILY_YEARS: ${DAILY_YEARS:-10}               # daily history kept per symbol (1d / 1w / 1M charts)
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - chart
+    restart: unless-stopped

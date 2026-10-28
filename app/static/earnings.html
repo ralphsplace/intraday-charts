@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earnings</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="toolbar">
+  <div class="group">
+    <span id="dashNav" class="dashnav"></span>
+    <form id="symForm" class="group" autocomplete="off">
+      <label for="sym">Stock</label>
+      <input id="sym" class="sym" type="text" maxlength="10" spellcheck="false" placeholder="e.g. NVDA"
+             title="A stock that reports earnings; press Enter">
+      <button type="submit">Show</button>
+    </form>
+  </div>
+  <div id="modes" class="group" role="group" aria-label="View"></div>
+  <form id="daysForm" class="group" autocomplete="off" title="Trading days shown before and after day 0">
+    <label for="daysBefore">Days before</label>
+    <input id="daysBefore" class="days" type="number" min="1" max="60" step="1" required>
+    <label for="daysAfter">after</label>
+    <input id="daysAfter" class="days" type="number" min="1" max="60" step="1" required>
+  </form>
+  <span id="status" class="muted small" role="status"></span>
+</header>
+<div id="demoBanner" class="banner" hidden>Synthetic test data (symbols ending in -DEMO): invented prices and earnings dates, not real market data.</div>
+<main class="earn">
+  <section class="earn-chart">
+    <div id="chart" class="chart"></div>
+    <div id="ends" class="earn-ends"></div>
+    <div id="msg" class="pmsg" hidden></div>
+  </section>
+  <aside class="earn-side">
+    <h2 id="title" class="earn-title">Earnings</h2>
+    <p id="explain" class="muted small"></p>
+    <div id="legend" class="earn-legend"></div>
+    <p id="source" class="muted small"></p>
+  </aside>
+</main>
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/earnings/main.js"></script>
+</body>
+</html>

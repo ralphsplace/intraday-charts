@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intraday Charts</title>
+<link rel="stylesheet" href="/static/style.css">
+<!--DASHBOARD-->
+</head>
+<body>
+<header class="toolbar">
+  <div class="group">
+    <span id="dashNav" class="dashnav"></span>
+    <label>Layout
+      <select id="layout"></select>
+    </label>
+    <label>Day <select id="day"></select></label>
+    <button id="openData" type="button" title="Fetch symbols and days from TWS; manage live symbols and watchlists">Load data…</button>
+    <button id="layoutsBtn" type="button" title="Save this window's layout under a name, or load a saved one">Layouts &#9662;</button>
+  </div>
+  <div class="group toggles">
+    <label title="Stretch each price scale so every drawn level is on screen"><input type="checkbox" id="fitLevels"> Fit levels</label>
+    <label title="Shade premarket and after-hours bars"><input type="checkbox" id="extShade" checked> Shade extended hours</label>
+    <label title="Move the crosshair on every chart together"><input type="checkbox" id="syncCrosshair" checked> Link crosshairs</label>
+  </div>
+  <div class="group mode" role="group" aria-label="Mode">
+    <button id="modeReplay" class="active">Replay</button>
+    <button id="modeLive">Live</button>
+  </div>
+</header>
+
+<div id="demoBanner" class="banner" hidden>Synthetic test data on one or more charts (symbols ending in -DEMO): invented prices, not real market data.</div>
+
+<main id="grid"></main>
+
+<footer class="replay" id="replayBar">
+  <button id="stepBack" title="Back one bar" aria-label="Back one bar">&#9664;</button>
+  <button id="play" aria-label="Play">Play</button>
+  <button id="stepFwd" title="Forward one bar" aria-label="Forward one bar">&#9654;</button>
+  <label>Speed <select id="speed"><option value="1">1 step/s</option><option value="2" selected>2 steps/s</option><option value="5">5 steps/s</option></select></label>
+  <input type="range" id="cursor" min="241" max="1200" step="1" value="1200" aria-label="Replay time">
+  <span id="cursorLabel" class="clock">--:--</span>
+</footer>
+
+<div id="toasts" aria-live="assertive"></div>
+<datalist id="symList"></datalist>
+<div id="savedMenu" class="menu" hidden></div>
+
+<!-- Load data dialog -->
+<div id="dataDlg" class="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dataTitle">
+    <div class="dlg-head"><h2 id="dataTitle">Load data from TWS</h2><button class="close" data-close aria-label="Close">&times;</button></div>
+    <div class="dlg-body data-body">
+      <p id="dataNote" class="note" hidden></p>
+      <label class="stack">Symbols
+        <textarea id="dataSyms" rows="3" spellcheck="false" placeholder="QQQ SPY NVDA (spaces, commas or one per line)"></textarea>
+      </label>
+      <div class="wl">
+        <select id="wlSel" aria-label="Watchlists"></select>
+        <button id="wlDelete" type="button" title="Delete the selected watchlist">Delete</button>
+        <input id="wlName" type="text" maxlength="60" placeholder="Watchlist name" aria-label="Watchlist name">
+        <button id="wlSave" type="button" title="Save the symbols above as a watchlist">Save as watchlist</button>
+        <label class="filebtn" title="Import a watchlist exported from thinkorswim, TWS, FinViz or a broker (.csv or .txt)">Import file…
+          <input id="wlFile" type="file" accept=".csv,.txt,text/csv,text/plain" hidden></label>
+      </div>
+      <label class="stack">Day
+        <input id="dataDay" type="date">
+      </label>
+      <p class="muted small">For each symbol: this day and the 5 trading days before it (for multi-day views and prior-day
+        levels), plus 2 years of daily bars. Days already cached are skipped. Weekends and holidays step back to the
+        trading day before.</p>
+      <div class="dlg-actions"><span id="dataMsg" class="muted small"></span><span class="spacer"></span>
+        <button id="dataFetch" type="button" class="primary">Fetch from TWS</button></div>
+      <h3>Collector</h3>
+      <div id="collectorBox" class="collector"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Studies dialog -->
+<div id="studiesDlg" class="modal" hidden>
+  <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="studiesTitle">
+    <div class="dlg-head"><h2 id="studiesTitle">Studies</h2><button class="close" data-close aria-label="Close">&times;</button></div>
+    <div class="dlg-body studies-body">
+      <div class="catalog">
+        <input id="studySearch" type="search" placeholder="Search studies" aria-label="Search studies">
+        <div id="catalogList"></div>
+      </div>
+      <div class="active">
+        <h3 id="activeTitle">On this chart</h3>
+        <div id="activeList"></div>
+        <div class="active-acts">
+          <button id="copyStudies" type="button" title="Give every chart in the layout this chart's studies">Copy to all charts</button>
+          <button id="resetStudies" type="button">Reset to defaults</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings dialog (studies and drawings) -->
+<div id="settingsDlg" class="modal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="dlg-head"><h2 id="settingsTitle">Settings</h2><button class="close" data-close aria-label="Close">&times;</button></div>
+    <p id="settingsDesc" class="muted desc"></p>
+    <form id="settingsForm" class="dlg-body settings"></form>
+    <div class="dlg-foot">
+      <button id="settingsDefaults" type="button">Defaults</button>
+      <span class="spacer"></span>
+      <button type="button" data-close>Cancel</button>
+      <button id="settingsApply" type="button" class="primary">Apply</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

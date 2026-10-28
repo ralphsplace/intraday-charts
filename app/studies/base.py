@@ -1,0 +1,187 @@
+"""The study interface, shared by every study module.
+
+A study is registered with @study(...) and declares
+  - category ("Overlays", "Oscillators", "Volume", "Profiles", "Levels", "Market internals"), one per module,
+  - pane: "price" (drawn on the candles), "own" (its own pane below), or "volume" (bottom of the price pane),
+  - params: the inputs shown in its settings dialog,
+  - plots: the lines it draws; each gets Color, Line type, Thickness and Transparency settings automatically,
+  - compute(ctx, params) -> outputs the chart knows how to draw.
+
+Outputs (all optional): the kinds listed in outputs.py; every result is checked against it after the study runs.
+Studies draw no buy/sell signals; those rules live only in the backtester (tools/signals.py).
+"""
+from __future__ import annotations
+
+from .. import indicators as ind
+from .outputs import problems
+
+GRAY, PURPLE, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN, DIM = (
+    "#8a8f98", "#9b8cff", "#2bb39a", "#e6b450", "#d9824a", "#4d9de0", "#d46aa8", "#ef5350", "#26a69a", "#4a525e")
+STYLES = ["solid", "dotted", "dashed", "large_dashed", "sparse_dotted"]
+STYLE_LABELS = {"solid": "Solid", "dotted": "Dotted", "dashed": "Dashed", "large_dashed": "Long dashes",
+                "sparse_dotted": "Sparse dots"}
+
+
+def P(key, label, type, default, **kw):
+    return {"key": key, "label": label, "type": type, "default": default, "section": kw.pop("section", "Inputs"), **kw}
+
+
+def src_param(default="close"):
+    return P("source", "Source", "choice", default, options=ind.SOURCES)
+
+
+def color(default, key="color", label="Color", section="Style"):
+    return P(key, label, "color", default, section=section)
+
+
+def plot(id, label, color, width=1, style="solid", transp=0):
+    """A drawn line whose color, line type, thickness and transparency the user can change."""
+    return {"id": id, "label": label, "color": color, "width": width, "style": style, "transp": transp}
+
+
+def with_alpha(color: str, transparency_pct: float) -> str:
+    """A #rrggbb color made partly transparent: 0% = solid (returned unchanged), 100% = invisible."""
+    if not transparency_pct:
+        return color
+    h = color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{round(1 - transparency_pct / 100, 3)})"
+
+
+def style_params(plots: list[dict]) -> list[dict]:
+    out = []
+    for pl in plots:
+        row = pl["label"]
+        out += [P(f"{pl['id']}_color", "Color", "color", pl["color"], section="Style", row=row),
+                P(f"{pl['id']}_style", "Line type", "choice", pl["style"], options=STYLES, labels=STYLE_LABELS,
+                  section="Style", row=row),
+                P(f"{pl['id']}_width", "Thickness", "int", pl["width"], min=1, max=4, section="Style", row=row),
+                P(f"{pl['id']}_transp", "Transparency %", "int", pl.get("transp", 0), min=0, max=100,
+                  section="Style", row=row)]
+    return out
+
+
+REGISTRY: dict[str, dict] = {}
+INTRADAY_NOTE = "intraday charts only (1m to 15m)"
+
+
+def study(type, name, category, pane, params, label, description="", plots=(), warmup=lambda p: 0, intraday=False):
+    """intraday=True: the study needs 1-minute bars (sessions, VWAP, opening range...), so on daily, weekly and
+    monthly charts it draws nothing and says so."""
+    plots = list(plots)
+    keys = [p["key"] for p in list(params) + style_params(plots)]
+    dupes = {k for k in keys if keys.count(k) > 1}
+    assert not dupes, f"study {type}: duplicate setting keys {dupes}"
+
+    def deco(fn):
+        REGISTRY[type] = {"type": type, "name": name, "category": category, "pane": pane,
+                          "params": list(params) + style_params(plots), "plots": plots,
+                          "label": label, "description": description, "warmup": warmup, "intraday": intraday,
+                          "compute": fn}
+        return fn
+    return deco
+
+
+def coerce(spec: dict, raw: dict) -> dict:
+    """Fill defaults and clamp values to each parameter's declared range."""
+    out = {}
+    for p in spec["params"]:
+        v = raw.get(p["key"], p["default"])
+        t = p["type"]
+        try:
+            if t == "int":
+                v = int(round(float(v)))
+            elif t == "float":
+                v = float(v)
+            elif t == "bool":
+                v = v if isinstance(v, bool) else str(v).lower() in ("1", "true", "yes", "on")
+            elif t == "choice":
+                v = v if v in p["options"] else p["default"]
+            else:
+                v = str(v)
+        except (TypeError, ValueError):
+            v = p["default"]
+        if t in ("int", "float"):
+            if "min" in p:
+                v = max(v, p["min"])
+            if "max" in p:
+                v = min(v, p["max"])
+        out[p["key"]] = v
+    return out
+
+
+def apply_styles(spec: dict, params: dict, out: dict) -> None:
+    """Give every drawn line its plot's color, line type and thickness. An item names its plot with a
+    "plot" key; lines without one match a plot by id (e.g. "band1_up" uses plot "band1")."""
+    plots = {pl["id"]: pl for pl in spec["plots"]}
+
+    def style(item, pid):
+        if pid in plots:
+            item.update(color=with_alpha(params[f"{pid}_color"], params[f"{pid}_transp"]),
+                        style=params[f"{pid}_style"], width=params[f"{pid}_width"])
+
+    for line in out.get("lines", []):
+        pid = line.get("plot") or next((k for k in plots if line["id"] == k or line["id"].startswith(k + "_")), None)
+        style(line, pid)
+    for key in ("hlines", "verticals", "levels"):
+        for item in out.get(key, []):
+            if item.get("plot"):
+                style(item, item["plot"])
+    if out.get("box") and out["box"].get("plot"):
+        style(out["box"], out["box"]["plot"])
+
+
+def run_study(ctx, type: str, raw: dict) -> dict:
+    """Run one study on a DayContext (intraday) or a PeriodContext (daily, weekly, monthly)."""
+    spec = REGISTRY.get(type)
+    if not spec:
+        return {"type": type, "ok": False, "error": f"Unknown study '{type}'"}
+    params = coerce(spec, raw)
+    if spec["intraday"] and getattr(ctx, "period", False):
+        return {"type": type, "ok": True, "params": params, "label": spec["label"](params), "pane": spec["pane"],
+                "note": INTRADAY_NOTE}
+    try:
+        out = spec["compute"](ctx, params) or {}
+        apply_styles(spec, params, out)
+        bad = problems(out)
+        if bad:
+            raise ValueError("bad output: " + "; ".join(bad[:3]) + (f" (+{len(bad) - 3} more)" if len(bad) > 3 else ""))
+    except Exception as e:  # one broken study must not take the chart down
+        return {"type": type, "ok": False, "error": f"{type}: {e}", "params": params,
+                "label": spec["label"](params), "pane": spec["pane"]}
+    return {"type": type, "ok": True, "params": params, "label": spec["label"](params), "pane": spec["pane"], **out}
+
+
+def catalog() -> list[dict]:
+    return [{k: v for k, v in s.items() if k in ("type", "name", "category", "pane", "params", "description")}
+            for s in REGISTRY.values()]
+
+
+def ln(id, title, data, **kw):
+    """A line output; color, style and width are filled in from the study's plot settings."""
+    return {"id": id, "title": title, "color": GRAY, "width": 1, "style": "solid", "data": data, **kw}
+
+
+def hl(price, plot_id):
+    """A horizontal reference line in a study's own pane, styled by its plot."""
+    return {"price": price, "title": "", "plot": plot_id, "color": GRAY, "style": "dashed", "width": 1}
+
+
+def bars_for(ctx, n):
+    return ctx.warm(n + 5)
+
+
+def level(p, plot_id, price, label, ctx=None, flip_closes=0, moving=False):
+    """A price-pane level drawn with the color, line type and thickness chosen for its plot.
+    If flip_closes is set, the label notes when price has closed beyond the level against the side it opened on."""
+    flipped = False
+    five = ctx.five_closed if ctx is not None and flip_closes else None
+    if five is not None and len(five) >= flip_closes and not moving:
+        recent = five["close"].iloc[-flip_closes:]
+        flipped = bool((recent < price).all() if ctx.open_price >= price else (recent > price).all())
+    suffix = " (flipped)" if flipped else (" (moving)" if moving else "")
+    return {"price": round(float(price), 2), "label": label + suffix, "plot": plot_id, "flipped": flipped,
+            "role": None if ctx is None else ("support" if ctx.price >= price else "resistance"),
+            "color": p[f"{plot_id}_color"], "style": p[f"{plot_id}_style"], "width": p[f"{plot_id}_width"]}

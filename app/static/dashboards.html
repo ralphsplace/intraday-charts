@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboards</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body.manage { overflow: auto; height: auto; min-height: 100vh; }
+  .wrap { max-width: 980px; width: 100%; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 4px; }
+  h2 { font-size: 15px; margin: 26px 0 8px; }
+  table.dash { width: 100%; border-collapse: collapse; }
+  table.dash th, table.dash td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.dash th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  table.dash a { color: #8cc4ff; text-decoration: none; font-weight: 600; }
+  table.dash a:hover { text-decoration: underline; }
+  .addr { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .acts button { padding: 3px 9px; font-size: 12px; }
+  button.danger { border-color: #7a2e2e; color: #ffb4b4; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #1f3b37; border: 1px solid var(--teal); color: #c9fff3; }
+  form.create { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end;
+                background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  form.create label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+  form.create input, form.create select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+  form.create .rows { display: flex; gap: 8px; }
+  form.create .rows label { flex: 1; }
+  form.create .rows input { width: 100%; box-sizing: border-box; }
+  .msg { min-height: 20px; margin-top: 8px; font-size: 13px; }
+  .msg.err { color: var(--bear); }
+  .msg.ok { color: var(--teal); }
+  input.rename { width: 160px; background: var(--bg); border: 1px solid var(--teal); border-radius: 6px; padding: 3px 6px; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  .env { display: grid; grid-template-columns: 52px 190px 1fr; gap: 0 10px; }
+  .env > div { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 9px; text-align: center; }
+  .pill.ok { background: #1f3b37; color: #c9fff3; }
+  .pill.warn { background: #3a2f12; color: #f3d48a; }
+  .pill.fail { background: #4a1f1f; color: #ffb4b4; }
+  .env .detail { color: var(--muted); }
+  .envhead { display: flex; align-items: baseline; gap: 12px; }
+  .envhead button { padding: 2px 10px; font-size: 12px; }
+</style>
+</head>
+<body class="manage">
+<header class="toolbar">
+  <div class="group"><span id="dashNav" class="dashnav"></span></div>
+</header>
+<div class="wrap">
+  <h1>Dashboards</h1>
+  <p class="note">Each dashboard has its own address. The default one opens at <span class="addr" id="rootAddr"></span>.</p>
+
+  <table class="dash" aria-label="Dashboards">
+    <thead><tr><th>Name</th><th>Address</th><th></th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div id="msg" class="msg" role="status"></div>
+
+  <h2>Create a dashboard</h2>
+  <form class="create" id="createForm" autocomplete="off">
+    <label>Name <input id="newName" maxlength="40" placeholder="e.g. SPY" required></label>
+    <label id="startWrap">Start from
+      <select id="newStart"><option value="">One QQQ chart, no studies</option>
+        <option value="rows:">Top and bottom rows of charts…</option></select>
+    </label>
+    <div class="rows" id="rowsWrap" hidden>
+      <label>Top charts <input id="newTop" type="number" min="1" max="6" value="2" required></label>
+      <label>Bottom charts <input id="newBottom" type="number" min="1" max="6" value="4" required></label>
+    </div>
+    <button class="primary" type="submit">Create and open</button>
+  </form>
+  <p class="note" id="nameRule"></p>
+  <p class="note">A dashboard keeps its window (charts, studies, sizes) in each browser.
+    "Start from" sets what a browser sees the first time it opens it. Duplicate copies a dashboard's settings, and in this
+    browser its window too.</p>
+  <div class="envhead"><h2 id="environment">Environment check</h2>
+    <button id="recheck" type="button" title="Run the checks again">Check again</button></div>
+  <p class="note">The dashboard has no logins: only devices on your home network can use it, and it only reads from
+    TWS. These checks run when the server starts; a failed one stops it.</p>
+  <div id="env" class="env" role="table" aria-label="Environment check"></div>
+
+  <p class="dash-credit">Charts drawn with <a href="https://www.tradingview.com/lightweight-charts/" target="_blank"
+    rel="noopener">TradingView Lightweight Charts</a> (Apache 2.0).</p>
+</div>
+<script src="/static/dash.js"></script>
+<script type="module">
+import { layoutKey } from "/static/js/keys.js";
+{
+  const $ = (id) => document.getElementById(id);
+  let data = null, renaming = null, confirming = null;
+  const say = (t, ok) => { $("msg").textContent = t || ""; $("msg").className = "msg " + (ok ? "ok" : t ? "err" : ""); };
+  async function api(path, body, method) {
+    const r = await fetch(path, body != null ? { method: method || "POST", headers: { "Content-Type": "application/json" },
+                                                   body: JSON.stringify(body) } : { method: method || "GET" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.detail || r.statusText);
+    return j;
+  }
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const button = (text, fn, cls, title) => { const b = el("button", cls, text); b.type = "button"; b.onclick = fn; if (title) b.title = title; return b; };
+
+  async function reload() {
+    data = await api("/api/dashboards");
+    $("rootAddr").textContent = location.host + "/";
+    $("nameRule").textContent = "Names: " + data.name_rule + ".";
+    render();
+  }
+
+  function render() {
+    const tb = $("rows");
+    tb.innerHTML = "";
+    for (const it of data.items) {
+      const tr = el("tr");
+      const name = el("td");
+      if (renaming === it.id) {
+        const inp = el("input", "rename"); inp.value = it.name; inp.maxLength = 40; inp.setAttribute("aria-label", "New name");
+        const done = async () => {
+          const v = inp.value.trim();
+          if (!v || v === it.name) { renaming = null; return render(); }
+          try { await api("/api/dashboards/" + it.id, { name: v }, "PATCH"); renaming = null; say(`Renamed to "${v}".`, true); await reload(); }
+          catch (e) { say(e.message); inp.focus(); }
+        };
+        inp.onkeydown = (e) => { if (e.key === "Enter") done(); if (e.key === "Escape") { renaming = null; render(); } };
+        name.appendChild(inp);
+        setTimeout(() => inp.focus(), 0);
+      } else {
+        const a = el("a", null, it.name); a.href = window.dashUrl(it.name); name.appendChild(a);
+        if (it.id === data.default) { name.append(" "); name.appendChild(el("span", "badge", "default")); }
+      }
+      const addr = el("td", "addr", "/" + it.name);
+      const acts = el("td"); const box = el("div", "acts"); acts.appendChild(box);
+      if (it.id !== data.default)
+        box.appendChild(button("Make default", async () => { await act(() => api(`/api/dashboards/${it.id}/default`, {}), `"${it.name}" now opens at /.`); },
+                               null, "Open this one at the plain address"));
+      box.appendChild(button("Rename", () => { renaming = it.id; confirming = null; render(); }));
+      box.appendChild(button("Duplicate", () => duplicate(it)));
+      if (confirming === it.id) {
+        box.appendChild(button("Confirm delete", async () => { confirming = null; await act(() => api("/api/dashboards/" + it.id, null, "DELETE"), `Deleted "${it.name}".`); }, "danger"));
+        box.appendChild(button("Keep", () => { confirming = null; render(); }));
+      } else if (data.items.length > 1) {
+        box.appendChild(button("Delete", () => { confirming = it.id; renaming = null; render(); }, "danger"));
+      }
+      tr.append(name, addr, acts);
+      tb.appendChild(tr);
+    }
+  }
+
+  async function act(fn, ok) {
+    try { await fn(); say(ok, true); await reload(); } catch (e) { say(e.message); }
+  }
+
+  function freeName(base) {
+    const taken = new Set(data.items.map((i) => i.name.toLowerCase()));
+    for (let i = 2; ; i++) { const n = `${base}-${i}`.slice(0, 40); if (!taken.has(n.toLowerCase())) return n; }
+  }
+
+  async function duplicate(it) {
+    const name = freeName(it.name);
+    try {
+      const made = await api("/api/dashboards", { name, type: "charts", copy_of: it.id });
+      // copy this browser's window for it too
+      try { const v = localStorage.getItem(layoutKey(it.id)); if (v) localStorage.setItem(layoutKey(made.id), v); } catch (e) { /* unavailable */ }
+      say(`Made "${name}". Rename it if you like.`, true);
+      await reload();
+    } catch (e) { say(e.message); }
+  }
+
+  $("createForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const name = $("newName").value.trim();
+    try {
+      const [kind, key] = ($("newStart").value || ":").split(/:(.*)/s);
+      const made = await api("/api/dashboards", { name, type: "charts", start_layout: kind === "layout" ? key : null,
+                                                  start_template: kind === "template" ? key : null,
+                                                  start_rows: kind === "rows" ? [+$("newTop").value, +$("newBottom").value] : null });
+      location.href = window.dashUrl(made.name);
+    } catch (err) { say(err.message); $("newName").focus(); }
+  };
+
+  // "Top and bottom rows of charts": shows the two counts
+  $("newStart").onchange = () => {
+    const on = $("newStart").value === "rows:";
+    $("rowsWrap").hidden = !on;
+    $("rowsWrap").querySelectorAll("input").forEach((i) => { i.disabled = !on; });
+  };
+  $("newStart").onchange();
+
+  Promise.all([api("/api/dashboards"), api("/api/saved/layouts").catch(() => ({}))]).then(([d, lays]) => {
+    $("rowsWrap").querySelectorAll("input").forEach((i) => { i.max = d.max_per_row || 6; });
+    for (const [k, label] of Object.entries(d.templates || {})) {
+      const o = el("option", null, label); o.value = "template:" + k; $("newStart").appendChild(o);
+    }
+    for (const n of Object.keys(lays).sort()) {
+      const o = el("option", null, `Saved layout: ${n}`); o.value = "layout:" + n; $("newStart").appendChild(o);
+    }
+  }).catch(() => {});
+  async function environment() {
+    const box = $("env");
+    box.innerHTML = "";
+    let d;
+    try { d = await api("/api/environment"); } catch (e) { box.appendChild(el("div", "detail", e.message)); return; }
+    const words = { ok: "OK", warn: "Check", fail: "Fail" };
+    for (const c of d.checks) {
+      const pill = el("span", "pill " + c.status, words[c.status] || c.status);
+      const a = el("div"); a.setAttribute("role", "cell"); a.appendChild(pill);
+      const b = el("div", null, c.name); b.setAttribute("role", "cell");
+      const t = el("div", "detail", c.detail); t.setAttribute("role", "cell");
+      box.append(a, b, t);
+    }
+  }
+  $("recheck").onclick = environment;
+  environment();
+  reload().catch((e) => say(e.message));
+}
+</script>
+</body>
+</html>

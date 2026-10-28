@@ -1,0 +1,8 @@
+# Direct dependencies; requirements.txt pins these and everything they need.
+fastapi==0.146.0
+uvicorn==0.53.0
+pandas==3.0.5
+numpy==2.5.3
+pyarrow==26.0.0
+ib_async==2.1.0
+tzdata==2025.3

@@ -1,0 +1,40 @@
+# Exact versions the app is tested with (Python 3.12, as in the Dockerfile).
+# Regenerate: uv pip compile requirements.in --python-version 3.12 -o requirements.txt
+aeventkit==2.1.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+fastapi==0.146.0
+h11==0.16.0
+ib-async==2.1.0
+idna==3.20
+nest-asyncio==1.6.0
+numpy==2.5.3
+    #   -r /tmp/claude-0/-home-claude/24c7a99e-a40c-5766-8053-e73c80498222/scratchpad/req.in
+    #   aeventkit
+    #   pandas
+opentelemetry-api==1.45.1
+pandas==3.0.5
+pyarrow==26.0.0
+pydantic==2.14.1
+pydantic-core==2.50.1
+python-dateutil==3.0.0
+six==1.17.0
+starlette==1.10.0
+typing-extensions==4.16.0
+    #   anyio
+    #   fastapi
+    #   opentelemetry-api
+    #   pydantic
+    #   pydantic-core
+    #   starlette
+    #   typing-inspection
+typing-inspection==0.4.4
+    #   fastapi
+    #   pydantic
+tzdata==2025.3
+    #   -r /tmp/claude-0/-home-claude/24c7a99e-a40c-5766-8053-e73c80498222/scratchpad/req.in
+    #   ib-async
+    #   python-dateutil
+uvicorn==0.53.0
