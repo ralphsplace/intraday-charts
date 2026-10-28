@@ -128,11 +128,7 @@ def _anchored_vwap(ctx, p):
         bars = bars[(m >= en.RTH_START) & (m < en.RTH_END)]
     if bars.empty:
         return {"lines": [], "note": f"no bars after the anchor ({why})"}
-    vw = en.vwap_frame(bars)
-    m = en.minute_of_day(vw["time"])
-    vw["key"] = vw["time"].dt.normalize() + pd.to_timedelta(en.PRE_START + ((m - en.PRE_START) // ctx.tf) * ctx.tf, unit="min")
-    last = vw.groupby("key")[["vwap", "sd"]].last()
-    v = ctx.shown[["time", "ct", "current"]].merge(last, left_on="time", right_index=True, how="left")
+    v = ctx.on_chart(en.vwap_frame(bars), ["vwap", "sd"])
     lines = [ln("vwap", "AVWAP", ctx.points(v, v["vwap"]), last_value=True)]
     if p["bands"]:
         for name, k in (("band1", p["band1"]), ("band2", p["band2"])):

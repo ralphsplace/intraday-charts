@@ -265,20 +265,21 @@ def test_session_structure_studies(tab):
     s = app_state(p, "a.panels[0].studies.find((s) => s.type === 'anchored_vwap').params")
     assert s["anchor"] == "Chosen time" and s["at"].endswith(" 10:30")
     assert app_state(p, "a.panels[0].tool") is None                       # one click, then the tool is off
-    for type in ("initial_balance", "rvol", "tpo", "volume_profile"):
+    for type in ("initial_balance", "rvol", "tpo", "volume_profile", "cvd_estimate"):
         p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
-    wait_state(p, "Object.keys(a.panels[0].view.studies).length === 5")
+    wait_state(p, "Object.keys(a.panels[0].view.studies).length === 6")
     res = app_state(p, "Object.values(a.panels[0].view.studies).map((r) => [r.type, r.ok, r.error || null])")
     assert all(ok for _, ok, _ in res), res
     legend = first.locator(".legends").inner_text()
     assert "Anchored VWAP" in legend and "Initial Balance (60m)" in legend and "RVOL (10 sessions)" in legend
-    assert "TPO (today, RTH, 30m)" in legend
+    assert "TPO (today, RTH, 30m)" in legend and "CVD estimate (close location)" in legend
+    assert "not exchange order flow" in legend                              # labelled as an estimate
     v = "a.panels[0].view.studies"
     avwap = app_state(p, f"Object.values({v}).find((r) => r.type === 'anchored_vwap')")
     assert avwap["lines"][0]["data"][0]["time"] == t and avwap["verticals"][0]["time"] == t
     sides = app_state(p, f"Object.values({v}).filter((r) => r.profile).map((r) => r.profile.side).sort()")
     assert sides == ["left", "right"]                                      # volume profile and TPO side by side
-    assert app_state(p, "a.panels[0].chart.panes().length") == 2           # RVOL in its own pane
+    assert app_state(p, "a.panels[0].chart.panes().length") == 3           # RVOL and CVD in their own panes
     # the anchor time is an ordinary setting
     first.locator(".fxbtn").click()
     p.wait_for_timeout(400)
