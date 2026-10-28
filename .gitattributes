@@ -1,0 +1,5 @@
+# Keep Unix line endings in every checkout, Windows included: the container runs start.sh and other files with
+# Linux, where a Windows line ending (CRLF) breaks the script ("exec ./start.sh: no such file or directory").
+* text=auto eol=lf
+# Windows batch files need Windows line endings
+*.bat text eol=crlf

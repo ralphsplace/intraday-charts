@@ -941,6 +941,12 @@ LICENSE, NOTICE         Apache License 2.0, and the third-party notice for Light
 
 ## 9. Development and tests
 
+**Working from a git clone on Windows.** `.gitattributes` keeps Unix line endings in every checkout (only
+`.bat` files get Windows ones), because the container runs these files on Linux; the image also strips any
+stray Windows line endings from `start.sh` when it's built. A clone made before `.gitattributes` existed
+keeps its old line endings until you refresh it once (discards uncommitted changes):
+`git rm --cached -r -q . && git reset --hard`
+
 ```bash
 pip install -r requirements-dev.txt
 python -m playwright install chromium     # for the browser tests
