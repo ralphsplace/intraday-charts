@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .. import engine as en
 from .. import indicators as ind
 from .base import P, src_param, color, plot, with_alpha, study, ln, bars_for, level, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN
 
@@ -51,6 +52,97 @@ def _vwap(ctx, p):
             lines.append(ln(f"{name}_up", "", ctx.points(v, v["vwap"] + k * v["sd"])))
             lines.append(ln(f"{name}_dn", "", ctx.points(v, v["vwap"] - k * v["sd"])))
     return {"lines": lines}
+
+
+# ---------------------------------------------------------------- anchored VWAP
+AVWAP_ANCHORS = ["Chosen time", "High of day", "Low of day", "Prior day high", "Prior day low", "Latest event today"]
+AVWAP_MAX_DAYS = 15          # how far back an anchor can be (cached 1-minute days)
+
+
+def _extreme_time(bars: pd.DataFrame, col: str) -> pd.Timestamp | None:
+    """Time of the regular-hours bar with the highest high (col="high") or lowest low (col="low")."""
+    m = en.minute_of_day(bars["time"]) if not bars.empty else None
+    rth = bars[(m >= en.RTH_START) & (m < en.RTH_END)] if m is not None else bars
+    if rth.empty:
+        return None
+    i = rth[col].idxmax() if col == "high" else rth[col].idxmin()
+    return rth.loc[i, "time"]
+
+
+def avwap_anchor(ctx, p) -> tuple[pd.Timestamp | None, str]:
+    """Where the VWAP starts (a 1-minute bar's time), and why; None with the reason when it can't."""
+    mode = p["anchor"]
+    if mode == "Chosen time":
+        text = (p["at"] or "").strip() or f"{ctx.day} 09:30"
+        try:
+            t = pd.Timestamp(text)
+        except (ValueError, TypeError):
+            return None, f"can't read the anchor time '{text}' (use YYYY-MM-DD HH:MM)"
+        return t.tz_localize(ctx.day0.tz) if t.tzinfo is None else t.tz_convert(ctx.day0.tz), text
+    if mode in ("High of day", "Low of day"):
+        t = _extreme_time(ctx.cut, "high" if mode == "High of day" else "low")
+        return (t, f"{mode.lower()} {t:%H:%M}") if t is not None else (None, "no regular-hours bars yet")
+    if mode in ("Prior day high", "Prior day low"):
+        if not ctx.prior_days:
+            return None, "no prior day cached"
+        d = ctx.prior_days[-1]
+        t = _extreme_time(ctx.minute_bars(d), "high" if mode == "Prior day high" else "low")
+        return (t, f"{mode.lower()} {d} {t:%H:%M}") if t is not None else (None, f"no bars for {d}")
+    seen = [e for e in ctx.events if e["minute"] < ctx.cursor]
+    if not seen:
+        return None, "no event yet today (data/events.json)"
+    e = seen[-1]
+    return ctx.day0 + pd.Timedelta(minutes=e["minute"]), f"{e['label']} {e['time']}"
+
+
+@study("anchored_vwap", "Anchored VWAP", "Overlays", "price",
+       [P("anchor", "Anchor", "choice", AVWAP_ANCHORS[0], options=AVWAP_ANCHORS),
+        P("at", "Chosen time (YYYY-MM-DD HH:MM, ET)", "text", ""),
+        P("extended", "Include extended hours", "bool", False),
+        P("bands", "Show bands", "bool", True),
+        P("band1", "Band 1 (std devs)", "float", 1.0, min=0.1, max=5, step=0.1),
+        P("band2", "Band 2 (std devs)", "float", 2.0, min=0.1, max=5, step=0.1)],
+       lambda p: "Anchored VWAP (" + (p["at"] or "09:30" if p["anchor"] == "Chosen time" else p["anchor"].lower()) + ")",
+       "VWAP that starts at a bar you choose instead of the session open: a time (click the chart with the VWAP "
+       "button in the header), the high or low of today or of the prior day, or the latest event in "
+       "data/events.json. The bands are measured from the anchor, so they start tight and widen. It carries on "
+       "across days, up to 15 days back.",
+       plots=[plot("vwap", "Anchored VWAP", ORANGE, 2), plot("band1", "Band 1", ORANGE, 1, "dotted"),
+              plot("band2", "Band 2", ORANGE, 1, "sparse_dotted"), plot("anchor", "Anchor line", ORANGE, 1, "dotted")],
+       intraday=True)
+def _anchored_vwap(ctx, p):
+    start, why = avwap_anchor(ctx, p)
+    if start is None:
+        return {"lines": [], "note": why}
+    now = ctx.day0 + pd.Timedelta(minutes=ctx.cursor)
+    if start >= now:
+        return {"lines": [], "note": f"anchor {why} is after the replay time"}
+    day = start.strftime("%Y-%m-%d")
+    days = [d for d in ctx.prior_days if d >= day][-AVWAP_MAX_DAYS:]
+    if day < ctx.day and (not days or days[0] != day):
+        return {"lines": [], "note": f"no 1-minute bars cached for {day}"}
+    bars = pd.concat([*(ctx.minute_bars(d) for d in days), ctx.cut], ignore_index=True)
+    bars = bars[bars["time"] >= start]
+    if not p["extended"]:
+        m = en.minute_of_day(bars["time"])
+        bars = bars[(m >= en.RTH_START) & (m < en.RTH_END)]
+    if bars.empty:
+        return {"lines": [], "note": f"no bars after the anchor ({why})"}
+    vw = en.vwap_frame(bars)
+    m = en.minute_of_day(vw["time"])
+    vw["key"] = vw["time"].dt.normalize() + pd.to_timedelta(en.PRE_START + ((m - en.PRE_START) // ctx.tf) * ctx.tf, unit="min")
+    last = vw.groupby("key")[["vwap", "sd"]].last()
+    v = ctx.shown[["time", "ct", "current"]].merge(last, left_on="time", right_index=True, how="left")
+    lines = [ln("vwap", "AVWAP", ctx.points(v, v["vwap"]), last_value=True)]
+    if p["bands"]:
+        for name, k in (("band1", p["band1"]), ("band2", p["band2"])):
+            lines.append(ln(f"{name}_up", "", ctx.points(v, v["vwap"] + k * v["sd"])))
+            lines.append(ln(f"{name}_dn", "", ctx.points(v, v["vwap"] - k * v["sd"])))
+    out = {"lines": lines, "note": f"from {why}"}
+    upto = v[v["time"] <= start]                     # the candle holding the anchor, when it's on the chart
+    if not upto.empty:
+        out["verticals"] = [{"time": int(upto["ct"].iloc[-1]), "label": "AVWAP anchor", "plot": "anchor"}]
+    return out
 
 
 @study("bollinger", "Bollinger Bands", "Overlays", "price",

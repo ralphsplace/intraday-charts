@@ -76,7 +76,8 @@ export class DrawingTools {
       this.renderDrawings();
       return;
     }
-    addDrawing(this.symbol, { type: tool.type, ...tool.create(this, points) });
+    if (tool.place) tool.place(this, points);            // e.g. VWAP: adds a study rather than a drawing
+    else addDrawing(this.symbol, { type: tool.type, ...tool.create(this, points) });
     tool.placed?.();
     this.setTool(null);
   }

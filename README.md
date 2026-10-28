@@ -273,14 +273,15 @@ keep their price-axis labels but drop their names.
 
 ### Drawings
 
-Each chart header has **Alert**, **Line** and **Trend** tools. Drawings belong to the symbol, so they
-appear on every chart of that symbol, on any timeframe.
+Each chart header has **Alert**, **Line**, **Trend** and **VWAP** tools. Drawings belong to the symbol, so
+they appear on every chart of that symbol, on any timeframe.
 
 | Tool | How | Notes |
 |---|---|---|
 | Alert | Click a price on the chart | Draws `MARK >= price` above the current price, or `MARK <= price` below it. When price gets there, you get a sound, an on-screen message and, if you allowed it, a desktop notification. This happens in Live mode, or while replaying forward. A triggered alert turns grey and shows the time; **Re-arm** resets it. |
 | Line | Click a price | A plain horizontal line, with an optional label. |
 | Trend | Click two points | Optional **Extend to the right**. |
+| VWAP | Click a bar | Adds an **Anchored VWAP** study to that chart, starting at the bar you clicked. Not a drawing: change or remove it like any study (its settings hold the anchor time). |
 
 Esc cancels a tool. Every drawing is listed in the chart's legend, with **Settings** (price,
 color, line type, thickness) and **×** to delete it. Drawings are stored in this browser.
@@ -308,6 +309,16 @@ chart; drag the pane separators to resize.
 **Overlays** (drawn on price)
 - SMA, EMA and WMA (length, source, color)
 - VWAP (regular or extended session, two standard-deviation bands)
+- **Anchored VWAP.** A VWAP that starts at a bar you choose instead of the open, with its own σ bands
+  measured from the anchor (so they start at zero width and widen):
+  - **Chosen time** (`YYYY-MM-DD HH:MM`, ET): set by clicking a bar with the **VWAP** header button,
+    or typed in the settings; blank means 09:30 today
+  - **High of day** / **Low of day**, **Prior day high** / **Prior day low**: anchored at the minute
+    that high or low printed
+  - **Latest event today**: from `data/events.json` (e.g. the 08:30 CPI print)
+
+  Regular hours only unless **Include extended hours** is on. It carries on across days (up to 15 days
+  back) and draws a dotted line at the anchor.
 - Bollinger Bands
 - Keltner Channels
 - Donchian Channels
@@ -324,6 +335,12 @@ chart; drag the pane separators to resize.
     switch over automatically. Long daily lengths need daily history (see `--daily-years` below).
 **Volume**
 - Volume, with an optional moving average; bars outside regular hours are dimmed
+- **Relative volume (time of day).** Each bar's volume divided by the average volume of the same time
+  slot over the last N sessions (10 by default), in its own pane, with a line at 1.0. The busy open
+  and the quiet lunch are each compared with their own normal. Bars at or above 2× are highlighted
+  and those under 0.5× dimmed (both adjustable). The bar still forming reads low until it ends.
+
+**Profiles** (horizontal histograms on the price; both share the row settings below)
 - **Volume profile.** A horizontal histogram along the left (or right) edge, like thinkorswim's.
   - Range: today all sessions, today regular hours, or all shown days.
   - **Row height**, like thinkorswim's row-height modes:
@@ -335,6 +352,13 @@ chart; drag the pane separators to resize.
     says so).
   - Value-area %, side and width are configurable, plus colors and opacity.
   - Optional POC and VAH/VAL lines.
+- **TPO / Market Profile.** Time at price: how many periods (30 minutes by default; 5, 15 or 60) price
+  spent at each price, rather than how much traded there. Drawn on the right by default, so it sits
+  beside the volume profile.
+  - Its own POC, VAH and VAL (labelled TPO POC etc.), regular hours by default.
+  - The prior day's regular-hours POC, VAH and VAL carried forward (pPOC, pVAH, pVAL).
+  - **Naked POCs** (nPOC with the date) from the last N days (5 by default): earlier days' POCs that
+    price hasn't traded through since.
 
 **Oscillators** (own pane)
 - RSI
@@ -379,6 +403,12 @@ chart; drag the pane separators to resize.
   Every line in these three studies has its own color, line type and thickness. Each study also has a
   "near price only" filter and a flip setting. A level's label gains "(flipped)" once price has closed
   beyond it on that many completed 5-minute bars, against the side it opened on.
+- **Initial Balance.** The high and low of the first hour of regular trading (09:30-10:30; 30 or 90
+  minutes also possible), its midpoint, and range extensions at multiples of the IB range (1× and 2×
+  by default) above the high and below the low, with the IB period shaded. Until 10:30 the levels say
+  "(building)". The legend describes the day so far: inside the IB, extended up or down by how many IB
+  ranges, or traded out both sides. Holding inside the IB is typical of a rotational day; leaving it
+  early, of a directional one. That's the usual reading, not a signal.
 - **ATR levels (Saty-style).** Levels at fractions of the daily ATR (Wilder, 14 days) above and below
   the prior close:
   - the 23.6% call/put triggers
@@ -697,7 +727,7 @@ Read-only: it requests headlines from TWS and places no orders.
 Each part does one job and talks to the others through one small interface:
 - **Indicator maths** (`app/indicators.py`): plain functions on bars, no drawing.
 - **Studies** (`app/studies/`): `base.py` is the interface (`@study`, settings, plots, outputs); every
-  other module is one family (overlays, volume, oscillators, levels, internals).
+  other module is one family (overlays, volume, profiles, oscillators, levels, internals).
   The server and the page only use the interface: the catalogue and `run_study`.
 - **Price types** (`app/static/js/pricetypes.js`): each one draws the price on its own series. The chart
   only calls `create(chart, {type, params})`, then `setData(bars)` and `destroy()`. The chart's
@@ -759,7 +789,8 @@ It appears in every chart's price-type menu, and its settings dialog is built fr
 
 Add a module to `app/static/js/tools/` (or `app/static/js/outputs/`) and list it in that folder's
 `index.js`. The comment at the top of `index.js` describes the hooks; the existing modules are short
-examples (`hline.js` for a tool, `labels.js` for an output).
+examples (`hline.js` for a tool, `labels.js` for an output). A tool can also act on its clicks without
+storing a drawing (`place`): `avwap.js` adds a study.
 
 ---
 
@@ -772,7 +803,7 @@ app/timeframes.py       the candle durations a chart offers, and the range each 
 app/indicators.py       indicator maths (SMA/EMA/WMA, RSI, MACD, Bollinger, ATR, ADX, value area, ...)
 app/studies/base.py     the study interface: @study, settings, plots, run_study, catalog
 app/studies/outputs.py  what a study may return; every result is checked against it
-app/studies/*.py        one module per family: overlays, volume, oscillators, levels, internals
+app/studies/*.py        one module per family: overlays, volume, profiles, oscillators, levels, internals
 app/server.py           web server: the pages (/, /<dashboard>, /dashboards) and the /api endpoints
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)

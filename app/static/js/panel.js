@@ -255,7 +255,7 @@ export class Panel {
   }
 
   // ---------------------------------------------------------------- studies
-  addStudy(type) { this.studies.push({ uid: uid(), type, visible: true, params: defaultsFor(type) }); this.changed(); }
+  addStudy(type, params = {}) { this.studies.push({ uid: uid(), type, visible: true, params: { ...defaultsFor(type), ...params } }); this.changed(); }
   removeStudy(id) { this.studies = this.studies.filter((s) => s.uid !== id); this.changed(); }
   toggleStudy(id) { const s = this.studies.find((x) => x.uid === id); if (s) { s.visible = !s.visible; this.changed(); } }
   changed() { save(); this.refresh(); if (!$("studiesDlg").hidden) renderActiveList(); }

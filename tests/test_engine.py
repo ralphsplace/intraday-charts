@@ -281,7 +281,7 @@ def test_vzo_is_an_indicator_only(demo):
 def test_studies_package_has_one_module_per_family():
     import inspect
     family = {"overlays": "Overlays", "oscillators": "Oscillators", "levels": "Levels",
-              "internals": "Market internals", "volume": "Volume"}
+              "internals": "Market internals", "volume": "Volume", "profiles": "Profiles"}
     for t, spec in studies.REGISTRY.items():
         mod = inspect.getmodule(spec["compute"]).__name__.rsplit(".", 1)[-1]
         assert family.get(mod) == spec["category"], (t, mod, spec["category"])
