@@ -1,4 +1,5 @@
-/* Line series (moving averages, VWAP, oscillators); "markers_only" draws dots instead of a line (VZO). */
+/* Line series (moving averages, VWAP, oscillators); "markers_only" draws dots instead of a line (VZO), and
+   format "volume" shows large values as 1.38M (the CVD estimate). */
 import { LWC } from "../util.js";
 import { lineStyle } from "../styles.js";
 
@@ -12,7 +13,8 @@ export default {
         color: l.color, lineWidth: l.width || 1, lineStyle: lineStyle(l.style),
         lineVisible: !l.markers_only, pointMarkersVisible: !!l.markers_only, pointMarkersRadius: (l.width || 1) + 1,
         priceLineVisible: false, lastValueVisible: !!l.last_value, crosshairMarkerVisible: false,
-        ...(layer.scale ? { priceScaleId: layer.scale, priceFormat: { type: "volume" } } : {}) }, layer.pane);
+        ...(layer.scale ? { priceScaleId: layer.scale, priceFormat: { type: "volume" } } : {}),
+        ...(l.format === "volume" ? { priceFormat: { type: "volume" } } : {}) }, layer.pane);   // e.g. 1.38M
       layer.series.push(s); layer.lines[l.id] = s;
     }
   },

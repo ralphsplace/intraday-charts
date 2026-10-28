@@ -1,4 +1,5 @@
-"""Volume studies: volume bars and relative volume by time of day (the profiles are in profiles.py)."""
+"""Volume studies: volume bars, relative volume by time of day, and an estimate of cumulative volume delta
+(the profiles are in profiles.py)."""
 from __future__ import annotations
 
 import numpy as np
@@ -62,3 +63,46 @@ def _rvol(ctx, p):
     if have < n:
         out["note"] = f"averaged over {have} cached session{'s' if have != 1 else ''}" if have else "needs earlier cached days"
     return out
+
+
+# ---------------------------------------------------------------- cumulative volume delta, estimated from bars
+CVD_METHODS = ["Close location", "Close vs open"]
+CVD_SESSIONS = ["Regular hours", "Extended (from 04:00)"]
+
+
+def bar_delta(bars: pd.DataFrame, method: str) -> pd.Series:
+    """Each 1-minute bar's volume, signed as an estimate of buying minus selling.
+    Close location: volume x ((close - low) - (high - close)) / (high - low), from -volume (closed on the low)
+    to +volume (closed on the high). Close vs open: +volume on an up bar, -volume on a down bar, 0 if flat."""
+    v = bars["volume"].clip(lower=0)
+    if method == CVD_METHODS[1]:
+        return v * np.sign(bars["close"] - bars["open"])
+    rng = (bars["high"] - bars["low"]).replace(0, np.nan)
+    return (v * ((bars["close"] - bars["low"]) - (bars["high"] - bars["close"])) / rng).fillna(0.0)
+
+
+@study("cvd_estimate", "Cumulative volume delta (estimate)", "Volume", "own",
+       [P("method", "Estimated from", "choice", CVD_METHODS[0], options=CVD_METHODS),
+        P("session", "Session (resets each day)", "choice", CVD_SESSIONS[0], options=CVD_SESSIONS)],
+       lambda p: f"CVD estimate ({p['method'].lower()})",
+       "An ESTIMATE of cumulative volume delta, rebuilt from 1-minute bars (how each minute closed within its "
+       "range), not exchange-reported order flow: true delta needs every trade matched against the bid and ask, "
+       "which this app doesn't record. Read it as a volume-weighted running total of where price closed, reset "
+       "at the start of each day. On QQQ it tends to track OBV and VZO.",
+       plots=[plot("cvd", "CVD estimate", "#4d9de0", 2), plot("zero", "Zero line", GRAY, 1, "dotted")], intraday=True)
+def _cvd_estimate(ctx, p):
+    rth = p["session"] == CVD_SESSIONS[0]
+    start, end = (en.RTH_START, en.RTH_END) if rth else (en.PRE_START, en.POST_END)
+    parts = []
+    for d in [*ctx.shown_prior_days, ctx.day]:
+        b = ctx.cut if d == ctx.day else ctx.minute_bars(d)
+        m = en.minute_of_day(b["time"])
+        b = b[(m >= start) & (m < end)]
+        if not b.empty:
+            parts.append(pd.DataFrame({"time": b["time"], "cvd": bar_delta(b, p["method"]).cumsum()}))
+    if not parts:
+        return {"note": "estimate starts at 09:30" if rth else "no bars yet"}
+    v = ctx.on_chart(pd.concat(parts, ignore_index=True), ["cvd"])
+    return {"lines": [ln("cvd", "CVD est.", ctx.points(v, v["cvd"], 0), last_value=True, format="volume")],
+            "hlines": [hl(0, "zero")],
+            "note": "estimated from 1-minute bars, not exchange order flow"}

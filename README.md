@@ -340,6 +340,16 @@ chart; drag the pane separators to resize.
   and the quiet lunch are each compared with their own normal. Bars at or above 2× are highlighted
   and those under 0.5× dimmed (both adjustable). The bar still forming reads low until it ends.
 
+- **Cumulative volume delta (estimate).** A running total of volume signed by where each 1-minute bar
+  closed, reset each day at 09:30 (or 04:00), in its own pane. **It is an estimate, and labelled so:** true
+  delta needs every trade matched against the bid and ask, which this app doesn't record. It is rebuilt
+  from bars:
+  - *Close location* (default): volume × ((close − low) − (high − close)) / (high − low), from −volume
+    when a bar closed on its low to +volume when it closed on its high
+  - *Close vs open*: + the volume on an up bar, − on a down bar
+
+  On QQQ it tends to track OBV and VZO, so read it as one more view of the same pressure.
+
 **Profiles** (horizontal histograms on the price; both share the row settings below)
 - **Volume profile.** A horizontal histogram along the left (or right) edge, like thinkorswim's.
   - Range: today all sessions, today regular hours, or all shown days.

@@ -203,6 +203,14 @@ class DayContext:
         _tf_cache[key] = (mt, a)
         return a
 
+    def on_chart(self, minutes: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+        """Values kept per 1-minute bar (a "time" column plus `cols`) placed on the chart's bars: the last value
+        inside each chart bar, NaN where there is none. Rows match `shown` (with "ct" and "current")."""
+        m = minute_of_day(minutes["time"])
+        key = minutes["time"].dt.normalize() + pd.to_timedelta(PRE_START + ((m - PRE_START) // self.tf) * self.tf, unit="min")
+        last = minutes.assign(key=key).groupby("key")[cols].last()
+        return self.shown[["time", "ct", "current"]].merge(last, left_on="time", right_index=True, how="left")
+
     def tf_bars(self, d: str) -> pd.DataFrame:
         """This symbol's bars on the chart timeframe for an earlier day (whole day, cached)."""
         return self._prior_tf(d)
