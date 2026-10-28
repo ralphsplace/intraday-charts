@@ -101,7 +101,7 @@ def test_price_type_settings(tab):
 
 def test_old_saved_style_is_migrated(tab):
     p = tab.goto("/QQQs", 1500)
-    p.evaluate("""localStorage.setItem('intraday-chart.layout.v5', JSON.stringify({ layout: '1x1',
+    p.evaluate("""localStorage.setItem('intraday-charts.layout.v5', JSON.stringify({ layout: '1x1',
         configs: [{ symbol: 'QQQ', tf: 3, days: 1, style: 'hollow', studies: [] }], prefs: {} }))""")
     p.reload()
     p.wait_for_timeout(2000)
@@ -311,6 +311,27 @@ def test_context_studies_ask_for_the_symbols_they_read(tab):
     assert any(b.startswith("Day range") for b in boxes)
     assert "weights as of 2026-10-02" in legend.inner_text()
 
+
+def test_windows_saved_under_the_old_project_name_carry_over(tab):
+    """The project was called intraday-chart: a browser's saved windows and drawings move to the new names once."""
+    p = tab.goto("/QQQs", 800)
+    p.evaluate("""localStorage.clear();
+      localStorage.setItem('intraday-chart.layout.v5', JSON.stringify({ layout: '2x1',
+        configs: [{ symbol: 'QQQ', tf: 5, days: 1, studies: [] }, { symbol: 'SPY', tf: 3, days: 1, studies: [] }], prefs: {} }));
+      localStorage.setItem('intraday-chart.drawings.v1', JSON.stringify({ QQQ: [{ id: 'd1', type: 'hline', price: 700 }] }));
+      localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('price'));""")
+    p = tab.goto("/QQQs", 2500)
+    assert app_state(p, "[a.layout, a.panels.map((x) => [x.symbol, x.tf])]") == ["2x1", [["QQQ", 5], ["SPY", 3]]]
+    keys = p.evaluate("Object.keys(localStorage).sort()")
+    assert not any(k.startswith("intraday-chart.") for k in keys)
+    assert {"intraday-charts.layout.v5", "intraday-charts.drawings.v1", "intraday-charts.earnings.mode"} <= set(keys)
+    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1')).QQQ[0].price") == 700
+    # a newer value already saved under the new name is kept
+    p.evaluate("""localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('relative'))""")
+    p = tab.goto("/earnings", 800)
+    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.earnings.mode'))") == "price"
+    assert p.evaluate("localStorage.getItem('intraday-chart.earnings.mode')") is None
+
 def test_symbol_input_accepts_and_rejects(tab):
     p = tab.goto("/QQQs")
     box = p.locator("input.sym").first
@@ -388,12 +409,12 @@ def test_drawings_line_and_alert(tab):
     box = panel.locator(".chart").bounding_box()
     p.mouse.click(box["x"] + box["width"] * 0.4, box["y"] + box["height"] * 0.3)
     p.wait_for_timeout(500)
-    drawings = p.evaluate("JSON.parse(localStorage.getItem('intraday-chart.drawings.v1'))")
+    drawings = p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1'))")
     assert [d["type"] for d in drawings["QQQ"]] == ["hline"]
     assert panel.locator(".leg.drawing").count() == 1
     panel.locator(".leg.drawing").hover()                       # its buttons show on hover
     panel.locator(".leg.drawing button[aria-label^='Delete']").click()
-    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-chart.drawings.v1'))")["QQQ"] == []
+    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1'))")["QQQ"] == []
 
 
 def test_drawing_tools_alert_trend_and_settings(tab):
@@ -402,7 +423,7 @@ def test_drawing_tools_alert_trend_and_settings(tab):
     p = tab.goto("/QQQs")
     panel = p.locator(".panel").first
     assert panel.locator(".tools button").all_inner_texts() == ["Alert", "Line", "Trend", "VWAP"]
-    drawn = lambda: p.evaluate("JSON.parse(localStorage.getItem('intraday-chart.drawings.v1') || '{}')").get("QQQ", [])
+    drawn = lambda: p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1') || '{}')").get("QQQ", [])
     # replay to 10:00, then put an alert just above the price there
     p.fill("#cursor", "600"); p.dispatch_event("#cursor", "input"); p.dispatch_event("#cursor", "change")
     p.wait_for_timeout(1200)
@@ -525,7 +546,7 @@ def test_create_rename_default_duplicate_delete(tab):
     p.locator("tr:has-text('QQQs') button:has-text('Duplicate')").click()
     p.wait_for_timeout(800)
     copy = next(i for i in p.evaluate("fetch('/api/dashboards').then((r) => r.json())")["items"] if i["name"] == "QQQs-2")
-    stored = p.evaluate(f"[localStorage.getItem('intraday-chart.layout.v5'), localStorage.getItem('intraday-chart.layout.v5@{copy['id']}')]")
+    stored = p.evaluate(f"[localStorage.getItem('intraday-charts.layout.v5'), localStorage.getItem('intraday-charts.layout.v5@{copy['id']}')]")
     assert stored[1] and stored[1] == stored[0]                # the dashboards page copied this browser's window
     p = tab.goto("/QQQs-2", 2000)
     assert p.locator("#layout").input_value() == "3x1"
@@ -609,7 +630,7 @@ def test_screenshot_layout_renders(tab):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import screenshot_layout
     p = tab.goto("/QQQs", 800)
-    p.evaluate("(cfgs) => localStorage.setItem('intraday-chart.layout.v5', JSON.stringify({ layout: '3x1', configs: cfgs, "
+    p.evaluate("(cfgs) => localStorage.setItem('intraday-charts.layout.v5', JSON.stringify({ layout: '3x1', configs: cfgs, "
                "prefs: { fitLevels: false, extShade: true, sync: true } }))", screenshot_layout.configs())
     p.reload()
     p.wait_for_timeout(3500)

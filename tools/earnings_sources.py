@@ -31,7 +31,7 @@ class SecEdgar:
     name = "SEC EDGAR (8-K Item 2.02)"
 
     def __init__(self, contact: str, cache_dir=None, fetch=None, clock=time.monotonic):
-        self.agent = f"intraday-chart (personal, read-only) {contact}"
+        self.agent = f"intraday-charts (personal, read-only) {contact}"
         self.cache_dir, self.clock, self.last = cache_dir, clock, 0.0
         self.fetch = fetch or self._http
 

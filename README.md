@@ -65,7 +65,7 @@ checks that it runs in a secure environment:
 ## 1. Quick start
 
 ```bash
-unzip intraday-chart.zip && cd intraday-chart
+unzip intraday-charts.zip && cd intraday-charts
 cp .env.example .env                     # IB_HOST: host.docker.internal by default (see section 4)
 docker compose --profile collector up -d --build
 ```
@@ -85,6 +85,15 @@ A new install starts with an **empty cache**. The first time you open the page, 
 
 A chart says what it is waiting for, e.g. "number 3 of 12 in the queue". When its bars arrive, it
 draws them by itself. If the collector isn't running yet, requests are kept and run when it starts.
+
+**Upgrading from `intraday-chart`** (the project's earlier name). Keep your `data` folder and `.env`:
+1. In the old folder, stop the old containers: `docker compose --profile collector down`
+2. Rename the folder from `intraday-chart` to `intraday-charts` (your data and `.env` move with it).
+3. Unzip `intraday-charts.zip` into the folder above it, so it lands on the renamed folder, then
+   `docker compose --profile collector up -d --build` from `intraday-charts`.
+
+The containers are now `intraday-charts` and `intraday-charts-collector`. Each browser moves its saved
+windows, drawings and earnings-page choices to the new names the first time it opens a page.
 
 ---
 
@@ -596,7 +605,7 @@ docker compose logs -f collector     # watch it connect, backfill, then stream
 ```bash
 pip install -r requirements.txt
 python tools/fetch_ibkr.py --symbols QQQ SPY --days 30 --live --host 192.168.1.50 --port 7496 \
-    --data-dir /path/to/intraday-chart/data
+    --data-dir /path/to/intraday-charts/data
 #   leave out --live to backfill once and stop; --port 7497 for paper
 #   --date 2026-10-16 fetches that day and the 5 before it instead of --days
 ```
