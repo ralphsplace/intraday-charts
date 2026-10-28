@@ -1,0 +1,19 @@
+[project]
+name = "intraday-chart"
+version = "0.1.0"
+description = "Self-hosted intraday chart dashboards fed by Interactive Brokers TWS (read-only)"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 125
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "UP", "SIM"]
+# Optional[] spellings, ternaries and multi-line str.split() lists (the holiday table) are left as written
+ignore = ["UP007", "UP045", "SIM108", "SIM905"]
+
+[tool.coverage.run]
+source = ["app", "tools"]
+omit = ["tools/probe_ibkr.py"]   # only does anything against a live TWS

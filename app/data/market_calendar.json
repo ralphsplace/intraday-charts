@@ -1,0 +1,803 @@
+{
+ "_about": "Scheduled market events used by tools/market_events.py. Times are US/Eastern. Sources: FOMC calendar (federalreserve.gov), BLS 2026 schedule and 2025 shutdown revised release dates (bls.gov), BEA release schedule (bea.gov), company earnings dates (Financial Modeling Prep). Earnings are after the close. Monthly options expiration (third Friday) is added by the tool. Each event's \"source\" is who publishes it (shown in the Source column of the moves report). Add or correct entries by hand; AVGO's 2026 dates were not available on the free FMP plan.",
+ "events": [
+  {
+   "date": "2025-10-21",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2025-10-22",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2025-10-24",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2025-10-29",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2025-10-29",
+   "time": "16:05",
+   "label": "GOOGL earnings (after close)",
+   "category": "earnings",
+   "source": "Alphabet (GOOGL)"
+  },
+  {
+   "date": "2025-10-29",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2025-10-29",
+   "time": "16:05",
+   "label": "MSFT earnings (after close)",
+   "category": "earnings",
+   "source": "Microsoft (MSFT)"
+  },
+  {
+   "date": "2025-10-30",
+   "time": "16:05",
+   "label": "AAPL earnings (after close)",
+   "category": "earnings",
+   "source": "Apple (AAPL)"
+  },
+  {
+   "date": "2025-10-30",
+   "time": "16:05",
+   "label": "AMZN earnings (after close)",
+   "category": "earnings",
+   "source": "Amazon (AMZN)"
+  },
+  {
+   "date": "2025-11-19",
+   "time": "16:05",
+   "label": "NVDA earnings (after close)",
+   "category": "earnings",
+   "source": "NVIDIA (NVDA)"
+  },
+  {
+   "date": "2025-11-20",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2025-12-10",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2025-12-11",
+   "time": "16:05",
+   "label": "AVGO earnings (after close)",
+   "category": "earnings",
+   "source": "Broadcom (AVGO)"
+  },
+  {
+   "date": "2025-12-16",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2025-12-18",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2025-12-23",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2025-12-23",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-01-09",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-01-13",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-01-20",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2026-01-22",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-01-22",
+   "time": "10:00",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-01-28",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-01-28",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2026-01-28",
+   "time": "16:05",
+   "label": "MSFT earnings (after close)",
+   "category": "earnings",
+   "source": "Microsoft (MSFT)"
+  },
+  {
+   "date": "2026-01-28",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2026-01-29",
+   "time": "16:05",
+   "label": "AAPL earnings (after close)",
+   "category": "earnings",
+   "source": "Apple (AAPL)"
+  },
+  {
+   "date": "2026-02-04",
+   "time": "16:05",
+   "label": "GOOGL earnings (after close)",
+   "category": "earnings",
+   "source": "Alphabet (GOOGL)"
+  },
+  {
+   "date": "2026-02-05",
+   "time": "16:05",
+   "label": "AMZN earnings (after close)",
+   "category": "earnings",
+   "source": "Amazon (AMZN)"
+  },
+  {
+   "date": "2026-02-11",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-02-13",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-02-20",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-02-20",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-02-25",
+   "time": "16:05",
+   "label": "NVDA earnings (after close)",
+   "category": "earnings",
+   "source": "NVIDIA (NVDA)"
+  },
+  {
+   "date": "2026-03-06",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-03-11",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-03-13",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-03-13",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-03-18",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-04-03",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-04-09",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-04-09",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-04-10",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-04-16",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2026-04-22",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2026-04-29",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-04-29",
+   "time": "16:05",
+   "label": "AMZN earnings (after close)",
+   "category": "earnings",
+   "source": "Amazon (AMZN)"
+  },
+  {
+   "date": "2026-04-29",
+   "time": "16:05",
+   "label": "GOOGL earnings (after close)",
+   "category": "earnings",
+   "source": "Alphabet (GOOGL)"
+  },
+  {
+   "date": "2026-04-29",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2026-04-29",
+   "time": "16:05",
+   "label": "MSFT earnings (after close)",
+   "category": "earnings",
+   "source": "Microsoft (MSFT)"
+  },
+  {
+   "date": "2026-04-30",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-04-30",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-04-30",
+   "time": "16:05",
+   "label": "AAPL earnings (after close)",
+   "category": "earnings",
+   "source": "Apple (AAPL)"
+  },
+  {
+   "date": "2026-05-08",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-05-12",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-05-20",
+   "time": "16:05",
+   "label": "NVDA earnings (after close)",
+   "category": "earnings",
+   "source": "NVIDIA (NVDA)"
+  },
+  {
+   "date": "2026-05-28",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-05-28",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-06-05",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-06-10",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-06-17",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-06-25",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-06-25",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-07-02",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-07-14",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-07-16",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2026-07-22",
+   "time": "16:05",
+   "label": "GOOGL earnings (after close)",
+   "category": "earnings",
+   "source": "Alphabet (GOOGL)"
+  },
+  {
+   "date": "2026-07-22",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2026-07-29",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-07-29",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2026-07-29",
+   "time": "16:05",
+   "label": "MSFT earnings (after close)",
+   "category": "earnings",
+   "source": "Microsoft (MSFT)"
+  },
+  {
+   "date": "2026-07-30",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-07-30",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-07-30",
+   "time": "16:05",
+   "label": "AAPL earnings (after close)",
+   "category": "earnings",
+   "source": "Apple (AAPL)"
+  },
+  {
+   "date": "2026-07-30",
+   "time": "16:05",
+   "label": "AMZN earnings (after close)",
+   "category": "earnings",
+   "source": "Amazon (AMZN)"
+  },
+  {
+   "date": "2026-08-07",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-08-12",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-08-26",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-08-26",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-08-26",
+   "time": "16:05",
+   "label": "NVDA earnings (after close)",
+   "category": "earnings",
+   "source": "NVIDIA (NVDA)"
+  },
+  {
+   "date": "2026-09-04",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-09-11",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-09-16",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-09-30",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-09-30",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-10-02",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-10-14",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-10-20",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2026-10-21",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2026-10-21",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2026-10-28",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-10-28",
+   "time": "16:05",
+   "label": "GOOGL earnings (after close)",
+   "category": "earnings",
+   "source": "Alphabet (GOOGL)"
+  },
+  {
+   "date": "2026-10-28",
+   "time": "16:05",
+   "label": "MSFT earnings (after close)",
+   "category": "earnings",
+   "source": "Microsoft (MSFT)"
+  },
+  {
+   "date": "2026-10-29",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-10-29",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-10-29",
+   "time": "16:05",
+   "label": "AMZN earnings (after close)",
+   "category": "earnings",
+   "source": "Amazon (AMZN)"
+  },
+  {
+   "date": "2026-11-02",
+   "time": "16:05",
+   "label": "AAPL earnings (after close)",
+   "category": "earnings",
+   "source": "Apple (AAPL)"
+  },
+  {
+   "date": "2026-11-06",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-11-10",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-11-18",
+   "time": "16:05",
+   "label": "NVDA earnings (after close)",
+   "category": "earnings",
+   "source": "NVIDIA (NVDA)"
+  },
+  {
+   "date": "2026-11-25",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-11-25",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-12-04",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-12-09",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2026-12-10",
+   "time": "08:30",
+   "label": "CPI",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2026-12-23",
+   "time": "08:30",
+   "label": "GDP",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2026-12-23",
+   "time": "08:30",
+   "label": "PCE",
+   "category": "macro",
+   "source": "U.S. Bureau of Economic Analysis (BEA)"
+  },
+  {
+   "date": "2027-01-08",
+   "time": "08:30",
+   "label": "Jobs report",
+   "category": "macro",
+   "source": "U.S. Bureau of Labor Statistics (BLS)"
+  },
+  {
+   "date": "2027-01-19",
+   "time": "16:05",
+   "label": "NFLX earnings (after close)",
+   "category": "earnings",
+   "source": "Netflix (NFLX)"
+  },
+  {
+   "date": "2027-01-27",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2027-01-27",
+   "time": "16:05",
+   "label": "META earnings (after close)",
+   "category": "earnings",
+   "source": "Meta Platforms (META)"
+  },
+  {
+   "date": "2027-01-27",
+   "time": "16:05",
+   "label": "TSLA earnings (after close)",
+   "category": "earnings",
+   "source": "Tesla (TSLA)"
+  },
+  {
+   "date": "2027-03-17",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  },
+  {
+   "date": "2027-04-28",
+   "time": "14:00",
+   "label": "FOMC decision",
+   "category": "fed",
+   "source": "Federal Reserve (FOMC)"
+  }
+ ]
+}
