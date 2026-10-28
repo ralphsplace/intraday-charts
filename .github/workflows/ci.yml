@@ -22,7 +22,12 @@ jobs:
       - name: Known vulnerabilities in the pinned dependencies
         run: pip-audit -r requirements.txt
       - name: Tests (with browser tests and coverage)
-        run: pytest --cov --cov-report=term-missing
+        run: |
+          set -o pipefail
+          pytest --cov --cov-report=term-missing -rfE 2>&1 | tee pytest.log
+      - name: Failing tests as annotations (readable on the PR without opening the log)
+        if: failure()
+        run: grep -E "^(FAILED|ERROR) " pytest.log | cut -c1-900 | sed 's/^/::error title=pytest::/' || true
 
   docker:
     runs-on: ubuntu-latest
