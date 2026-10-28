@@ -165,6 +165,57 @@ def _session_levels(ctx, p):
     return out
 
 
+
+# ---------------------------------------------------------------- Initial Balance
+IB_EXTENSIONS = {"Off": (), "1x and 2x": (1.0, 2.0), "0.5x steps to 2x": (0.5, 1.0, 1.5, 2.0),
+                 "1x, 1.5x, 2x, 3x": (1.0, 1.5, 2.0, 3.0)}
+
+
+def ib_state(high: float, low: float, day_high: float, day_low: float) -> str:
+    """How far the session has traded beyond the Initial Balance: inside it, out one side (by how many IB ranges)
+    or out both sides. A description of the day so far, not a signal."""
+    rng = high - low
+    up, down = day_high > high, day_low < low
+    if up and down:
+        return "traded out both sides"
+    if not (up or down) or rng <= 0:
+        return "inside the IB so far"
+    beyond = (day_high - high) if up else (low - day_low)
+    return f"extended {'up' if up else 'down'} {beyond / rng:.1f}x the IB range"
+
+
+@study("initial_balance", "Initial Balance", "Levels", "price",
+       [P("minutes", "Initial Balance length (minutes from 09:30)", "choice", "60", options=["30", "60", "90"]),
+        P("mid", "IB midpoint", "bool", True),
+        P("extensions", "Range extensions (multiples of the IB range)", "choice", "1x and 2x", options=list(IB_EXTENSIONS)),
+        P("box", "Shade the IB period", "bool", True)],
+       lambda p: f"Initial Balance ({p['minutes']}m)",
+       "The high and low of the first hour of regular trading (09:30-10:30 by default), its midpoint, and range "
+       "extensions at multiples of the IB range above the high and below the low. The legend says whether the "
+       "session has stayed inside the IB or extended beyond it, and how far.",
+       plots=[plot("ib", "IB high / low", AMBER, 2), plot("mid", "IB midpoint", AMBER, 1, "dotted"),
+              plot("ext", "Range extensions", AMBER, 1, "dashed"), plot("box", "IB box", AMBER, 1, "solid")],
+       intraday=True)
+def _initial_balance(ctx, p):
+    ib = ctx.opening_range(int(p["minutes"]))
+    if not ib:
+        return {"levels": [], "note": "starts at 09:30"}
+    hi, lo, rng = ib["high"], ib["low"], ib["high"] - ib["low"]
+    tag = "" if ib["complete"] else " (building)"
+    lv = [level(p, "ib", hi, "IB high" + tag, ctx), level(p, "ib", lo, "IB low" + tag, ctx)]
+    if p["mid"]:
+        lv.append(level(p, "mid", (hi + lo) / 2, "IB mid" + tag, ctx))
+    if ib["complete"] and rng > 0:
+        for k in IB_EXTENSIONS[p["extensions"]]:
+            lv += [level(p, "ext", hi + k * rng, f"IB +{k:g}x", ctx), level(p, "ext", lo - k * rng, f"IB \u2212{k:g}x", ctx)]
+    out = {"levels": lv}
+    if p["box"]:
+        out["box"] = {**ib, "plot": "box", "label": f"Initial Balance ({ib['minutes']}m)" + ("" if ib["complete"] else ", building")}
+    hod, lod = ctx.hod_lod
+    out["note"] = (f"range {rng:.2f}, building" if not ib["complete"]
+                   else f"range {rng:.2f}, {ib_state(hi, lo, hod, lod)}")
+    return out
+
 # ---------------------------------------------------------------- Saty ATR levels
 ATR_FIBS = (0.382, 0.5, 0.618, 0.786)
 ATR_EXTS = (1.236, 1.382, 1.5, 1.618, 1.786, 2.0)

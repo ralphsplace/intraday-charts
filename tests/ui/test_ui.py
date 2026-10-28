@@ -250,6 +250,47 @@ def test_daily_candles_follow_replay_and_mark_intraday_studies(tab):
     assert res == [["ema", True], ["vwap", True]]
 
 
+
+def test_session_structure_studies(tab):
+    """Initial Balance, anchored VWAP (from the VWAP button), relative volume and TPO on one chart."""
+    p = tab.goto("/QQQs", 2500)
+    first = p.locator(".panel").first
+    first.locator(".tools button", has_text="VWAP").click()
+    assert first.locator(".phint").inner_text() == "Click the bar to anchor a VWAP at"
+    box = first.locator(".chart").bounding_box()
+    t = app_state(p, "a.panels[0].view.bars.find((b) => b.session === 'rth').time + 3600")      # 10:30
+    x = app_state(p, f"a.panels[0].chart.timeScale().timeToCoordinate({t})")
+    p.mouse.click(box["x"] + x, box["y"] + box["height"] / 2)
+    wait_state(p, "a.panels[0].studies.some((s) => s.type === 'anchored_vwap')")
+    s = app_state(p, "a.panels[0].studies.find((s) => s.type === 'anchored_vwap').params")
+    assert s["anchor"] == "Chosen time" and s["at"].endswith(" 10:30")
+    assert app_state(p, "a.panels[0].tool") is None                       # one click, then the tool is off
+    for type in ("initial_balance", "rvol", "tpo", "volume_profile"):
+        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+    wait_state(p, "Object.keys(a.panels[0].view.studies).length === 5")
+    res = app_state(p, "Object.values(a.panels[0].view.studies).map((r) => [r.type, r.ok, r.error || null])")
+    assert all(ok for _, ok, _ in res), res
+    legend = first.locator(".legends").inner_text()
+    assert "Anchored VWAP" in legend and "Initial Balance (60m)" in legend and "RVOL (10 sessions)" in legend
+    assert "TPO (today, RTH, 30m)" in legend
+    v = "a.panels[0].view.studies"
+    avwap = app_state(p, f"Object.values({v}).find((r) => r.type === 'anchored_vwap')")
+    assert avwap["lines"][0]["data"][0]["time"] == t and avwap["verticals"][0]["time"] == t
+    sides = app_state(p, f"Object.values({v}).filter((r) => r.profile).map((r) => r.profile.side).sort()")
+    assert sides == ["left", "right"]                                      # volume profile and TPO side by side
+    assert app_state(p, "a.panels[0].chart.panes().length") == 2           # RVOL in its own pane
+    # the anchor time is an ordinary setting
+    first.locator(".fxbtn").click()
+    p.wait_for_timeout(400)
+    names = p.locator("#activeList").inner_text()
+    assert "Anchored VWAP" in names and "TPO" in names
+    p.keyboard.press("Escape")
+    # the studies dialog lists the profiles in their own group
+    first.locator(".fxbtn").click()
+    p.wait_for_timeout(400)
+    assert "Profiles" in p.locator("#catalogList h4").all_text_contents()
+    p.keyboard.press("Escape")
+
 def test_symbol_input_accepts_and_rejects(tab):
     p = tab.goto("/QQQs")
     box = p.locator("input.sym").first
@@ -340,7 +381,7 @@ def test_drawing_tools_alert_trend_and_settings(tab):
     (and Re-arm), and a drawing's settings dialog."""
     p = tab.goto("/QQQs")
     panel = p.locator(".panel").first
-    assert panel.locator(".tools button").all_inner_texts() == ["Alert", "Line", "Trend"]
+    assert panel.locator(".tools button").all_inner_texts() == ["Alert", "Line", "Trend", "VWAP"]
     drawn = lambda: p.evaluate("JSON.parse(localStorage.getItem('intraday-chart.drawings.v1') || '{}')").get("QQQ", [])
     # replay to 10:00, then put an alert just above the price there
     p.fill("#cursor", "600"); p.dispatch_event("#cursor", "input"); p.dispatch_event("#cursor", "change")

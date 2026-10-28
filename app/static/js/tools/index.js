@@ -1,4 +1,4 @@
-/* Drawing tools: the buttons in each chart's header (Alert, Line, Trend). Each tool is one module in this
+/* Drawing tools: the buttons in each chart's header (Alert, Line, Trend, VWAP). Each tool is one module in this
    folder, and every module has the same shape:
 
      type                      stored with each drawing, e.g. "hline"
@@ -14,11 +14,13 @@
      render(panel, list, pending)  draw this tool's drawings on the chart; pending is a drawing being placed
      check(panel, d, view)     optional: a message when the drawing's alert condition is met, else null
      actions(panel, d)         optional: extra legend buttons for the drawing
+     place(panel, points)      optional: instead of storing a drawing, do this with the clicks (e.g. add a study)
 
    To add a tool: add a module here and list it below. The header, legend, settings and alerts pick it up. */
 import alert from "./alert.js";
+import avwap from "./avwap.js";
 import hline from "./hline.js";
 import trend from "./trend.js";
 
-export const TOOLS = [alert, hline, trend];
+export const TOOLS = [alert, hline, trend, avwap];
 export const toolFor = (type) => TOOLS.find((t) => t.type === type);

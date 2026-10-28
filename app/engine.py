@@ -203,6 +203,10 @@ class DayContext:
         _tf_cache[key] = (mt, a)
         return a
 
+    def tf_bars(self, d: str) -> pd.DataFrame:
+        """This symbol's bars on the chart timeframe for an earlier day (whole day, cached)."""
+        return self._prior_tf(d)
+
     def minute_bars(self, d: str) -> pd.DataFrame:
         """This symbol's 1-minute bars for an earlier day (whole day)."""
         return store.read_day(self.symbol, d)

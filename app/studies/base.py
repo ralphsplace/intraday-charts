@@ -1,7 +1,7 @@
 """The study interface, shared by every study module.
 
 A study is registered with @study(...) and declares
-  - category ("Overlays", "Oscillators", "Volume", "Levels", "Market internals"),
+  - category ("Overlays", "Oscillators", "Volume", "Profiles", "Levels", "Market internals"), one per module,
   - pane: "price" (drawn on the candles), "own" (its own pane below), or "volume" (bottom of the price pane),
   - params: the inputs shown in its settings dialog,
   - plots: the lines it draws; each gets Color, Line type, Thickness and Transparency settings automatically,
