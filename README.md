@@ -340,6 +340,16 @@ chart; drag the pane separators to resize.
   and the quiet lunch are each compared with their own normal. Bars at or above 2× are highlighted
   and those under 0.5× dimmed (both adjustable). The bar still forming reads low until it ends.
 
+- **Cumulative volume delta (estimate).** A running total of volume signed by where each 1-minute bar
+  closed, reset each day at 09:30 (or 04:00), in its own pane. **It is an estimate, and labelled so:** true
+  delta needs every trade matched against the bid and ask, which this app doesn't record. It is rebuilt
+  from bars:
+  - *Close location* (default): volume × ((close − low) − (high − close)) / (high − low), from −volume
+    when a bar closed on its low to +volume when it closed on its high
+  - *Close vs open*: + the volume on an up bar, − on a down bar
+
+  On QQQ it tends to track OBV and VZO, so read it as one more view of the same pressure.
+
 **Profiles** (horizontal histograms on the price; both share the row settings below)
 - **Volume profile.** A horizontal histogram along the left (or right) edge, like thinkorswim's.
   - Range: today all sessions, today regular hours, or all shown days.
@@ -387,6 +397,24 @@ chart; drag the pane separators to resize.
 - Each study can use the Nasdaq-100 TICK (`TICK-NDX`) or Nasdaq TICK (`TICK-NASD`) instead, if your
   account has real-time Nasdaq index data and you add them to `COMPANIONS`.
 - You can also type `TICK-NYSE` or `TRIN-NYSE` into a chart's symbol box to chart the index itself.
+- **Relative strength (vs SPY).** How much better or worse the chart's symbol has done than another
+  symbol (SPY by default; any symbol in the settings) since today's open, or since the first bar shown,
+  in %. Its own pane, with a zero line; above zero is stronger. The legend shows the current reading,
+  e.g. "QQQ vs SPY: +0.42% since 09:30".
+- **Heavyweights (QQQ top holdings).** A strip of boxes in the chart's legend: each of the fund's
+  largest holdings (10 by default) with its move and its contribution to the fund (move × weight, in
+  percentage points), green when adding and red when taking away. The first box adds them up next to the
+  fund's own move, e.g. "Top 10: +0.62 of QQQ +0.80%". Moves are from the prior close (or today's open).
+  - Weights are a dated snapshot, because the app makes no internet requests:
+    `app/heavyweights.json` ships QQQ's top 10 (Zacks Investment Research, holdings as of 2026-10-02).
+    To use your own, or other funds, put a file of the same shape at `data/heavyweights.json`; a fund
+    listed there replaces the shipped one and survives updates. The legend shows the weights' date.
+
+**Symbols a study reads.** Relative strength and Heavyweights need bars for symbols that aren't on any
+chart (SPY, NVDA, AAPL, ...). The chart asks the collector for them automatically, like a typed symbol:
+in Replay it fetches that day (plus the usual 5 days before it and the daily history), and in Live it
+streams them. The first time, ten holdings with 10 years of daily history make a long queue (IBKR allows
+about 50 history requests per 10 minutes); boxes show "…" until a holding's bars arrive.
 
 **Levels**
 - **Prior day levels (PH, PL, PC, PO).** Prior-day high, low, close and open, each switchable, with
@@ -409,6 +437,11 @@ chart; drag the pane separators to resize.
   "(building)". The legend describes the day so far: inside the IB, extended up or down by how many IB
   ranges, or traded out both sides. Holding inside the IB is typical of a rotational day; leaving it
   early, of a directional one. That's the usual reading, not a signal.
+- **Daily range meter.** Today's regular-hours range (high − low so far) as a percentage of the average
+  daily range of the last 14 days, as a label at the top of the chart, e.g. "Day range 3.46 = 76% of
+  the 14-day average (4.57)". Its colour is teal under 50%, amber from 50 to 100%, and red past 100%
+  (the day has already moved more than an average day). A gauge, not a signal. It optionally marks
+  where an average-sized day would put the high (LOD + average) and the low (HOD − average).
 - **ATR levels (Saty-style).** Levels at fractions of the daily ATR (Wilder, 14 days) above and below
   the prior close:
   - the 23.6% call/put triggers
@@ -425,7 +458,8 @@ chart; drag the pane separators to resize.
   709.80, ATR 10.55).
 - **Events.** Vertical lines from `data/events.json`, drawn into the future so you see them coming.
   Three kinds, each switchable with its own colour: scheduled events (dashed), headlines (dotted) and
-  significant moves (solid orange, labelled with the move and its likely cause). The scheduled events
+  significant moves (solid orange, labelled with the move and its likely cause). A label at the top
+  counts down to the next scheduled event of the day, e.g. "Next: FOMC 14:00, in 1h 25m". The scheduled events
   and moves come from `tools/market_events.py` (section 4, *Market events*).
 
 **Calculation notes**
@@ -765,6 +799,10 @@ def _my_avg(ctx, p):
   pane), `profile` (volume-at-price histogram), `cloud`, `box` and `verticals`. `app/studies/outputs.py`
   lists them all with their fields. Every result is checked against that list: a study that returns
   something malformed shows the problem on its legend entry and the rest of the chart carries on.
+- Return `note` for a short text next to the study's name, and `needs` (a list of symbols) when the study
+  reads other symbols' bars: the chart asks the collector for them.
+- Add `intraday=True` to `@study` when the study needs 1-minute bars; on 1d / 1w / 1M charts it then
+  says "intraday charts only" instead of running.
 
 ### Adding a price type
 
@@ -798,6 +836,7 @@ storing a drawing (`place`): `avwap.js` adds a study.
 
 ```
 app/engine.py           day context (bars, warm-up, VWAP, opening range, expected range); no look-ahead
+app/holdings.py         fund holdings for the Heavyweights study (app/heavyweights.json, data/ override)
 app/periods.py          daily, weekly and monthly candles (period context); the replay day from its minutes
 app/timeframes.py       the candle durations a chart offers, and the range each shows
 app/indicators.py       indicator maths (SMA/EMA/WMA, RSI, MACD, Bollinger, ATR, ADX, value area, ...)

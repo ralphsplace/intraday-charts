@@ -1,5 +1,5 @@
-"""Session structure studies: Initial Balance, anchored VWAP, relative volume by time of day, TPO profile.
-All prices are invented."""
+"""Session structure studies: Initial Balance, anchored VWAP, relative volume by time of day, TPO profile,
+and the cumulative volume delta estimate. All prices are invented."""
 import pandas as pd
 import pytest
 
@@ -144,3 +144,37 @@ def test_volume_profile_unchanged_by_the_shared_rows(cache):
     r, _ = study("ACME", 960, "volume_profile", {"row_mode": "Custom price per row", "row_price": 0.5})
     px = {lv["label"]: lv["price"] for lv in r["levels"]}
     assert px["POC"] == 100.0 and r["profile"]["side"] == "left"
+
+
+# ---------------------------------------------------------------- cumulative volume delta (estimate)
+def ohlc(day, rows, start=570):
+    """Bars from (open, high, low, close, volume) tuples, one a minute from `start`."""
+    t = pd.Timestamp(day, tz=ET) + pd.to_timedelta([start + i for i in range(len(rows))], unit="min")
+    return pd.DataFrame([{"time": ts, "open": o, "high": h, "low": lo, "close": c, "volume": v}
+                         for ts, (o, h, lo, c, v) in zip(t, rows, strict=True)])
+
+
+def test_cvd_estimate_from_close_location_and_direction(cache):
+    rows = [(100, 101, 99, 101, 1000),     # closed on the high: +1000 / up bar +1000
+            (101, 101, 99, 100, 1000),     # closed mid-range: 0 / down bar -1000
+            (100, 100, 98, 98.5, 2000),    # near the low: 2000 x (0.5 - 1.5) / 2 = -1000 / -2000
+            (98.5, 98.5, 98.5, 98.5, 500)]  # no range: 0 / flat 0
+    store.write_day("ACME", PREV, ohlc(PREV, [(90, 91, 89, 91, 7000)]))
+    store.write_day("ACME", DAY, ohlc(DAY, rows))
+    r, _ = study("ACME", 600, "cvd_estimate", days=2)
+    vals = [p["value"] for p in r["lines"][0]["data"]]
+    assert vals == [7000.0, 1000.0, 1000.0, 0.0, 0.0]                  # resets each day
+    assert "not exchange order flow" in r["note"] and r["label"] == "CVD estimate (close location)"
+    r, _ = study("ACME", 600, "cvd_estimate", {"method": "Close vs open"})
+    assert [p["value"] for p in r["lines"][0]["data"]] == [1000.0, 0.0, -2000.0, -2000.0]
+    r, _ = study("ACME", 600, "cvd_estimate", tf=3)                    # on 3-minute bars: the total at each bar's end
+    assert [p["value"] for p in r["lines"][0]["data"]] == [0.0, 0.0]
+
+
+def test_cvd_estimate_session_and_premarket(cache):
+    pre = ohlc(DAY, [(100, 101, 99, 101, 400)], start=540)
+    store.write_day("ACME", DAY, pd.concat([pre, ohlc(DAY, [(100, 101, 99, 101, 1000)])], ignore_index=True))
+    r, _ = study("ACME", 560, "cvd_estimate")                          # 09:20: regular hours not open yet
+    assert r["note"] == "estimate starts at 09:30" and not r.get("lines")
+    r, _ = study("ACME", 600, "cvd_estimate", {"session": "Extended (from 04:00)"})
+    assert [p["value"] for p in r["lines"][0]["data"]] == [400.0, 1400.0]

@@ -168,6 +168,9 @@ export class Panel {
     this.priceView.setData(v.bars);
     this.times = [...v.bars.map((b) => b.time), ...v.future];
     this.renderStudies(v);
+    // symbols the studies read besides this chart's (e.g. SPY for relative strength): fetched, or streamed in Live
+    const needs = [...new Set(Object.values(v.studies).flatMap((r) => r.needs || []))].filter((s) => s !== v.symbol);
+    if (needs.length) requestData(needs);
     if (v.period !== this.periodAxis) {                // dates only on daily, weekly and monthly charts
       this.periodAxis = v.period;
       this.chart.applyOptions({ timeScale: { timeVisible: !v.period } });
