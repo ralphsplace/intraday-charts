@@ -96,8 +96,13 @@ export class Panel {
     this.fitSymbolBox();
   }
 
-  // the symbol box grows for long names (VOLD-NYSE); ordinary tickers keep the standard width
-  fitSymbolBox() { this.symIn.style.width = this.symbol.length > 7 ? (10 * this.symbol.length + 12) + "px" : ""; }
+  // the symbol box grows for long names (VOLD-NYSE), measured in the font this browser uses; ordinary tickers
+  // keep the standard width
+  fitSymbolBox() {
+    const box = this.symIn;
+    box.style.width = "";
+    if (box.scrollWidth > box.clientWidth) box.style.width = (box.scrollWidth + box.offsetWidth - box.clientWidth + 2) + "px";
+  }
 
   setSymbol(raw) {
     const sym = cleanSymbol(raw);

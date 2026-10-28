@@ -10,6 +10,11 @@ def app_state(page, expr):
     return page.evaluate(f"(() => {{ const a = window.__chartApp; return {expr}; }})()")
 
 
+def wait_state(page, expr, timeout=15000):
+    """Wait until the expression is true (slower machines, e.g. GitHub's runners, need more than a fixed pause)."""
+    page.wait_for_function(f"(() => {{ const a = window.__chartApp; return {expr}; }})()", timeout=timeout)
+
+
 # ---------------------------------------------------------------- chart grid (QQQs)
 def test_default_is_one_qqq_chart_with_no_studies(tab):
     p = tab.goto("/QQQs", 2500)
@@ -516,8 +521,10 @@ def test_checks_needing_attention_are_linked_from_every_page(tab):
     for path in ("/QQQs", "/dashboards"):          # no collector in the tests: TWS connection is "Check"
         p = tab.goto(path, 1500)
         assert p.evaluate("document.querySelector('header.toolbar').offsetHeight") < 60, path   # one line at 1500 px
+        # how many need attention depends on the machine (e.g. running as root here, not on GitHub's runners)
+        n = p.evaluate("fetch('/api/environment').then((r) => r.json()).then((d) => d.checks.filter((c) => c.status !== 'ok').length)")
         link = p.locator(".dashnav a.envwarn")
-        assert link.count() == 1 and link.get_attribute("aria-label").startswith("Environment check: 2"), path
+        assert n >= 1 and link.count() == 1 and link.get_attribute("aria-label").startswith(f"Environment check: {n}"), path
     link.click()
     p.wait_for_url("**/dashboards#environment")
 
@@ -679,7 +686,7 @@ def test_internals_dashboard(tab):
     assert app_state(p, "a.panels.map((x) => [x.symbol, x.price.type])") == [
         ["QQQ", "candles"], ["SPY", "candles"], ["VOLD-NYSE", "line"], ["-VIX", "candles"], ["TICK-NYSE", "line"],
         ["ADD-NYSE", "candles"]]
-    assert app_state(p, "a.panels.every((x) => x.view && x.view.bars.length && Object.values(x.view.studies).every((r) => r.ok))")
+    wait_state(p, "a.panels.every((x) => x.view && x.view.bars.length && Object.values(x.view.studies).every((r) => r.ok))")
     rows = p.evaluate("[...document.querySelectorAll('#grid .gridrow')].map((r) => r.querySelectorAll('.panel').length)")
     assert rows == [2, 4]                                                               # 2 wide charts over 4
     assert p.evaluate("[...document.querySelectorAll('.splitter')].map((e) => e.dataset.kind + e.dataset.r)") == \
