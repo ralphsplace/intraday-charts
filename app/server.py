@@ -22,7 +22,7 @@ from . import (control, dashboards, earnings, engine, envcheck, periods, saved, 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
 
-log = logging.getLogger("intraday-chart")
+log = logging.getLogger("intraday-charts")
 
 
 @asynccontextmanager
@@ -44,7 +44,7 @@ def _settings() -> security.Settings:
         return security.Settings(networks="127.0.0.1/32")      # the startup check reports the error and stops
 
 
-app = FastAPI(title="Intraday chart", lifespan=lifespan)
+app = FastAPI(title="Intraday charts", lifespan=lifespan)
 app.add_middleware(security.LocalOnly, settings=_settings())    # home network only; see app/security.py
 
 

@@ -4,7 +4,7 @@ REM 1. Install Python 3.11+ from python.org (tick "Add python.exe to PATH").
 REM 2. Edit DATA_DIR below to point at the chart's data folder on the NAS share.
 REM 3. Double-click this file. Leave the window open; it reconnects by itself if TWS restarts.
 
-set DATA_DIR=\\NAS\docker\intraday-chart\data
+set DATA_DIR=\\NAS\docker\intraday-charts\data
 set SYMBOLS=QQQ SPY
 REM market indexes fetched with every request (add TICK-NDX if you have Nasdaq index data)
 set COMPANIONS=TICK-NYSE TRIN-NYSE

@@ -1,5 +1,5 @@
 [project]
-name = "intraday-chart"
+name = "intraday-charts"
 version = "0.1.0"
 description = "Self-hosted intraday chart dashboards fed by Interactive Brokers TWS (read-only)"
 license = "Apache-2.0"

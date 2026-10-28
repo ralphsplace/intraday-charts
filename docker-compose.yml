@@ -8,6 +8,9 @@
 # Security (README, "Purpose and security model"): only devices on your home network get answers
 # (ALLOWED_NETWORKS), the containers run as a normal user with a read-only system, and TWS is used read-only.
 
+# The project's name, so containers, network and image keep their names whatever the folder is called
+name: intraday-charts
+
 x-hardening: &hardening
   read_only: true                      # nothing but the data folder (and /tmp) can be written
   tmpfs: [/tmp]
@@ -31,8 +34,8 @@ services:
   chart:
     <<: *hardening
     build: .
-    image: intraday-chart:latest
-    container_name: intraday-chart
+    image: intraday-charts:latest
+    container_name: intraday-charts
     environment:
       <<: *env
       WEB_WORKERS: ${WEB_WORKERS:-2}
@@ -47,8 +50,8 @@ services:
   collector:
     <<: *hardening
     profiles: ["collector"]
-    image: intraday-chart:latest
-    container_name: intraday-collector
+    image: intraday-charts:latest
+    container_name: intraday-charts-collector
     command: >
       python tools/fetch_ibkr.py --symbols ${SYMBOLS:-QQQ SPY}
       --days ${BACKFILL_DAYS:-30} --live
