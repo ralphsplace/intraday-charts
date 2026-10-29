@@ -62,3 +62,17 @@ def test_obv_and_psar():
     trend = bars(np.arange(100, 160, dtype=float))
     sar = ind.psar(trend, 0.02, 0.2).dropna()
     assert (sar.values < trend["low"].values[-len(sar):]).all()    # below price in an uptrend
+
+
+def test_pfe_straight_lines_read_100_and_chop_low():
+    up = ind.pfe(pd.Series(np.arange(40, dtype=float)), 10, 1)
+    assert up.iloc[9] != up.iloc[9] and up.iloc[10:].tolist() == pytest.approx([100.0] * 30)   # n bars of warm-up
+    assert ind.pfe(pd.Series(-np.arange(40, dtype=float)), 10, 1).iloc[-1] == pytest.approx(-100)
+    chop = ind.pfe(pd.Series([100.0, 105.0] * 20), 10, 1)                 # back and forth, no net move: only the
+    assert chop.iloc[-1] == pytest.approx(100 * 10 / (10 * np.sqrt(26)))  # 10-bar width is left, about 20%
+    # one-bar-wide steps: 10 bars up by 1 each -> sqrt(10^2 + 10^2) / (10 * sqrt(2)) = 100%
+    # 10 bars, one jump of 10: sqrt(10^2 + 10^2) / (9 + sqrt(101)) = about 74%
+    jump = ind.pfe(pd.Series([0.0] * 9 + [10.0] * 2), 10, 1)
+    assert jump.iloc[-1] == pytest.approx(100 * np.sqrt(200) / (9 + np.sqrt(101)))
+    smooth = ind.pfe(pd.Series(np.sin(np.arange(200) / 7) * 5), 10, 5)
+    assert smooth.dropna().between(-100, 100).all()

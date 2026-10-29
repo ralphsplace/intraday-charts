@@ -278,6 +278,15 @@ def test_vzo_is_an_indicator_only(demo):
     assert [h["price"] for h in v["hlines"]] == [60, 40, 0, -40, -60]
 
 
+def test_pfe_study(demo):
+    spec = studies.REGISTRY["pfe"]
+    assert spec["category"] == "Oscillators" and spec["pane"] == "own"
+    v = view("QQQ-DEMO", "2026-10-16", 640, "pfe")["studies"]["pfe"]
+    assert v["ok"] and v["lines"][0]["data"]
+    assert all(-100 <= pt["value"] <= 100 for pt in v["lines"][0]["data"])
+    assert [h["price"] for h in v["hlines"]] == [50, 0, -50]
+
+
 def test_studies_package_has_one_module_per_family():
     import inspect
     family = {"overlays": "Overlays", "oscillators": "Oscillators", "levels": "Levels",
