@@ -420,6 +420,10 @@ chart; drag the pane separators to resize.
   a line, colored like thinkorswim's STO_VZO_Lower (green above +15, yellow, red below −5), by zone
   (±40) or by slope. Lines at ±60, ±40 and 0, shaded zones from ±40 to ±60, and an optional signal
   line. It is an indicator only: it draws nothing on the price chart.
+- **DMI Stochastic Extreme.** A stochastic of the DMI oscillator (+DI minus −DI, Wilder smoothing), as in
+  thinkorswim's DMI_StochasticExtreme (Barbara Star, *Stocks & Commodities*, January 2013): the sum over 3 bars
+  of (oscillator − its 3-bar low) over the sum of its 3-bar range, 0 to 100, with lines at 90 and 10. DMI length
+  10 by default. thinkorswim's crossing arrows are left out: lines only.
 - **Polarized Fractal Efficiency (PFE).** How efficiently price moved over the last N bars (Hans Hannula,
   1994): the straight-line distance between the close N bars ago and now, as a % of the bar-by-bar path,
   each bar one unit wide. +100 is a straight rise, −100 a straight fall, near 0 a choppy path. EMA-smoothed

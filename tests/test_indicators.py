@@ -76,3 +76,18 @@ def test_pfe_straight_lines_read_100_and_chop_low():
     assert jump.iloc[-1] == pytest.approx(100 * np.sqrt(200) / (9 + np.sqrt(101)))
     smooth = ind.pfe(pd.Series(np.sin(np.arange(200) / 7) * 5), 10, 5)
     assert smooth.dropna().between(-100, 100).all()
+
+
+def test_dmi_stochastic_matches_thinkorswims_formula():
+    rng = np.random.default_rng(3)
+    df = bars(100 + rng.normal(0, 1, 120).cumsum())
+    v = ind.dmi_stochastic(df, 10, 3, 3)
+    _, pdi, mdi = ind.adx(df, 10)
+    osc = (pdi - mdi).to_numpy()
+    i = 80                                                         # by hand: Sum(osc - ll, 3) / Sum(hh - ll, 3) * 100
+    num = sum(osc[j] - osc[j - 2:j + 1].min() for j in range(i - 2, i + 1))
+    den = sum(osc[j - 2:j + 1].max() - osc[j - 2:j + 1].min() for j in range(i - 2, i + 1))
+    assert v.iloc[i] == pytest.approx(100 * num / den)
+    assert v.dropna().between(0, 100).all()
+    rising = ind.dmi_stochastic(bars(np.arange(60, dtype=float) ** 1.5), 10, 3, 3)    # DI+ widening: at the top
+    assert rising.iloc[-1] == pytest.approx(100)

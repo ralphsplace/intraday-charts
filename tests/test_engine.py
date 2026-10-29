@@ -287,6 +287,15 @@ def test_pfe_study(demo):
     assert [h["price"] for h in v["hlines"]] == [50, 0, -50]
 
 
+def test_dmi_stochastic_study_draws_lines_only(demo):
+    spec = studies.REGISTRY["dmi_stoch"]
+    assert spec["category"] == "Oscillators" and spec["pane"] == "own"
+    v = view("QQQ-DEMO", "2026-10-16", 640, "dmi_stoch")["studies"]["dmi_stoch"]
+    assert v["ok"] and v["lines"][0]["data"] and not v.get("markers")              # no crossing arrows
+    assert all(0 <= pt["value"] <= 100 for pt in v["lines"][0]["data"])
+    assert [h["price"] for h in v["hlines"]] == [90, 10]
+
+
 def test_studies_package_has_one_module_per_family():
     import inspect
     family = {"overlays": "Overlays", "oscillators": "Oscillators", "levels": "Levels",
