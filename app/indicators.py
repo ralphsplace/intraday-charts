@@ -155,6 +155,17 @@ def vzo(df: pd.DataFrame, n: int) -> pd.Series:
     return 100 * r / v.replace(0, np.nan)
 
 
+def pfe(s: pd.Series, n: int, smooth: int) -> pd.Series:
+    """Polarized Fractal Efficiency (Hannula): the straight-line distance over the last n bars as a % of the
+    bar-by-bar path, each step one bar wide and price in its own units; negative when price fell over the n bars,
+    then EMA-smoothed. A straight line reads +/-100, a choppy path near 0."""
+    change = s - s.shift(n)
+    straight = np.sqrt(change ** 2 + n ** 2)
+    path = np.sqrt(s.diff() ** 2 + 1).rolling(n, min_periods=n).sum()
+    raw = 100 * np.sign(change).replace(0, 1) * straight / path
+    return ema(raw, smooth) if smooth > 1 else raw
+
+
 def value_area(volumes, share: float = 0.70) -> tuple[int, int, int]:
     """Point of control and value area of a volume-at-price profile (rows ordered by price): the busiest row,
     then grow one row at a time toward the busier neighbour until `share` of the volume is covered.

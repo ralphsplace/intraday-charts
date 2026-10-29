@@ -420,6 +420,13 @@ chart; drag the pane separators to resize.
   a line, colored like thinkorswim's STO_VZO_Lower (green above +15, yellow, red below −5), by zone
   (±40) or by slope. Lines at ±60, ±40 and 0, shaded zones from ±40 to ±60, and an optional signal
   line. It is an indicator only: it draws nothing on the price chart.
+- **Polarized Fractal Efficiency (PFE).** How efficiently price moved over the last N bars (Hans Hannula,
+  1994): the straight-line distance between the close N bars ago and now, as a % of the bar-by-bar path,
+  each bar one unit wide. +100 is a straight rise, −100 a straight fall, near 0 a choppy path. EMA-smoothed
+  (length 10, smoothing 5 by default), with dashed lines at ±50 (the trend level, adjustable) and 0.
+  - Price is in its own units against a one-bar step, as in thinkorswim and TradingView, so readings depend
+    on the stock's price and the bar size. On QQQ's 1-minute bars (Oct 28) it spent about 70% of the day
+    beyond ±50; on 5-minute bars about 55%.
 
 **Market internals** (NYSE TICK; the collector fetches it with every stock request, see section 4)
 - **NYSE TICK (with extreme counter).** Each bar's TICK high (up bars) and low (down bars), with lines at

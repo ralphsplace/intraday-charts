@@ -1,4 +1,4 @@
-"""Oscillators, each in its own pane: RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO."""
+"""Oscillators, each in its own pane: RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO, PFE."""
 from __future__ import annotations
 
 import math
@@ -157,3 +157,21 @@ def _vzo(ctx, p):
     if p["bands"]:
         out["bands"] = [{"from": 40, "to": 60, "color": p["up_color"]}, {"from": -60, "to": -40, "color": p["dn_color"]}]
     return out
+
+
+# ---------------------------------------------------------------- Polarized Fractal Efficiency
+@study("pfe", "Polarized Fractal Efficiency (PFE)", "Oscillators", "own",
+       [P("length", "Length", "int", 10, min=2, max=200), P("smooth", "Smoothing (EMA, 1 = off)", "int", 5, min=1, max=50),
+        src_param(), P("level", "Trend level", "int", 50, min=1, max=100)],
+       lambda p: f"PFE ({p['length']}, {p['smooth']})",
+       "How efficiently price moved over the last N bars (Hannula): the straight-line distance as a % of the "
+       "bar-by-bar path, from +100 (a straight rise) through 0 (chop) to -100 (a straight fall), EMA-smoothed. "
+       "Price is in its own units against a one-bar step, so readings depend on the stock's price and the bar size.",
+       plots=[plot("pfe", "PFE", TEAL, 2), plot("upper", "Upper trend level", GRAY, 1, "dashed"),
+              plot("zero", "Zero line", DIM, 1, "dotted"), plot("lower", "Lower trend level", GRAY, 1, "dashed")],
+       warmup=lambda p: p["length"] + p["smooth"] * 4)
+def _pfe(ctx, p):
+    w = bars_for(ctx, p["length"] + p["smooth"] * 4)
+    v = ind.pfe(ind.source(w, p["source"]), p["length"], p["smooth"])
+    return {"lines": [ln("pfe", "PFE", ctx.points(w, v, 2), last_value=True)],
+            "hlines": [hl(p["level"], "upper"), hl(0, "zero"), hl(-p["level"], "lower")]}
