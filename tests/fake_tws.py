@@ -34,6 +34,73 @@ class Contract:
         self.symbol, self.conId = symbol, conId
 
 
+# ---------------------------------------------------------------- invented options (the expected-move page)
+FAKE_BASE_IV = 0.30          # every invented stock's implied volatility, before its event
+FAKE_EVENT_MOVE = 0.06       # and the 1-sigma move priced for its "earnings", the first Thursday after `now`
+
+
+class FakeOption(Contract):
+    def __init__(self, symbol, expiry, strike, right, exchange="SMART", currency="USD", tradingClass=""):
+        super().__init__(symbol)
+        self.lastTradeDateOrContractMonth, self.strike, self.right = expiry, float(strike), right
+        self.exchange, self.currency, self.tradingClass = exchange, currency, tradingClass or symbol
+
+
+class FakeChain:
+    def __init__(self, symbol, expirations, strikes):
+        self.exchange, self.tradingClass, self.multiplier = "SMART", symbol, "100"
+        self.expirations, self.strikes = set(expirations), set(strikes)
+
+
+class FakeGreeks:
+    def __init__(self, iv):
+        self.impliedVol = iv
+
+
+class FakeQuote:
+    def __init__(self, bid=float("nan"), ask=float("nan"), last=float("nan"), close=float("nan"), iv=None):
+        self.bid, self.ask, self.last, self.close = bid, ask, last, close
+        self.modelGreeks = FakeGreeks(iv) if iv is not None else None
+
+
+def fake_stock_price(symbol: str) -> float:
+    return float(50 + zlib.crc32(symbol.encode()) % 650)
+
+
+def fake_step(price: float) -> float:
+    return 1.0 if price < 100 else 2.5 if price < 500 else 5.0
+
+
+def fake_expiries(now: pd.Timestamp) -> list[str]:
+    """Mondays, Wednesdays and Fridays for six weeks."""
+    days = pd.bdate_range(now.tz_localize(None).normalize(), periods=30)
+    return [d.strftime("%Y%m%d") for d in days if d.weekday() in (0, 2, 4)]
+
+
+def fake_event_day(now: pd.Timestamp) -> pd.Timestamp:
+    d = now.tz_localize(None).normalize()
+    return d + pd.Timedelta(days=(3 - d.weekday()) % 7 or 7)      # the next Thursday
+
+
+def fake_strikes(price: float, expiry: str, now: pd.Timestamp) -> list[float]:
+    """Strikes listed for an expiry: +/-30% of the price for the first two, +/-15% for later ones (as a real chain
+    lists every strike for some expiries but not all), so the collector must skip ones that don't exist."""
+    step = fake_step(price)
+    width = 0.30 if expiry in fake_expiries(now)[:2] else 0.15
+    lo, hi = int(price * (1 - width) / step), int(price * (1 + width) / step) + 1
+    return [round(k * step, 2) for k in range(lo, hi)]
+
+
+def black_scholes(s: float, k: float, t: float, iv: float, right: str) -> float:
+    from math import erf, log, sqrt
+    n = lambda x: 0.5 * (1 + erf(x / sqrt(2)))  # noqa: E731
+    if t <= 0 or iv <= 0:
+        return max(s - k, 0.0) if right == "C" else max(k - s, 0.0)
+    d1 = (log(s / k) + 0.5 * iv * iv * t) / (iv * sqrt(t))
+    d2 = d1 - iv * sqrt(t)
+    return s * n(d1) - k * n(d2) if right == "C" else k * n(-d2) - s * n(-d1)
+
+
 def invented_index_day(symbol: str, day: str, until: pd.Timestamp | None = None) -> list[Bar]:
     """TICK-like (around 0, swings to +/-1000) or TRIN-like (around 1) bars, regular hours only."""
     rng = np.random.default_rng(zlib.crc32(f"{symbol}{day}".encode()))
@@ -140,6 +207,54 @@ class FakeIB:
         t = FakeTicker(contract, self.now)
         self.tickers.append(t)
         return t
+
+    # ---- options: chains, qualification and snapshot quotes, with invented prices
+    def reqSecDefOptParams(self, symbol, futFopExchange, underlyingSecType, underlyingConId):
+        if symbol.startswith("ZZ"):
+            return []
+        now = self.now()
+        ex = fake_expiries(now)
+        price = fake_stock_price(symbol)
+        strikes = sorted({k for e in ex for k in fake_strikes(price, e, now)})
+        return [FakeChain(symbol, ex, strikes)]
+
+    def qualifyContracts(self, *contracts):
+        now, out = self.now(), []
+        for c in contracts:
+            if isinstance(c, FakeOption):
+                ok = (c.lastTradeDateOrContractMonth in fake_expiries(now)
+                      and c.strike in fake_strikes(fake_stock_price(c.symbol), c.lastTradeDateOrContractMonth, now))
+                if ok:
+                    c.conId = zlib.crc32(f"{c.symbol}{c.lastTradeDateOrContractMonth}{c.strike}{c.right}".encode())
+                    out.append(c)
+            elif not c.symbol.startswith("ZZ"):
+                c.conId = c.conId or zlib.crc32(c.symbol.encode())
+                out.append(c)
+        self.requests.append(("qualify", len(contracts), None, False))
+        return out
+
+    def option_iv(self, expiry: str) -> float:
+        now = self.now()
+        end = pd.Timestamp(f"{expiry} 16:00", tz=ET)
+        t = max((end - now).total_seconds(), 60) / (365 * 86400)
+        var = FAKE_BASE_IV ** 2 * t + (FAKE_EVENT_MOVE ** 2 if end.tz_localize(None).normalize() > fake_event_day(now) else 0)
+        return (var / t) ** 0.5
+
+    def reqTickers(self, *contracts, **kw):
+        now, out = self.now(), []
+        for c in contracts:
+            s = fake_stock_price(c.symbol)
+            if not isinstance(c, FakeOption):
+                out.append(FakeQuote(bid=s - 0.01, ask=s + 0.01, last=s, close=s))
+                continue
+            iv = self.option_iv(c.lastTradeDateOrContractMonth)
+            end = pd.Timestamp(f"{c.lastTradeDateOrContractMonth} 16:00", tz=ET)
+            t = max((end - now).total_seconds(), 60) / (365 * 86400)
+            v = black_scholes(s, c.strike, t, iv, c.right[:1])
+            half = max(0.01, v * 0.02)
+            out.append(FakeQuote(bid=round(max(v - half, 0), 2), ask=round(v + half, 2), last=round(v, 2), close=round(v, 2), iv=iv))
+        self.requests.append(("tickers", len(contracts), None, False))
+        return out
 
     def cancelMktData(self, contract):
         self.tickers = [t for t in self.tickers if t.contract is not contract]

@@ -174,6 +174,28 @@ def generate_earnings(data_dir, symbol: str = "ACME-DEMO", seed: int = 11) -> li
     return reports
 
 
+DEMO_OPTIONS_NOW = "2026-10-28 10:00"      # the invented quotes' time (a Wednesday)
+DEMO_OPTIONS_DATE = "2026-10-30"           # and the date asked for: that Friday's expiry
+
+
+def generate_options(data_dir, symbol: str = "ACME-DEMO", target: str = DEMO_OPTIONS_DATE,
+                     now: str = DEMO_OPTIONS_NOW) -> dict:
+    """SYNTHETIC option quotes for the expected-move page: the real fetch code (tools/option_quotes.py) run
+    against the fake TWS's invented chain (30% volatility, plus a 6% "earnings" move on the Thursday), written
+    into data_dir like the collector would (data/options/<SYMBOL>.json, marked synthetic)."""
+    import fake_tws
+    from option_quotes import OptionQuotes
+
+    from app import expected_move
+    store.DATA_DIR = Path(data_dir)
+    t = pd.Timestamp(now, tz="America/New_York")
+    ib = fake_tws.FakeIB(now=lambda: t)
+    data = OptionQuotes(ib, option=fake_tws.FakeOption).fetch(fake_tws.qualify(symbol), symbol, target, t)
+    data["synthetic"] = True
+    expected_move.write(symbol, data)
+    return data
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", required=True, help="folder to write into (use a test folder, not your real data)")

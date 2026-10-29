@@ -520,7 +520,8 @@ def test_live_mode_toggles(tab):
 def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
-    assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Manage dashboards…"]
+    assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
+                                                                 "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
@@ -760,6 +761,39 @@ def test_page_switcher_reaches_the_earnings_page(tab):
     p.select_option(".dashsel", "\u0000earnings")
     p.wait_for_url("**/earnings*")
     assert p.locator("#symForm").is_visible()
+
+
+# ---------------------------------------------------------------- expected-move page
+def test_expected_move_page(tab):
+    p = tab.goto("/expected-move?symbols=ACME-DEMO,NVDA-DEMO&date=2026-10-30", 2000)
+    assert p.locator("#demoBanner").is_visible()                              # synthetic data is labelled
+    assert p.locator(".dashsel").input_value() == "\u0000expected-move"
+    rows = p.locator("#emSummary tr")
+    assert rows.count() == 3                                                  # header, ACME-DEMO, NVDA-DEMO
+    acme = rows.nth(1).inner_text()
+    assert "ACME-DEMO" in acme and "Fri, Oct 30" in acme and "±" in acme and "IV 30% →" in acme
+    assert "no synthetic quotes" in rows.nth(2).inner_text()                  # nothing invented for this one
+    card = p.locator(".em-card[data-symbol=ACME-DEMO]")
+    assert card.count() == 1 and p.locator(".em-card").count() == 1
+    text = card.inner_text()
+    for want in ("Straddle (expected move)", "0.85 x straddle", "1 sigma", "2 sigma", "usually earnings",
+                 "Diagonal legs: short Fri, Oct 30, long Fri, Nov 6", "Both sides"):
+        assert want in text, want
+    assert card.locator(".em-legs tr").count() == 4                           # header, call, put, both
+    assert "1 of 2 with quotes" in p.inner_text("#emStatus")
+
+
+def test_expected_move_page_form_and_memory(tab):
+    p = tab.goto("/expected-move", 1000)
+    assert "Type one or more stock symbols" in p.inner_text("#emMsg")
+    p.fill("#emSyms", "acme-demo")
+    p.fill("#emDate", "2026-10-30")
+    p.press("#emSyms", "Enter")
+    p.wait_for_function("document.querySelectorAll('.em-card').length === 1")
+    assert "symbols=ACME-DEMO" in p.url and "date=2026-10-30" in p.url
+    p = tab.goto("/expected-move", 1500)                                      # remembers the last request
+    assert p.input_value("#emSyms") == "ACME-DEMO" and p.input_value("#emDate") == "2026-10-30"
+    assert p.locator(".em-card").count() == 1
 
 
 # ---------------------------------------------------------------- Internals dashboard (2 charts over 4 internals)

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expected move</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="toolbar">
+  <div class="group">
+    <span id="dashNav" class="dashnav"></span>
+    <form id="emForm" class="group" autocomplete="off">
+      <label for="emSyms">Stocks</label>
+      <input id="emSyms" class="em-syms" type="text" spellcheck="false" placeholder="e.g. AMZN LLY MA"
+             title="One or more stock symbols, separated by spaces or commas (up to 20); press Enter">
+      <label for="emDate">Expiry on or after</label>
+      <input id="emDate" class="em-date" type="date" required
+             title="The first option expiry on or after this date is used, e.g. the Friday after an earnings report">
+      <button type="submit">Show</button>
+    </form>
+    <button id="emRefresh" type="button" title="Ask TWS for fresh option quotes (snapshots)">Refresh quotes</button>
+  </div>
+  <span id="emStatus" class="muted small" role="status"></span>
+</header>
+<div id="demoBanner" class="banner" hidden>Synthetic test data (symbols ending in -DEMO): invented prices and option quotes, not real market data.</div>
+<main class="em">
+  <div id="emMsg" class="em-msg" hidden></div>
+  <section id="emSummary" class="em-summary" aria-label="Comparison"></section>
+  <section id="emCards" class="em-cards"></section>
+  <section class="em-notes muted small">
+    <p><b>How to read it.</b> The <b>straddle</b> (at-the-money call + put, mid prices, at the stock's price) is the
+      market's average expected move by the expiry's 16:00 close. <b>0.85 × straddle</b> is a common rule of thumb.
+      <b>1σ</b> (about a two-in-three chance of closing inside) and <b>2σ</b> come from implied volatility and the
+      calendar time left. When implied volatility jumps between the previous expiry and this one, the options price
+      an <b>event</b> between them, usually earnings; its own move is shown separately.</p>
+    <p><b>Diagonal legs</b>: short call and put at the listed strikes nearest the expected move in this expiry, long
+      call and put one strike closer to the money in the next weekly expiry; net = long − short per side. Prices
+      only; nothing here is a signal or advice, and the app never places orders.</p>
+    <p>Quotes are snapshots from TWS (US options market data needed), refreshed when you ask. Outside regular hours
+      they are often wide or stale; the page says so.</p>
+  </section>
+</main>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/expected-move/main.js"></script>
+</body>
+</html>

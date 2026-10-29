@@ -1,5 +1,5 @@
 /* Page switcher: a drop-down in each page's toolbar listing every dashboard, then the other pages (Earnings,
-   Manage dashboards…). Fills any element with id "dashNav". Shared by the chart, earnings and dashboards pages. */
+   Manage dashboards…). Fills any element with id "dashNav". Shared by the chart, earnings, expected-move and dashboards pages. */
 (() => {
   const me = window.DASHBOARD || null;
   window.dashUrl = (name) => "/" + encodeURIComponent(name);
@@ -19,7 +19,8 @@
       if (me && it.id === me.id) o.selected = true;
       sel.appendChild(o);
     }
-    const pages = { "\u0000earnings": ["Earnings", "/earnings"], "\u0000manage": ["Manage dashboards…", "/dashboards"] };
+    const pages = { "\u0000earnings": ["Earnings", "/earnings"], "\u0000expected-move": ["Expected move", "/expected-move"],
+                    "\u0000manage": ["Manage dashboards…", "/dashboards"] };
     for (const [v, [text, path]] of Object.entries(pages)) {
       const o = document.createElement("option");
       o.value = v; o.textContent = text;
