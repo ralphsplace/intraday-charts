@@ -1,6 +1,10 @@
-/* The toolbar: layout, day, display options, replay (step, play, cursor) and Live mode. */
+/* The toolbar: layout, day, display options, replay (step, play, cursor) and Live mode.
+   Replay at first; once Live, it stays Live (across dashboards and pages, in this tab) until switched back by
+   hand or until TWS can't be reached. */
 import { fillDays, refreshAll, requestData } from "./data.js";
 import { buildGrid, placeSplitters } from "./grid.js";
+import { MODE_KEY } from "./keys.js";
+import { toast } from "./notify.js";
 import { LIVE_REFRESH_MS, app, save } from "./state.js";
 import { $, api, fmtMin } from "./util.js";
 
@@ -19,9 +23,38 @@ export async function step(dir) {
 }
 export function showCursor() { $("cursor").value = app.cursor ?? maxMinute(); $("cursorLabel").textContent = fmtMin(app.cursor ?? maxMinute()); }
 
+const LIVE_MISSES = 2;           // collector polls in a row without TWS before Live gives up (about 10 s)
+
+function remember(live) {
+  try { if (live) sessionStorage.setItem(MODE_KEY, "live"); else sessionStorage.removeItem(MODE_KEY); }
+  catch (e) { /* storage unavailable: every page starts in Replay */ }
+}
+function remembered() {
+  try { return sessionStorage.getItem(MODE_KEY) === "live"; } catch (e) { return false; }
+}
+
+// why Live can't run from the collector's last report, or "" when it can
+export function liveProblem(st) {
+  if (!st || !st.running) return "the TWS collector isn't running";
+  if (!st.connected) return "the collector can't reach TWS" + (st.message ? ` (${st.message})` : "");
+  return "";
+}
+
+function dropLive(why) {
+  setMode(false);
+  toast(`Live stopped: ${why}. Showing Replay; press Live to go back once it's fixed.`);
+}
+
+// at start-up: back to Live if this tab was in Live before (another dashboard or page), and TWS is reachable
+export async function restoreMode() {
+  if (!remembered()) return;
+  const why = liveProblem(app.collector);
+  if (why) dropLive(why); else await setMode(true);
+}
+
 let liveTimer = null;
 export async function setMode(live) {
-  app.live = live; stopPlay();
+  app.live = live; stopPlay(); remember(live);
   $("modeLive").classList.toggle("active", live);
   $("modeReplay").classList.toggle("active", !live);
   $("replayBar").hidden = live;                         // Live has no replay: the controls go away
@@ -35,9 +68,12 @@ export async function setMode(live) {
     if (app.day !== prev) app.panels.forEach((p) => { p.fitted = false; });
     requestData([...new Set(app.panels.map((p) => p.symbol))]);   // stream every symbol on screen
     await refreshAll(); showCursor();
-    let ticks = 0;
+    let ticks = 0, misses = 0;
     liveTimer = setInterval(async () => {
       app.collector = await api("/api/collector").catch(() => app.collector);
+      const why = liveProblem(app.collector);
+      misses = why ? misses + 1 : 0;
+      if (misses >= LIVE_MISSES) return dropLive(why);
       if (++ticks % 12 === 0) {           // about once a minute, pick up a new trading day
         app.meta = await api("/api/meta").catch(() => app.meta);
         const latest = app.day; fillDays();

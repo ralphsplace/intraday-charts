@@ -55,4 +55,5 @@ window.__priceTypes = PT;
   }
   await refreshAll();
   showCursor();
+  await replay.restoreMode();              // Live, if this tab was in Live on the dashboard or page before
 })();

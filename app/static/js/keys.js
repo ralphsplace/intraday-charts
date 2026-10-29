@@ -34,3 +34,7 @@ export const EARNINGS_DAYS_KEY = "intraday-charts.earnings.days";
 
 // the expected-move page's last symbols and date: { symbols, date }
 export const EXPECTED_MOVE_KEY = "intraday-charts.expected-move";
+
+// Live or Replay, kept for this tab only (sessionStorage): moving between dashboards and pages stays in Live; a new
+// tab or a restarted browser starts in Replay
+export const MODE_KEY = "intraday-charts.mode";
