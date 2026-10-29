@@ -147,6 +147,34 @@ stock and press Enter: its last 6 earnings reports are drawn over each other, on
   after-close report shows an evening time around 20:00 instead of around 16:20, EDGAR's times are UTC
   after all. Day 0 would then be off for late-evening filings, and `tools/earnings_sources.py` needs to convert them.
 
+### Expected move view
+
+`http://<your-nas>:8050/expected-move` (also **Expected move** in the drop-down at the top left of every page). Type
+one or more stocks (e.g. `AMZN LLY MA INTC MRK CAT`, up to 20) and a date, then press **Show**. The first option
+expiry on or after that date is used: for a report on Thursday the 29th, pick the 29th or 30th to get Friday's expiry.
+The page asks the collector for option quotes and fills in as they arrive (a few seconds per stock).
+
+- **The comparison table** has one row per stock: price, expiry, the expected move in $ and %, the range it gives,
+  the event priced in, and the at-the-money implied volatility. Hover ⚠ for warnings.
+- **One card per stock** shows how the numbers were found:
+  - **Straddle (expected move)**: the at-the-money call plus put (mid prices), interpolated between the strikes
+    either side of the stock's price. This is the market's average expected move by the expiry's 16:00 close.
+  - **0.85 × straddle**: a common rule of thumb for a closer estimate of the typical move.
+  - **1σ and 2σ**: price × implied volatility × √(calendar time left, in years). About a two-in-three and a
+    19-in-20 chance of closing inside, if moves were normally distributed.
+  - **Event before this expiry**: when implied volatility jumps (by 15% or more) from the previous expiry to this
+    one, the options price an event between them, usually earnings. Its own move is
+    price × √((IV² this expiry − IV² previous) × time left).
+- **Diagonal legs.** Short call and put at the listed strikes nearest the expected move in this expiry; long call
+  and put one strike closer to the money in the next weekly (the first expiry at least 7 days later). Each leg's
+  mid price and the net per side (long − short). Prices only: no signal or advice, and the app never places orders.
+- **Fresh quotes.** Quotes older than 15 minutes are asked for again when you open the page; **Refresh quotes**
+  asks right away. They're cached in `data/options/<SYMBOL>.json`.
+- **Check the warnings.** The page says when quotes were taken outside regular hours, when a bid/ask spread is
+  over 25% of the mid, or when the options imply a stock price more than 0.4% away from the stock's own (stale
+  quotes somewhere). Before 09:30 ET, IBKR's option quotes are often too wide to use.
+- **Needs** a US options market-data subscription in IBKR (OPRA). Without it, the page says no quotes came back.
+
 ### Dashboards
 
 Each dashboard has its own address: `http://<your-nas>:8050/<name>` (any letter case). The drop-down at
@@ -550,6 +578,7 @@ In TWS: *File → Global Configuration → API → Settings*.
 
 Some things to know:
 - **Market data.** Historical and live bars need the same market-data subscriptions as quotes in TWS.
+  The expected-move page also needs US options quotes (OPRA).
 - **One login at a time.** IBKR allows one session per username. Logging in to IB Gateway (or the
   mobile or web app as the same user) logs TWS out, which may be what broke the Gateway setup.
 - **Pacing.** IBKR limits historical requests to roughly 60 per 10 minutes.
@@ -866,8 +895,11 @@ app/static/dash.js      the dashboard drop-down on every page
 app/templates.py        built-in starting layouts for dashboards (Market internals)
 app/earnings.py         earnings view: reports, reaction days, the % windows (no network)
 app/static/earnings.html    the earnings page (/earnings)
+app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event move, diagonal legs (no network)
+app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/static/js/          the pages' code, as ES modules, one job each (no build step; the browser loads them directly):
   earnings/             the earnings page: chart, legend, start-up
+  expected-move/        the expected-move page: table and cards, start-up and polling
   main.js               start-up: restores the window and wires the modules together
   state.js              the window's state (charts, layout, day, cursor, preferences) and saving it
   util.js               DOM helpers, server calls, browser storage
@@ -897,6 +929,7 @@ app/static/vendor/      TradingView Lightweight Charts 5.2.1 (Apache 2.0), bundl
 tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history and live streaming (read-only)
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT
+tools/option_quotes.py  option chain and snapshot quotes for the expected-move page
 tools/recorder.py       records ADD-NYSE and VOLD-NYSE from live quotes (no history at IBKR)
 tools/signals.py        buy/sell rules for the backtester only (never drawn on the charts)
 tools/backtest_signals.py  VZO vs MACD (and random entries) with a fixed stop, on the cached bars
@@ -934,6 +967,8 @@ LICENSE, NOTICE         Apache License 2.0, and the third-party notice for Light
   0.1 s per chart on a desktop CPU. A 3×3 grid therefore steps roughly once a second.
 - **Earnings dates.** Only companies that file 8-K reports with the SEC; see "Earnings view". An Item 2.02
   filing within 45 days of a later one (e.g. a preliminary-results notice) counts as part of that report.
+- **Expected move.** Option snapshots from a live TWS haven't been tested yet (only against the test suite's
+  invented chain). Strikes are read from the SMART chain; an expiry missing a strike is skipped, not interpolated.
 - **News headlines.** IBKR keeps about 6 months of headlines, and their times are read as UTC; the
   match to real headlines hasn't been checked against a live TWS yet.
 

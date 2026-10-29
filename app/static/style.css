@@ -230,3 +230,26 @@ main.earn { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax
 .eq .val { text-align: right; font-variant-numeric: tabular-nums; }
 .eq .sub { grid-column: 2 / 4; color: var(--muted); font-size: 12px; }
 .eq .up { color: var(--bull); } .eq .down { color: var(--bear); }
+
+/* ---------------------------------------------------------------- expected-move page */
+.toolbar input.em-syms { width: 260px; padding: 4px 8px; font-weight: 600; text-transform: uppercase; background: #0f1318;
+  border: 1px solid var(--line); border-radius: 6px; color: var(--text); }
+.toolbar input.em-syms::placeholder { text-transform: none; font-weight: 400; }
+.toolbar input.em-date { width: 150px; padding: 3px 6px; }
+main.em { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px; }
+.em-msg { margin: 6px 0 10px; color: var(--muted); }
+.em-table { border-collapse: collapse; width: 100%; margin-bottom: 14px; font-size: 13px; }
+.em-table th, .em-table td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+.em-table tr:first-child th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.em-big { font-weight: 600; }
+.em-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 10px; }
+.em-card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+.em-card h3 { margin: 0 0 2px; font-size: 15px; }
+.em-card h4 { margin: 12px 0 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.em-rows, .em-legs { border-collapse: collapse; width: 100%; font-size: 13px; }
+.em-rows th, .em-legs th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 10px 3px 0; white-space: nowrap; }
+.em-rows td, .em-legs td { padding: 3px 10px 3px 0; }
+.em-rows tr.em-key td { font-weight: 600; }
+.em-legs tr:first-child th { font-size: 12px; }
+.em-warn { margin: 8px 0 0; padding-left: 18px; color: #e6b450; font-size: 12px; }
+.em-notes { max-width: 1100px; margin-top: 16px; }

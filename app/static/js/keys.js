@@ -31,3 +31,6 @@ export const EARNINGS_MODE_KEY = "intraday-charts.earnings.mode";
 
 // the earnings page's trading days around day 0: { before, after }
 export const EARNINGS_DAYS_KEY = "intraday-charts.earnings.days";
+
+// the expected-move page's last symbols and date: { symbols, date }
+export const EXPECTED_MOVE_KEY = "intraday-charts.expected-move";

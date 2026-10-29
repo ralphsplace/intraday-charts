@@ -1,6 +1,7 @@
 """Web server: serves the chart page and the /api endpoints it calls."""
 from __future__ import annotations
 
+import datetime
 import hashlib
 import html
 import json
@@ -16,8 +17,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import (control, dashboards, earnings, engine, envcheck, periods, saved, security, sessions, store, studies,
-               templates, timeframes, watchlist)
+from . import (control, dashboards, earnings, engine, envcheck, expected_move, periods, saved, security, sessions,
+               store, studies, templates, timeframes, watchlist)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -357,6 +358,59 @@ def earnings_request(req: SymbolRequest):
 @app.get("/earnings")
 def earnings_page():
     return _page("earnings.html")
+
+
+# ---------------------------------------------------------------- expected-move view
+MAX_EM_SYMBOLS = 20
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _em_symbols(raw: str, demo_ok: bool = False) -> list[str]:
+    parts = [x for x in re.split(r"[\s,;]+", raw or "") if x]
+    if not parts:
+        raise HTTPException(400, "Type at least one symbol")
+    if len(parts) > MAX_EM_SYMBOLS:
+        raise HTTPException(400, f"At most {MAX_EM_SYMBOLS} symbols at a time")
+    return list(dict.fromkeys(_one_symbol(x, demo_ok=demo_ok) for x in parts))
+
+
+def _date(raw: str) -> str:
+    if not DATE_RE.match(raw or ""):
+        raise HTTPException(400, "date must be YYYY-MM-DD")
+    try:
+        datetime.date.fromisoformat(raw)
+    except ValueError:
+        raise HTTPException(400, "date must be a real date") from None
+    return raw
+
+
+class ExpectedMoveRequest(BaseModel):
+    symbols: str
+    date: str
+
+
+@app.get("/api/expected-move")
+def expected_move_view(symbols: str, date: str):
+    """Each symbol's expected move by the first expiry on or after `date`, from cached option quotes
+    (app/expected_move.py)."""
+    d = _date(date)
+    return {"date": d, "stale_seconds": expected_move.STALE_SECONDS,
+            "items": [expected_move.view(s, d) for s in _em_symbols(symbols, demo_ok=True)]}
+
+
+@app.post("/api/expected-move/request")
+def expected_move_request(req: ExpectedMoveRequest):
+    """Ask the TWS collector for fresh option quotes (snapshots, read-only)."""
+    syms = [s for s in _em_symbols(req.symbols, demo_ok=True) if not DEMO_RE.match(s)]   # synthetic: never fetched
+    if not syms:
+        raise HTTPException(400, "Synthetic -DEMO symbols are never fetched")
+    r = control.submit(syms, options_for=_date(req.date))
+    return {"id": r["id"], "symbols": syms}
+
+
+@app.get("/expected-move")
+def expected_move_page():
+    return _page("expected-move.html")
 
 
 @app.get("/")

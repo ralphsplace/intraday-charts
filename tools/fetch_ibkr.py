@@ -3,16 +3,17 @@
 TWS must be running and logged in, with the API enabled (Configure > API > Settings). The connection is
 opened read-only, so this script cannot place orders.
 
-It works through a queue of fetches. The queue is filled from four places:
+It works through a queue of fetches. The queue is filled from five places:
   - the symbols on the command line (or the SYMBOLS environment variable)
   - the chart page: typing a symbol into a chart, or "Load data" in Replay mode
   - the earnings page: a symbol's daily history and, when SEC_CONTACT is set, its earnings dates from SEC
     EDGAR (tools/earnings_sources.py; the only internet request the collector makes)
+  - the expected-move page: option quotes (snapshots) for a symbol's expiry (tools/option_quotes.py)
   - each morning in live mode: the daily history of the streamed symbols
 In live mode it also records the NYSE advance-decline and up/down volume (ADD-NYSE, VOLD-NYSE) from live quotes,
 since IBKR has no history for them (tools/recorder.py; RECORD in .env).
 
-Fetch 30 trading days of 1-minute bars (plus 2 years of daily bars), then stop:
+Fetch 30 trading days of 1-minute bars (plus 10 years of daily bars), then stop:
     python tools/fetch_ibkr.py --symbols QQQ SPY --days 30
 
 Fetch one day (and the 5 trading days before it), then stop:
@@ -41,7 +42,8 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import control, earnings, envcheck, sessions, store  # noqa: E402
+from app import control, earnings, envcheck, expected_move, sessions, store  # noqa: E402
+from option_quotes import OptionQuotes  # noqa: E402
 from earnings_sources import make_source  # noqa: E402
 from recorder import Recorder  # noqa: E402
 
@@ -246,7 +248,7 @@ def make_stock(sym: str):
 class Collector:
     """Works through the fetch queue, streams the live symbols, and reports progress in control/status.json."""
 
-    def __init__(self, ib, args, qualify=None, now=sessions.now_et, clock=time.monotonic):
+    def __init__(self, ib, args, qualify=None, now=sessions.now_et, clock=time.monotonic, option=None):
         self.ib, self.args, self.now, self.clock = ib, args, now, clock
         self.qualify_fn = qualify or self._qualify_ib
         self.contracts: dict = {}
@@ -261,6 +263,7 @@ class Collector:
         self.live: set = set(control.load_live_symbols()) if args.live else set()
         self.daily_done_for = None
         self.earnings_source = make_source(getattr(args, "sec_contact", None), store.DATA_DIR / "earnings")
+        self.option_quotes = OptionQuotes(ib, **({"option": option} if option else {}))   # tests pass a fake option
         self.recorder = Recorder(ib, getattr(args, "record", []), self.contract, args.write_every, clock) if args.live else None
         err = getattr(ib, "errorEvent", None)
         if err is not None:
@@ -338,6 +341,11 @@ class Collector:
                 continue
             for s in syms:
                 self.bad.pop(s, None)                        # asked again: try once more
+            if r.get("options_for"):                         # the expected-move page: option quotes only
+                log.info("Option quotes requested: %s for %s", " ".join(syms), r["options_for"])
+                for s in syms:
+                    self.add_task("options", s, str(r["options_for"]), front=True)
+                continue
             log.info("Request from the chart page: %s %s%s", " ".join(syms), r.get("day") or "today",
                      " (live)" if r.get("live") else "")
             self.request(syms, r.get("day"), live=bool(r.get("live")), front=True,
@@ -356,6 +364,8 @@ class Collector:
             n = fetch_daily(self.ib, c, sym, self.args.daily_years)
         elif kind == "earnings":
             n = self.fetch_earnings(sym)
+        elif kind == "options":
+            n = self.fetch_options(c, sym, day)
         else:
             df = fetch_day(self.ib, c, day)
             n = len(df)
@@ -364,6 +374,18 @@ class Collector:
             log.info("%s %s: %s", sym, day, f"{n} bars cached" if n else "no bars (holiday, or no data permission)")
         self.results.append({"kind": kind, "symbol": sym, "day": day, "bars": n, "at": time.time()})
         self.current = None
+
+    def fetch_options(self, contract, sym: str, target: str) -> int:
+        """Option quotes for the expected-move page (tools/option_quotes.py), cached in data/options/. A failure
+        is cached too, so the page can say why."""
+        try:
+            data = self.option_quotes.fetch(contract, sym, target, self.now())
+        except Exception as e:                       # noqa: BLE001  (TWS or ib_async: tell the page, carry on)
+            data = {"symbol": sym, "target": target, "fetched": time.time(), "error": f"TWS: {e}"}
+        expected_move.write(sym, data)
+        if data.get("error"):
+            log.warning("%s: option quotes: %s", sym, data["error"])
+        return sum(len(e.get("quotes", {})) for e in (data.get("expiries") or {}).values())
 
     def fetch_earnings(self, sym: str) -> int:
         """Look up a symbol's earnings dates and cache them for the earnings page (failures are cached too, so
