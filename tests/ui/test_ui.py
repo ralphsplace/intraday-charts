@@ -516,6 +516,74 @@ def test_live_mode_toggles(tab):
     assert abs(p.locator("#grid").bounding_box()["height"] - height) < 2
 
 
+def collector_status(data, connected=True):
+    """What the collector would report (control/status.json), so the page sees TWS as reachable or not."""
+    import json
+    import time
+    (data / "control").mkdir(exist_ok=True)
+    (data / "control" / "status.json").write_text(json.dumps({"connected": connected, "heartbeat": time.time(),
+                                                                "message": "" if connected else "TWS refused the connection"}))
+
+
+def is_live(p):
+    return "active" in (p.get_attribute("#modeLive", "class") or "") and p.locator("#day").is_disabled()
+
+
+def test_live_stays_on_across_dashboards_and_pages(tab, data):
+    collector_status(data)
+    p = tab.goto("/QQQs")
+    assert not is_live(p)                                             # Replay at first
+    p.click("#modeLive")
+    wait_state(p, "a.live")
+    p.select_option(".dashsel", "Internals")                         # another dashboard: still Live
+    p.wait_for_url("**/Internals")
+    wait_state(p, "a.live")
+    assert is_live(p) and p.locator("#replayBar").is_hidden()
+    p.select_option(".dashsel", "\u0000earnings")                    # a page without charts, and back
+    p.wait_for_url("**/earnings*")
+    p = tab.goto("/QQQs", 1000)
+    wait_state(p, "a.live")
+    assert is_live(p)
+    p.click("#modeReplay")                                            # back to Replay by hand: stays Replay
+    p = tab.goto("/Internals", 2000)
+    assert not is_live(p) and not app_state(p, "a.live")
+
+
+def test_a_new_tab_starts_in_replay(tab, browser, server, data):
+    collector_status(data)
+    p = tab.goto("/QQQs")
+    p.click("#modeLive")
+    wait_state(p, "a.live")
+    other = browser.new_page()
+    other.goto(server + "/QQQs")
+    other.wait_for_timeout(2000)
+    assert other.evaluate("window.__chartApp.live") is False and "active" in (other.get_attribute("#modeReplay", "class") or "")
+    other.close()
+
+
+def test_live_drops_to_replay_when_tws_goes_away(tab, data):
+    collector_status(data)
+    p = tab.goto("/QQQs")
+    p.click("#modeLive")
+    wait_state(p, "a.live")
+    collector_status(data, connected=False)                          # TWS gone: two polls (about 10 s), then Replay
+    wait_state(p, "!a.live", timeout=20000)
+    assert not is_live(p) and p.locator("#replayBar").is_visible()
+    assert "Live stopped: the collector can't reach TWS" in p.inner_text("#toasts")
+    p = tab.goto("/QQQs", 2000)                                       # and it stays in Replay
+    assert not app_state(p, "a.live")
+
+
+def test_live_isnt_restored_without_tws(tab, data):
+    collector_status(data)
+    p = tab.goto("/QQQs")
+    p.click("#modeLive")
+    wait_state(p, "a.live")
+    (data / "control" / "status.json").unlink()                       # the collector has stopped
+    p = tab.goto("/Internals", 2500)
+    assert not app_state(p, "a.live") and "Live stopped: the TWS collector isn't running" in p.inner_text("#toasts")
+
+
 # ---------------------------------------------------------------- dashboards
 def test_switcher_and_addresses(tab):
     p = tab.goto("/")

@@ -545,6 +545,11 @@ Tick **Fit levels** in the toolbar to stretch the price scale so every drawn lev
     *Live symbols*; × stops one.
   - On weekends and holidays Live shows the last trading day. Live moves to the new day by itself
     in the morning.
+  - **Live stays on** when you switch dashboards or go to another page and back, until you press
+    **Replay**. A new browser tab (or a restarted browser) starts in Replay.
+  - **If TWS can't be reached**, Live switches back to Replay and says why: the collector reports TWS
+    disconnected, or the collector stops, for two checks in a row (about 10 seconds). Press **Live**
+    again once it's fixed.
 
 ---
 
