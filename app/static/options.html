@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option chain</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="toolbar">
+  <div class="group">
+    <span id="dashNav" class="dashnav"></span>
+    <form id="ocForm" class="group" autocomplete="off">
+      <label for="ocSym">Stock</label>
+      <input id="ocSym" class="sym" type="text" spellcheck="false" placeholder="e.g. QQQ" title="A stock or ETF symbol; press Enter">
+    </form>
+    <span id="ocPrice" class="oc-price"></span>
+    <label for="ocWindow">Strikes</label>
+    <select id="ocWindow" title="Strikes shown either side of the price"></select>
+    <button id="ocRefresh" type="button" title="Ask TWS for fresh option quotes (snapshots)">Refresh quotes</button>
+  </div>
+  <span id="ocStatus" class="muted small" role="status"></span>
+</header>
+<div id="demoBanner" class="banner" hidden>Synthetic test data (symbols ending in -DEMO): invented prices and option quotes, not real market data.</div>
+<nav id="ocStrip" class="oc-strip" aria-label="Expiries"></nav>
+<div id="ocMsg" class="oc-msg" hidden></div>
+<main class="oc">
+  <section class="oc-box oc-chainbox" aria-label="Option chain">
+    <div class="oc-head">
+      <h2 id="ocChainTitle"></h2>
+      <span class="muted small">Click a bid to sell, an ask to buy</span>
+    </div>
+    <div class="oc-scroll"><table id="ocChain" class="oc-chain"></table></div>
+    <div class="oc-key muted small">
+      <span><i class="oc-sw oc-sw-em"></i>Inside the expected move</span>
+      <span><i class="oc-sw oc-sw-sell"></i>Sold leg</span>
+      <span><i class="oc-sw oc-sw-buy"></i>Bought leg</span>
+    </div>
+  </section>
+  <div class="oc-side">
+    <section class="oc-box" aria-label="Structure">
+      <div class="oc-head">
+        <h2>Structure</h2>
+        <label for="ocTemplate">Template</label>
+        <select id="ocTemplate"></select>
+        <label for="ocBack">Back expiry</label>
+        <select id="ocBack" title="The later expiry for calendars and diagonals"></select>
+        <button id="ocFill" type="button" class="primary" title="Build the template from the expected move of the expiry you're viewing">Fill from expected move</button>
+      </div>
+      <div id="ocLegs"></div>
+      <div class="oc-row">
+        <button id="ocReverse" type="button" title="Buy what's sold and sell what's bought">Reverse</button>
+        <button id="ocClear" type="button">Clear</button>
+        <span class="oc-grow"></span>
+        <label for="ocSaved">Saved</label>
+        <select id="ocSaved"></select>
+        <button id="ocDelete" type="button" aria-label="Delete the saved structure">Delete</button>
+      </div>
+      <form id="ocSaveForm" class="oc-row" autocomplete="off">
+        <label for="ocName">Name</label>
+        <input id="ocName" class="oc-name" type="text" maxlength="60" placeholder="e.g. QQQ EM double diagonal">
+        <button type="submit">Save structure</button>
+      </form>
+    </section>
+    <section class="oc-box" aria-label="Evaluation">
+      <div class="oc-head">
+        <h2>Evaluation</h2>
+        <label for="ocAt">At</label>
+        <select id="ocAt"></select>
+        <label for="ocIv">IV change</label>
+        <select id="ocIv"></select>
+        <label for="ocStop">Loss limit $</label>
+        <input id="ocStop" class="oc-stop" type="number" step="10" max="0" placeholder="e.g. -150" title="A loss on the structure (negative); the stock prices where it's reached show below">
+      </div>
+      <div id="ocStats" class="oc-stats"></div>
+      <figure class="oc-graph">
+        <div id="ocGraph"></div>
+        <figcaption class="muted small"><span class="oc-line oc-line-at"></span><span id="ocAtLabel"></span>
+          <span class="oc-line oc-line-now"></span>Now <span class="oc-gap"></span>○ breakevens · shaded: the expected move</figcaption>
+      </figure>
+    </section>
+    <section class="oc-box" aria-label="Profit and loss by price and time">
+      <div class="oc-head"><h2>Profit / loss by price and time</h2></div>
+      <p id="ocStopText" class="muted small oc-pad"></p>
+      <div class="oc-scroll"><table id="ocGrid" class="oc-grid"></table></div>
+    </section>
+    <div class="oc-row oc-end">
+      <span id="ocLevelsMsg" class="muted small" role="status"></span>
+      <button id="ocLevels" type="button" title="Draw the short strikes, breakevens and loss-limit prices as lines on every chart of this stock">Show levels on the chart</button>
+    </div>
+  </div>
+</main>
+<section class="oc-notes muted small">
+  <p><b>How to read it.</b> Bid, ask and implied volatility are snapshots from TWS (US options market data needed),
+    taken when you ask. Values before an expiry are estimates from Black-Scholes with each leg's own implied
+    volatility (no dividends, European exercise): real prices also move with volatility and skew. The chance of
+    profit assumes a lognormal move at the front expiry's at-the-money implied volatility.</p>
+  <p>Read-only: this page evaluates structures and never places or prepares orders. Nothing here is a signal or advice.</p>
+</section>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/options/main.js"></script>
+</body>
+</html>

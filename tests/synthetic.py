@@ -196,6 +196,23 @@ def generate_options(data_dir, symbol: str = "ACME-DEMO", target: str = DEMO_OPT
     return data
 
 
+def generate_chain(data_dir, symbol: str = "ACME-DEMO", expiries=("20261030", "20261106"), window: int = 9,
+                   now: str = DEMO_OPTIONS_NOW) -> dict:
+    """SYNTHETIC option chain for the option-chain page: the real fetch code (tools/option_quotes.py) run against
+    the fake TWS's invented chain, written into data_dir like the collector would (data/chains/<SYMBOL>.json)."""
+    import fake_tws
+    from option_quotes import OptionQuotes
+
+    from app import option_chain
+    store.DATA_DIR = Path(data_dir)
+    t = pd.Timestamp(now, tz="America/New_York")
+    ib = fake_tws.FakeIB(now=lambda: t)
+    data = OptionQuotes(ib, option=fake_tws.FakeOption).fetch_chain(fake_tws.qualify(symbol), symbol, list(expiries), window, t)
+    data["synthetic"] = True
+    option_chain.write(symbol, data)
+    return data
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", required=True, help="folder to write into (use a test folder, not your real data)")

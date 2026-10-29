@@ -589,7 +589,7 @@ def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
-                                                                 "Manage dashboards…"]
+                                                                 "Option chain", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
@@ -862,6 +862,98 @@ def test_expected_move_page_form_and_memory(tab):
     p = tab.goto("/expected-move", 1500)                                      # remembers the last request
     assert p.input_value("#emSyms") == "ACME-DEMO" and p.input_value("#emDate") == "2026-10-30"
     assert p.locator(".em-card").count() == 1
+
+
+# ---------------------------------------------------------------- option-chain page
+def oc(page, expr):
+    return page.evaluate(f"(() => {{ const o = window.__options; return {expr}; }})()")
+
+
+def wait_oc(page, expr, timeout=15000):
+    page.wait_for_function(f"(() => {{ const o = window.__options; return {expr}; }})()", timeout=timeout)
+
+
+def test_option_chain_page_builds_and_evaluates_a_template(tab):
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    assert p.locator("#demoBanner").is_visible()                              # synthetic data is labelled
+    assert p.locator(".dashsel").input_value() == "\u0000options"
+    assert p.locator("#ocStrip .oc-chip").count() == 8
+    assert "active" in p.get_attribute("#ocStrip .oc-chip[data-expiry='20261030']", "class")
+    assert p.locator("#ocChain tbody tr[data-strike]").count() == 19 and p.locator("#ocChain .oc-priceline").count() == 1
+    assert p.locator("#ocChain tr.oc-inem").count() > 0                        # rows inside the expected move
+    assert p.input_value("#ocBack") == "20261106"                              # the next weekly
+    p.select_option("#ocTemplate", "double_diagonal")
+    p.click("#ocFill")
+    wait_oc(p, "o.ev && o.ev.status === 'ok' && o.state.legs.length === 4")
+    assert p.locator("#ocLegs tr[data-leg]").count() == 4
+    assert p.locator("#ocChain td.oc-sell").count() == 2                       # the front expiry's sold legs
+    assert "Fri, Nov 6" in p.inner_text("#ocLegs") and "Net debit" in p.inner_text("#ocLegs")
+    assert p.locator("#ocStats .oc-stat").count() == 8
+    assert p.locator("#ocGraph polyline").count() == 2 and p.locator("#ocGraph .oc-emband").count() == 1
+    assert p.locator("#ocGrid tr").count() == 12 and p.locator("#ocGrid tr.oc-nowrow").count() == 1
+    times = p.locator("#ocAt option").all_inner_texts()
+    assert times[0].startswith("Now") and "front expiry" in times[-1]
+    p.select_option("#ocAt", "front_noon")
+    wait_oc(p, "o.ev.at === 'front_noon'")
+    p.select_option("#ocIv", "-2")
+    wait_oc(p, "o.ev.iv_shift === -0.02")
+    p = tab.goto("/options", 2000)                                             # remembered in this browser
+    assert oc(p, "o.state.symbol") == "ACME-DEMO" and oc(p, "o.state.legs.length") == 4
+    wait_oc(p, "o.ev && o.ev.at === 'front_noon'")
+
+
+def test_option_chain_clicks_reverse_and_loss_limit(tab):
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    p.click("#ocClear")
+    p.locator("#ocChain tr[data-strike='55'] td.oc-q").nth(1).click()        # the 55 call's ask: buy
+    p.locator("#ocChain tr[data-strike='55'] td.oc-q").nth(1).click()        # again: 2 contracts
+    p.locator("#ocChain tr[data-strike='51'] td.oc-q").nth(2).click()        # the 51 put's bid: sell
+    wait_oc(p, "o.ev && o.ev.status === 'ok' && o.state.legs.length === 2")
+    assert oc(p, "o.state.legs.map((l) => [l.qty, l.strike, l.right])") == [[2, 55, "C"], [-1, 51, "P"]]
+    assert p.locator("#ocChain td.oc-buy").count() == 1 and p.locator("#ocChain td.oc-sell").count() == 1
+    assert "Unlimited" in p.inner_text("#ocStats")                             # long calls
+    p.click("#ocReverse")
+    wait_oc(p, "o.state.legs[0].qty === -2")
+    wait_oc(p, "o.ev && o.ev.max_loss.unlimited")
+    p.fill("#ocStop", "-150")
+    p.press("#ocStop", "Tab")
+    wait_oc(p, "o.ev && o.ev.stop && o.ev.stop.above != null")
+    assert "loss at" in p.inner_text("#ocStopText")
+    p.locator("#ocLegs tr[data-leg] button.oc-x").first.click()               # remove a leg
+    wait_oc(p, "o.state.legs.length === 1")
+
+
+def test_option_chain_save_open_and_levels_on_the_chart(tab):
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    p.select_option("#ocTemplate", "iron_condor")
+    p.click("#ocFill")
+    wait_oc(p, "o.ev && o.ev.status === 'ok' && o.state.legs.length === 4")
+    p.fill("#ocName", "ACME condor")
+    p.click("#ocSaveForm button[type=submit]")
+    p.wait_for_function("[...document.querySelectorAll('#ocSaved option')].some((o) => o.value === 'ACME condor')")
+    p.click("#ocClear")
+    wait_oc(p, "o.state.legs.length === 0")
+    p.select_option("#ocSaved", "ACME condor")
+    wait_oc(p, "o.state.legs.length === 4 && o.ev && o.ev.status === 'ok'")
+    p.fill("#ocStop", "-100")
+    p.press("#ocStop", "Tab")
+    wait_oc(p, "o.ev.stop && o.ev.stop.below != null")
+    p.click("#ocLevels")
+    assert "6 lines drawn on every ACME-DEMO chart" in p.inner_text("#ocLevelsMsg")   # 2 short strikes, 2 breakevens, 2 limits
+    p.click("#ocLevels")                                                      # again: replaces, doesn't add
+    drawn = p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1'))['ACME-DEMO']")
+    assert len(drawn) == 6 and {d["type"] for d in drawn} == {"hline"}
+    assert sorted(d["label"] for d in drawn)[:2] == ["Breakeven", "Breakeven"]
+    p.click("#ocDelete")
+    p.wait_for_function("![...document.querySelectorAll('#ocSaved option')].some((o) => o.value === 'ACME condor')")
+
+
+def test_structure_levels_show_on_a_chart(tab):
+    p = tab.goto("/QQQs", 2500)
+    p.evaluate("""import('/static/js/options/levels.js').then((m) => m.showOnChart('QQQ',
+                  [{price: 691, label: 'Breakeven', color: '#8a8f98', style: 'dashed'}]))""")
+    p = tab.goto("/QQQs", 2500)
+    assert app_state(p, "a.panels[0].toolState.hline.length") == 1
 
 
 # ---------------------------------------------------------------- Internals dashboard (2 charts over 4 internals)

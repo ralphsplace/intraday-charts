@@ -14,7 +14,7 @@ from pathlib import Path
 
 from . import store
 
-KINDS = ("views", "layouts", "watchlists")
+KINDS = ("views", "layouts", "watchlists", "structures")
 NAME_MAX = 60
 _NAME_RE = re.compile(rf"^[^\x00-\x1f/\\]{{1,{NAME_MAX}}}$")
 

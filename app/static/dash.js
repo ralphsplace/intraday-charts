@@ -20,6 +20,7 @@
       sel.appendChild(o);
     }
     const pages = { "\u0000earnings": ["Earnings", "/earnings"], "\u0000expected-move": ["Expected move", "/expected-move"],
+                    "\u0000options": ["Option chain", "/options"],
                     "\u0000manage": ["Manage dashboards…", "/dashboards"] };
     for (const [v, [text, path]] of Object.entries(pages)) {
       const o = document.createElement("option");
