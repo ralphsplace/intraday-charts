@@ -3,12 +3,13 @@
 TWS must be running and logged in, with the API enabled (Configure > API > Settings). The connection is
 opened read-only, so this script cannot place orders.
 
-It works through a queue of fetches. The queue is filled from five places:
+It works through a queue of fetches. The queue is filled from six places:
   - the symbols on the command line (or the SYMBOLS environment variable)
   - the chart page: typing a symbol into a chart, or "Load data" in Replay mode
   - the earnings page: a symbol's daily history and, when SEC_CONTACT is set, its earnings dates from SEC
     EDGAR (tools/earnings_sources.py; the only internet request the collector makes)
   - the expected-move page: option quotes (snapshots) for a symbol's expiry (tools/option_quotes.py)
+  - the option-chain page: a symbol's option chain (snapshots) for a few expiries (tools/option_quotes.py)
   - each morning in live mode: the daily history of the streamed symbols
 In live mode it also records the NYSE advance-decline and up/down volume (ADD-NYSE, VOLD-NYSE) from live quotes,
 since IBKR has no history for them (tools/recorder.py; RECORD in .env).
@@ -42,7 +43,7 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import control, earnings, envcheck, expected_move, sessions, store  # noqa: E402
+from app import control, earnings, envcheck, expected_move, option_chain, sessions, store  # noqa: E402
 from option_quotes import OptionQuotes  # noqa: E402
 from earnings_sources import make_source  # noqa: E402
 from recorder import Recorder  # noqa: E402
@@ -341,6 +342,13 @@ class Collector:
                 continue
             for s in syms:
                 self.bad.pop(s, None)                        # asked again: try once more
+            if isinstance(r.get("chain"), dict):              # the option-chain page: one moment's chain
+                ch = r["chain"]
+                key = ",".join(str(e) for e in ch.get("expiries") or []) + "|" + str(ch.get("window") or "")
+                log.info("Option chain requested: %s %s", " ".join(syms), key)
+                for s in syms:
+                    self.add_task("chain", s, key, front=True)
+                continue
             if r.get("options_for"):                         # the expected-move page: option quotes only
                 log.info("Option quotes requested: %s for %s", " ".join(syms), r["options_for"])
                 for s in syms:
@@ -366,6 +374,8 @@ class Collector:
             n = self.fetch_earnings(sym)
         elif kind == "options":
             n = self.fetch_options(c, sym, day)
+        elif kind == "chain":
+            n = self.fetch_chain(c, sym, day)
         else:
             df = fetch_day(self.ib, c, day)
             n = len(df)
@@ -385,6 +395,21 @@ class Collector:
         expected_move.write(sym, data)
         if data.get("error"):
             log.warning("%s: option quotes: %s", sym, data["error"])
+        return sum(len(e.get("quotes", {})) for e in (data.get("expiries") or {}).values())
+
+    def fetch_chain(self, contract, sym: str, key: str) -> int:
+        """An option chain for the option-chain page, cached in data/chains/ (a failure too, so the page can say
+        why). key: "YYYYMMDD,YYYYMMDD|window"."""
+        expiries, _, window = key.partition("|")
+        try:
+            w = int(window) if window.isdigit() else option_chain.DEFAULT_WINDOW
+            data = self.option_quotes.fetch_chain(contract, sym, [e for e in expiries.split(",") if e],
+                                                  min(max(w, 1), max(option_chain.WINDOWS)), self.now())
+        except Exception as e:                       # noqa: BLE001  (TWS or ib_async: tell the page, carry on)
+            data = {"symbol": sym, "fetched": time.time(), "quoted_at": self.now().isoformat(), "error": f"TWS: {e}"}
+        option_chain.write(sym, data)
+        if data.get("error"):
+            log.warning("%s: option chain: %s", sym, data["error"])
         return sum(len(e.get("quotes", {})) for e in (data.get("expiries") or {}).values())
 
     def fetch_earnings(self, sym: str) -> int:

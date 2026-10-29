@@ -175,6 +175,47 @@ The page asks the collector for option quotes and fills in as they arrive (a few
   quotes somewhere). Before 09:30 ET, IBKR's option quotes are often too wide to use.
 - **Needs** a US options market-data subscription in IBKR (OPRA). Without it, the page says no quotes came back.
 
+### Option chain view
+
+`http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page). A chain
+for building option structures and judging them before you trade. It is read-only: it evaluates structures and
+never places or prepares orders. Type a stock and press Enter.
+
+- **Expiry strip.** The next 8 expiries, each with its days left and expected move (the at-the-money straddle).
+  Click one to view its chain. The expiry tagged *back* is the later one for calendars and diagonals (pick it
+  under **Back expiry**); *in structure* marks expiries with legs.
+- **The chain.** Calls and puts for the strikes around the price (**Strikes**: ±5, ±9 or ±15): delta, implied
+  volatility, bid and ask. A line marks the stock's price, rows inside the expected move are shaded, and the
+  strikes nearest it are tagged EM.
+  - **Click a bid to sell, an ask to buy** (one contract; click again for more). The structure's legs are
+    highlighted in the chain.
+- **Structure.** The legs with their mid price, delta and theta, and the net debit or credit. **Buy/Sell**
+  switches a leg's side, the box sets the number of contracts, × removes it; **Reverse** flips every leg.
+  - **Templates**, filled from the expected move of the expiry you're viewing with **Fill from expected move**:
+    double diagonal (short call and put at the strikes nearest the expected move, long call and put one strike
+    closer in the back expiry), call diagonal, call calendar, call vertical, straddle, strangle, iron condor
+    (wings 2 strikes out) and call butterfly.
+  - **Save structure** keeps it on the NAS by name (`data/user/structures.json`); **Saved** opens one again,
+    re-priced at the latest quotes.
+- **Evaluation**, for 1 structure in $:
+  - max profit and loss (or *unlimited* with uncovered calls), breakevens, the chance of a profit, and the net
+    delta, gamma, theta per day and vega per IV point
+  - the **risk graph**: profit/loss against the stock's price now (dashed) and **At** a later time (today's close,
+    noon or the close of the front expiry), with the expected move shaded; hover for values
+  - **IV change**: every leg's implied volatility moved by a few points, e.g. the drop after earnings
+- **Profit / loss by price and time.** The structure's value at 11 stock prices (spaced over about 1.5
+  expected moves) at each time. This is the link from the stock's price to the structure's.
+  - **Loss limit $** (e.g. −150) shows the stock prices where that loss is reached at the chosen time.
+- **Show levels on the chart** draws the short strikes, breakevens and loss-limit prices as horizontal lines
+  on every chart of the stock (in this browser; they can be edited or removed there like any line). Showing
+  them again replaces them.
+- **Where the numbers come from.** Bid, ask and implied volatility are snapshots from TWS, all taken at one
+  time, when the page opens a stock, changes what it needs, finds the quotes older than 5 minutes, or on
+  **Refresh quotes**. They're cached in `data/chains/<SYMBOL>.json`. Values before an expiry are estimates from
+  Black-Scholes with each leg's own implied volatility (4% rate, no dividends, European exercise). The chance of
+  profit assumes a lognormal move at the front expiry's at-the-money implied volatility.
+- **Needs** a US options market-data subscription in IBKR (OPRA), like the expected-move page.
+
 ### Dashboards
 
 Each dashboard has its own address: `http://<your-nas>:8050/<name>` (any letter case). The drop-down at
@@ -594,7 +635,7 @@ In TWS: *File → Global Configuration → API → Settings*.
 
 Some things to know:
 - **Market data.** Historical and live bars need the same market-data subscriptions as quotes in TWS.
-  The expected-move page also needs US options quotes (OPRA).
+  The expected-move and option-chain pages also need US options quotes (OPRA).
 - **One login at a time.** IBKR allows one session per username. Logging in to IB Gateway (or the
   mobile or web app as the same user) logs TWS out, which may be what broke the Gateway setup.
 - **Pacing.** IBKR limits historical requests to roughly 60 per 10 minutes.
@@ -901,7 +942,7 @@ app/server.py           web server: the pages (/, /<dashboard>, /dashboards) and
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
 app/sessions.py         US trading days and holidays
-app/saved.py            saved chart views, layouts and watchlists (data/user/)
+app/saved.py            saved chart views, layouts, watchlists and option structures (data/user/)
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks
@@ -913,9 +954,13 @@ app/earnings.py         earnings view: reports, reaction days, the % windows (no
 app/static/earnings.html    the earnings page (/earnings)
 app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event move, diagonal legs (no network)
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
+app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
+app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
+app/static/options.html the option-chain page (/options); its scripts in js/options/
 app/static/js/          the pages' code, as ES modules, one job each (no build step; the browser loads them directly):
   earnings/             the earnings page: chart, legend, start-up
   expected-move/        the expected-move page: table and cards, start-up and polling
+  options/              the option-chain page: expiry strip and chain, legs, evaluation, chart levels, start-up
   main.js               start-up: restores the window and wires the modules together
   state.js              the window's state (charts, layout, day, cursor, preferences) and saving it
   util.js               DOM helpers, server calls, browser storage
@@ -945,7 +990,7 @@ app/static/vendor/      TradingView Lightweight Charts 5.2.1 (Apache 2.0), bundl
 tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history and live streaming (read-only)
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT
-tools/option_quotes.py  option chain and snapshot quotes for the expected-move page
+tools/option_quotes.py  option chains and snapshot quotes for the expected-move and option-chain pages
 tools/recorder.py       records ADD-NYSE and VOLD-NYSE from live quotes (no history at IBKR)
 tools/signals.py        buy/sell rules for the backtester only (never drawn on the charts)
 tools/backtest_signals.py  VZO vs MACD (and random entries) with a fixed stop, on the cached bars
@@ -985,6 +1030,10 @@ LICENSE, NOTICE         Apache License 2.0, and the third-party notice for Light
   filing within 45 days of a later one (e.g. a preliminary-results notice) counts as part of that report.
 - **Expected move.** Option snapshots from a live TWS haven't been tested yet (only against the test suite's
   invented chain). Strikes are read from the SMART chain; an expiry missing a strike is skipped, not interpolated.
+- **Option chain.** Values before an expiry are Black-Scholes estimates (no dividends or early exercise), and
+  live TWS chain snapshots haven't been tested yet (only against the test suite's invented chain). The default
+  (±9 strikes, 2 expiries, plus the expiry strip) is about 120 snapshots; ±15 for 4 expiries is about 300 and can
+  take up to a minute.
 - **News headlines.** IBKR keeps about 6 months of headlines, and their times are read as UTC; the
   match to real headlines hasn't been checked against a live TWS yet.
 

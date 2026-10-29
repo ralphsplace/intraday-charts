@@ -82,13 +82,15 @@ def read_json(path: Path, default=None):
 
 # ---------------------------------------------------------------- requests (server -> collector)
 def submit(symbols: list[str], day: str | None = None, live: bool = False, stop_live: bool = False,
-           daily_only: bool = False, earnings: bool = False, options_for: str | None = None) -> dict:
+           daily_only: bool = False, earnings: bool = False, options_for: str | None = None,
+           chain: dict | None = None) -> dict:
     """A request to the collector. daily_only: just the daily history (no 1-minute days); earnings: also look
     up the symbols' earnings dates (the earnings page); options_for: instead, option quotes for the first expiry
-    on or after that date (YYYY-MM-DD, the expected-move page)."""
+    on or after that date (YYYY-MM-DD, the expected-move page); chain: instead, an option chain
+    ({"expiries": [YYYYMMDD, ...], "window": strikes either side}, the option-chain page)."""
     req = {"id": f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}", "symbols": symbols, "day": day,
            "live": live, "stop_live": stop_live, "daily_only": daily_only, "earnings": earnings,
-           "options_for": options_for, "created": time.time()}
+           "options_for": options_for, "chain": chain, "created": time.time()}
     write_json(requests_dir() / f"{req['id']}.json", req)
     return req
 

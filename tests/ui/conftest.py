@@ -53,6 +53,7 @@ def ui_data(tmp_path_factory):
         shutil.copytree(d / "bars" / demo, d / "bars" / real)
     synthetic.generate_earnings(d, "ACME-DEMO")               # the earnings page's synthetic stock
     synthetic.generate_options(d, "ACME-DEMO")                # and the expected-move page's
+    synthetic.generate_chain(d, "ACME-DEMO")                  # and the option-chain page's
     store.DATA_DIR = old
     return d
 

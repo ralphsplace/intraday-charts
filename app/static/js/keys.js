@@ -38,3 +38,6 @@ export const EXPECTED_MOVE_KEY = "intraday-charts.expected-move";
 // Live or Replay, kept for this tab only (sessionStorage): moving between dashboards and pages stays in Live; a new
 // tab or a restarted browser starts in Replay
 export const MODE_KEY = "intraday-charts.mode";
+
+// the option-chain page's symbol, expiries, structure and evaluation settings
+export const OPTIONS_KEY = "intraday-charts.options";

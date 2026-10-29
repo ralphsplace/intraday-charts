@@ -1,10 +1,12 @@
-"""Option quotes for the expected-move page: one symbol's chain and snapshot quotes from TWS, read-only.
+"""Option quotes from TWS (snapshots, read-only), for the expected-move and option-chain pages.
 
-One job: ask TWS for the quotes app/expected_move.py needs, and cache them there. Two rounds of snapshots:
+One job: ask TWS for the option quotes a page needs. For the expected-move page (fetch), two rounds of snapshots:
   1. the stock, and the at-the-money calls and puts of the chosen expiry, the one before it and the next weekly
      (the strikes either side of the price), which give the expected move;
   2. the strikes nearest that move in the chosen expiry (the diagonal's short legs) and the strikes one closer to
      the money in the next weekly (its long legs).
+For the option-chain page (fetch_chain): a window of strikes around the price for the expiries asked for, plus the
+at-the-money strikes of the next few expiries (their expected moves, for the expiry strip).
 Snapshots are one-off quotes (no streaming); IBKR needs US options market data (OPRA) for them.
 """
 from __future__ import annotations
@@ -18,6 +20,7 @@ from app import sessions
 
 log = logging.getLogger("fetch_ibkr")
 CANDIDATES = 4          # strikes tried per side: a chain lists every strike of every expiry, not all exist in each
+BATCH = 60              # option snapshots asked for at once (IBKR allows about 100 open quote lines)
 
 
 def _clean(x) -> float | None:
@@ -29,11 +32,26 @@ def _clean(x) -> float | None:
     return x if math.isfinite(x) and x >= 0 else None
 
 
+def _greek(g, name) -> float | None:
+    """A model Greek (delta and theta may be negative); nan means none."""
+    try:
+        x = float(getattr(g, name, None))
+    except (TypeError, ValueError):
+        return None
+    return x if math.isfinite(x) else None
+
+
 def ticker_quote(t) -> dict:
     g = getattr(t, "modelGreeks", None)
-    return {"bid": _clean(getattr(t, "bid", None)), "ask": _clean(getattr(t, "ask", None)),
-            "last": _clean(getattr(t, "last", None)), "close": _clean(getattr(t, "close", None)),
-            "iv": _clean(getattr(g, "impliedVol", None)) if g is not None else None}
+    q = {"bid": _clean(getattr(t, "bid", None)), "ask": _clean(getattr(t, "ask", None)),
+         "last": _clean(getattr(t, "last", None)), "close": _clean(getattr(t, "close", None)),
+         "iv": _clean(getattr(g, "impliedVol", None)) if g is not None else None}
+    if g is not None:
+        for name in ("delta", "gamma", "theta", "vega"):
+            v = _greek(g, name)
+            if v is not None:
+                q[name] = v
+    return q
 
 
 def _option(symbol, expiry, strike, right, trading_class):
@@ -65,6 +83,45 @@ class OptionQuotes:
             slot = cache["expiries"].setdefault(e, {"quotes": {}})["quotes"].setdefault(em._key(k), {})
             slot[r] = ticker_quote(t)
 
+    def stock_price(self, stock) -> tuple[float | None, str | None]:
+        """The stock's last trade, else its close, else its bid/ask mid."""
+        [st] = self.ib.reqTickers(stock)
+        q = ticker_quote(st)
+        if q["last"]:
+            return q["last"], "last"
+        if q["close"]:
+            return q["close"], "close"
+        return em.mid(q)
+
+    def fetch_chain(self, stock, symbol: str, wanted: list[str], window: int, now) -> dict:
+        """The option-chain cache for one symbol, all quoted at one time: `window` strikes either side of the
+        price in each wanted expiry (YYYYMMDD; none listed: the nearest), and the two strikes either side of the
+        price in each of the first STRIP expiries (their expected moves, for the page's expiry strip)."""
+        from app import option_chain as oc
+        base = {"symbol": symbol, "fetched": time.time(), "quoted_at": now.isoformat(), "market_open": em.market_open(now)}
+        ch = self.chain(symbol, stock.conId)
+        if ch is None or not ch.expirations:
+            return {**base, "error": f"IBKR lists no options for {symbol}"}
+        today = sessions.today(now).replace("-", "")
+        expirations = sorted(e for e in ch.expirations if e >= today)
+        price, source = self.stock_price(stock)
+        if not price:
+            return {**base, "error": f"no price for {symbol} from TWS"}
+        strikes = sorted(float(k) for k in ch.strikes)
+        wanted = [e for e in dict.fromkeys(wanted) if e in expirations][:oc.MAX_EXPIRIES] or expirations[:1]
+        cache = {**base, "price": price, "price_source": source, "trading_class": ch.tradingClass,
+                 "expirations": expirations, "strikes": strikes, "wanted": wanted, "window": window, "expiries": {}}
+        near = sorted(strikes, key=lambda k: (abs(k - price), k))
+        todo = [(e, k, r) for e in wanted for k in near[:2 * window + 1] for r in "CP"]
+        todo += [(e, k, r) for e in expirations[:oc.STRIP] if e not in wanted for k in near[:CANDIDATES] for r in "CP"]
+        for i in range(0, len(todo), BATCH):               # a few dozen at a time: IBKR limits open quote lines
+            self.quote(symbol, ch.tradingClass, todo[i:i + BATCH], cache)
+        if not any((cache["expiries"].get(e) or {}).get("quotes") for e in wanted):
+            return {**cache, "error": f"no quotes for {symbol} options (US options market data?)"}
+        log.info("%s: option chain for %s (%d strikes each)", symbol, ", ".join(em.fmt_expiry(e) for e in wanted),
+                 2 * window + 1)
+        return cache
+
     def fetch(self, stock, symbol: str, target: str, now) -> dict:
         """The cache entry for one symbol and target date (YYYY-MM-DD)."""
         base = {"symbol": symbol, "target": target, "fetched": time.time(), "quoted_at": now.isoformat(),
@@ -75,12 +132,7 @@ class OptionQuotes:
         ex = em.pick_expiries(sorted(ch.expirations), target, sessions.today(now))
         if not ex["chosen"]:
             return {**base, "error": f"no {symbol} expiry on or after {target}"}
-        [st] = self.ib.reqTickers(stock)
-        q = ticker_quote(st)
-        price, source = (q["last"], "last") if q["last"] else (q["close"], "close")
-        if not price:
-            m, how = em.mid(q)
-            price, source = m, how
+        price, source = self.stock_price(stock)
         if not price:
             return {**base, **ex, "error": f"no price for {symbol} from TWS"}
         cache = {**base, **ex, "price": price, "price_source": source, "trading_class": ch.tradingClass,
