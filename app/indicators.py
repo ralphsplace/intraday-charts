@@ -114,6 +114,18 @@ def adx(df: pd.DataFrame, n: int):
     return rma(dx, n), plus_di, minus_di
 
 
+def dmi_stochastic(df: pd.DataFrame, n: int, hl: int, sums: int) -> pd.Series:
+    """DMI Stochastic Extreme (Barbara Star, 2013; thinkorswim's DMI_StochasticExtreme): a stochastic of the DMI
+    oscillator (+DI minus -DI): the sum over `sums` bars of (osc - lowest) over the sum of (highest - lowest),
+    highest and lowest over `hl` bars, as a %."""
+    _, pdi, mdi = adx(df, n)
+    osc = pdi - mdi
+    hh, ll = osc.rolling(hl, min_periods=hl).max(), osc.rolling(hl, min_periods=hl).min()
+    num = (osc - ll).rolling(sums, min_periods=sums).sum()
+    den = (hh - ll).rolling(sums, min_periods=sums).sum()
+    return 100 * num / den.replace(0, np.nan)
+
+
 def obv(df: pd.DataFrame) -> pd.Series:
     direction = np.sign(df["close"].diff()).fillna(0)
     return (direction * df["volume"]).cumsum()

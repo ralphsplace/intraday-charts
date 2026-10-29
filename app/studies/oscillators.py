@@ -1,4 +1,5 @@
-"""Oscillators, each in its own pane: RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO, PFE."""
+"""Oscillators, each in its own pane: RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO, PFE,
+DMI Stochastic Extreme."""
 from __future__ import annotations
 
 import math
@@ -175,3 +176,21 @@ def _pfe(ctx, p):
     v = ind.pfe(ind.source(w, p["source"]), p["length"], p["smooth"])
     return {"lines": [ln("pfe", "PFE", ctx.points(w, v, 2), last_value=True)],
             "hlines": [hl(p["level"], "upper"), hl(0, "zero"), hl(-p["level"], "lower")]}
+
+
+# ---------------------------------------------------------------- DMI Stochastic Extreme
+@study("dmi_stoch", "DMI Stochastic Extreme", "Oscillators", "own",
+       [P("length", "DMI length", "int", 10, min=2, max=100), P("hl", "High/low length", "int", 3, min=1, max=100),
+        P("sums", "Sum length", "int", 3, min=1, max=50),
+        P("overbought", "Overbought", "int", 90, min=50, max=100), P("oversold", "Oversold", "int", 10, min=0, max=50)],
+       lambda p: f"DMI Stoch ({p['length']}, {p['hl']}, {p['sums']})",
+       "A stochastic of the DMI oscillator (+DI minus -DI), from 0 to 100, with extremes at 90 and 10 (Barbara Star; "
+       "thinkorswim's DMI_StochasticExtreme). Its crossing arrows are left out: lines only.",
+       plots=[plot("stoch", "Stoch", BLUE, 2), plot("ob", "Overbought line", GRAY, 1, "dashed"),
+              plot("os", "Oversold line", GRAY, 1, "dashed")],
+       warmup=lambda p: p["length"] * 5 + p["hl"] + p["sums"])
+def _dmi_stoch(ctx, p):
+    w = bars_for(ctx, p["length"] * 5 + p["hl"] + p["sums"])
+    v = ind.dmi_stochastic(w, p["length"], p["hl"], p["sums"])
+    return {"lines": [ln("stoch", "Stoch", ctx.points(w, v, 2), last_value=True)],
+            "hlines": [hl(p["overbought"], "ob"), hl(p["oversold"], "os")]}
