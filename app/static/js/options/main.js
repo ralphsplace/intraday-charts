@@ -225,4 +225,10 @@ fillSaved();
 render();
 loadChain();
 
+let resizing = null;     // the risk graph is drawn to its panel's width: redraw it when the window changes size
+window.addEventListener("resize", () => {
+  clearTimeout(resizing);
+  resizing = setTimeout(() => { if (ev?.status === "ok" && view) renderGraph($("ocGraph"), ev, ev.price, view.move); }, 150);
+});
+
 window.__options = { get state() { return st; }, get view() { return view; }, get ev() { return ev; } };   // for the browser tests

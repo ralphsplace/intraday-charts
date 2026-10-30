@@ -909,6 +909,24 @@ def test_option_chain_page_builds_and_evaluates_a_template(tab):
     wait_oc(p, "o.ev && o.ev.at === 'front_noon'")
 
 
+def test_option_chain_panels_scroll_under_a_fixed_expiry_strip(tab):
+    """One column (chain, structure, evaluation, grid) that scrolls on its own; the toolbar and the expiry strip stay."""
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    p.click("#ocFill")
+    wait_oc(p, "o.ev && o.ev.status === 'ok'")
+    lefts = p.evaluate("[...document.querySelectorAll('main.oc > .oc-box')].map((e) => Math.round(e.getBoundingClientRect().left))")
+    assert len(lefts) == 4 and len(set(lefts)) == 1                                  # stacked, one column
+    assert p.evaluate("document.documentElement.scrollHeight <= window.innerHeight")    # the page itself doesn't scroll
+    strip = p.locator("#ocStrip").bounding_box()["y"]
+    p.evaluate("document.querySelector('main.oc').scrollTop = 99999")
+    p.wait_for_timeout(200)
+    assert p.evaluate("document.querySelector('main.oc').scrollTop") > 0
+    assert p.locator("#ocStrip").bounding_box()["y"] == strip and p.locator("#ocStrip").is_visible()
+    assert p.locator("#ocGrid").is_visible()
+    w = p.evaluate("document.querySelector('#ocGraph svg').getBoundingClientRect().width")
+    assert abs(w - p.evaluate("document.querySelector('#ocGraph').clientWidth")) < 2          # the graph fills its panel
+
+
 def test_option_chain_clicks_reverse_and_loss_limit(tab):
     p = tab.goto("/options?symbol=ACME-DEMO", 2000)
     p.click("#ocClear")

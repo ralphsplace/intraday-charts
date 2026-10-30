@@ -185,7 +185,8 @@ The page asks the collector for option quotes and fills in as they arrive (a few
 
 `http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page). A chain
 for building option structures and judging them before you trade. It is read-only: it evaluates structures and
-never places or prepares orders. Type a stock and press Enter.
+never places or prepares orders. Type a stock and press Enter. The chain, the structure, the evaluation and the
+profit/loss grid are stacked in one column and scroll together; the toolbar and the expiry strip stay at the top.
 
 - **Expiry strip.** The next 8 expiries, each with its days left and expected move (the at-the-money straddle).
   Click one to view its chain. The expiry tagged *back* is the later one for calendars and diagonals (pick it
