@@ -10,6 +10,18 @@ export function beep() {
     o.start(); o.stop(ctx.currentTime + 0.25);
   } catch (e) { /* audio unavailable */ }
 }
+// a quiet message with one button (e.g. Undo), for `ms` milliseconds
+export function toastAction(text, label, fn, ms = 8000) {
+  const t = el("div", "toast", text);
+  const b = el("button", "toastbtn", label);
+  b.type = "button";
+  b.onclick = () => { t.remove(); fn(); };
+  t.appendChild(b);
+  $("toasts").appendChild(t);
+  setTimeout(() => t.remove(), ms);
+  return t;
+}
+
 export function toast(text, quiet) {
   const t = el("div", "toast", text);
   $("toasts").appendChild(t);

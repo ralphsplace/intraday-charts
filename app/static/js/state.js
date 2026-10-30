@@ -8,7 +8,7 @@ export const KEY = DASH.legacy ? LAYOUT_KEY : layoutKey(DASH.id);
 export const LIVE_REFRESH_MS = 5000;   // the collector writes today's bars every ~5 s
 
 export const app = { meta: null, catalog: [], defaults: [], layout: "1x1", day: null, cursor: null,
-                     live: false, playing: false, panels: [], configs: [], active: null, editing: null,
+                     live: false, playing: false, panels: [], cells: [], configs: [], active: null, editing: null,
                      collector: null, requested: new Set(), extraDays: new Set(), saved: { views: {}, layouts: {}, watchlists: {} },
                      prefs: { fitLevels: false, extShade: true, sync: true } };
 
@@ -36,7 +36,11 @@ export function newConfig() {
   return { symbol: defaultSymbol(), tf: 3, days: 1, studies: normStudies(clone(app.defaults)) };
 }
 
+// the window's cells in reading order: charts (app.panels holds just these) and watch lists; app.configs[i] is
+// cell i's settings, each with a stable id (a watch list's linked chart is found by it)
+export const isWatchlist = (cfg) => cfg?.kind === "watchlist";
+
 export function save() {
-  app.configs = app.configs.map((c, i) => app.panels[i] ? app.panels[i].config() : c);
+  app.configs = app.configs.map((c, i) => app.cells[i] ? app.cells[i].config() : c);
   store(KEY, { layout: app.layout, configs: app.configs, prefs: app.prefs });
 }

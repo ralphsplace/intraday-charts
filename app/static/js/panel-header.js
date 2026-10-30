@@ -48,7 +48,7 @@ export class PanelHeader {
     this.maxBtn = btn("\u2922", () => toggleMaximize(this), "Maximize this chart", "maxbtn");
     this.maxBtn.title = "Maximize this chart (or double-click the header). Click again to restore the grid.";
     const viewsBtn = btn("\u2261", (e) => { setActive(this); openSavedMenu(e.currentTarget, "views", this); }, "Saved chart views", "viewsbtn");
-    viewsBtn.title = "Save this chart's view under a name, or load a saved one";
+    viewsBtn.title = "Save this chart's view or load a saved one; add a chart or watch list next to it, or remove it";
     head.append(this.symIn, viewsBtn, this.tfSel, this.daysSel, priceGrp, fx, this.hint, this.title, this.maxBtn);
     head.addEventListener("dblclick", (e) => { if (e.target === head || e.target === this.title) toggleMaximize(this); });
 

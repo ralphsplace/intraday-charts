@@ -252,6 +252,28 @@ its row's charts (or all rows) equal again.
 bottom rows of charts…" and pick how many charts go on top and how many below (1 to 6 each), e.g. 3 over 5.
 The Layout menu shows that dashboard's own layout alongside the named ones.
 
+**Adding and removing charts.** Each chart's **≡** menu has a **Layout** section:
+- **+ Chart left / + Chart right** adds a chart next to this one in its row. Example: **+ Chart left** on the
+  bottom-left chart of 2 over 4 gives 2 over 5. The new chart is a copy of this one (same candle duration,
+  range, price type and studies), with its symbol box selected: type a symbol and press Enter.
+- **+ Row below** adds a new row with one chart under this chart's row.
+- **+ Watch list left / + Watch list right** adds a watch list (below) instead.
+- **Remove this chart** closes it up; a row left empty goes away. **Undo** on the message that follows brings it back.
+- Widths stay equal in a row of equal charts; otherwise the new chart takes half the width of the one it's
+  added next to. A row holds at most 6 charts and a window at most 4 rows. The last chart can't be removed.
+- The result is kept for the dashboard in this browser, and **Layouts ▾** can save it like any layout.
+
+**Watch list.** A list of symbols with fixed columns: **Last, Chg, Chg %, Volume, High, Low**, from the
+cached 1-minute bars of the day on screen. In Replay they follow the cursor; in Live they update every 5 seconds.
+- **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the linked chart:
+  the **Active chart** by default, or a chosen one in **Chart**.
+- **Own list** or a watch list saved under **Load data…**. **Edit** takes symbols separated by spaces, commas or
+  lines, or a thinkorswim share link. A new watch list starts with the symbols on screen.
+- Symbols not cached for that day say so; **Fetch from TWS** asks the collector for them (in Live it then
+  streams them).
+- Market internals (TICK, ADD, VOLD and so on) show no % change and no volume, which mean nothing for them.
+- Its **≡** menu adds a chart or watch list next to it, or removes it.
+
 Pages ask for their scripts at an address that changes with every update, so no browser (Chrome, Firefox or
 any other) can run an old copy with a new page. A browser that opened a dashboard while it still had old
 scripts may have saved that dashboard as one chart; clearing the site's data in that browser (Firefox: the
@@ -966,6 +988,7 @@ app/static/earnings.html    the earnings page (/earnings)
 app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event move, diagonal legs (no network)
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
+app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
 app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
 app/static/options.html the option-chain page (/options); its scripts in js/options/
 app/static/js/          the pages' code, as ES modules, one job each (no build step; the browser loads them directly):
@@ -989,7 +1012,10 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   keys.js               this browser's storage keys (also used by the dashboards page)
   pricetypes.js         price types: candles, Heikin-Ashi, OHLC bars, line, area, current price line
   primitives.js         canvas drawings: volume profile, extended-hours shading, zones, trend lines
-  grid.js               the grid of charts, active chart, splitters, maximize
+  grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
+  layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
+  layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
+  watchlist.js          the watch list cell: symbols, columns, the linked chart
   layouts.js            the window layouts, as rows of charts (e.g. 2 over 4, or any top/bottom count)
   data.js               bars from TWS: the Day list, requests, waiting messages, polling
   replay.js             the toolbar: layout, day, display options, replay and Live

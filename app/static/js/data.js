@@ -119,4 +119,4 @@ export function fillSymbolList() {
   Object.entries(app.saved.watchlists || {}).forEach(([n, syms]) => (syms || []).forEach((s) => add(s, n)));
 }
 
-export function refreshAll() { return Promise.all(app.panels.map((p) => p.refresh())); }
+export function refreshAll() { return Promise.all(app.cells.map((p) => p.refresh())); }
