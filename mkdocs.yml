@@ -1,0 +1,52 @@
+site_name: Intraday Charts
+site_description: User guide for Intraday Charts, a self-hosted, read-only intraday charting dashboard fed by Trader Workstation.
+repo_url: https://github.com/ralphsplace/intraday-charts
+repo_name: ralphsplace/intraday-charts
+edit_uri: edit/main/docs/
+copyright: Apache License 2.0
+strict: true
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: teal
+    accent: teal
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - mdx_truly_sane_lists:
+      nested_indent: 2
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Views:
+      - Charts: charts.md
+      - Layouts and the watch list: layouts.md
+      - Dashboards: dashboards.md
+      - Studies: studies.md
+      - Earnings view: earnings.md
+      - Expected move view: expected-move.md
+      - Option chain view: option-chain.md
+  - Setting up:
+      - Connecting to TWS: tws.md
+      - Configuration: configuration.md
+      - Purpose and security model: security.md
+  - Tools: tools.md
+  - Known limitations: limitations.md
+  - Development: development.md
+  - Licence and thanks: about.md
+
+validation:
+  links:
+    anchors: warn
