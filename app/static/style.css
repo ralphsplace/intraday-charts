@@ -47,7 +47,10 @@ main.grid { position: relative; flex: 1; min-height: 0; display: grid; gap: 4px;
 .ptitle { margin-left: auto; font-size: 12px; color: var(--muted); padding-left: 6px; }
 .ptitle b { color: var(--text); font-weight: 600; }
 .ptitle .up { color: var(--bull); } .ptitle .down { color: var(--bear); }
-.grid.many .phead .tools, .grid.many .phead .ptitle b { display: none; }
+/* the drawing tools (Alert, Line, Trend, VWAP) and the title's symbol go when this chart's own header is too narrow
+   for them, not by how many charts the grid has: a wide chart in a big grid, or a maximized one, keeps them */
+.panel { container-type: inline-size; }
+@container (max-width: 640px) { .phead .tools, .phead .ptitle b { display: none; } }
 
 /* compact premarket-scan strip inside each panel */
 
