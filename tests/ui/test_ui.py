@@ -910,12 +910,13 @@ def test_option_chain_page_builds_and_evaluates_a_template(tab):
 
 
 def test_option_chain_panels_scroll_under_a_fixed_expiry_strip(tab):
-    """One column (chain, structure, evaluation, grid) that scrolls on its own; the toolbar and the expiry strip stay."""
+    """One column (chain, strike profile, structure, evaluation, grid) that scrolls on its own; the toolbar and the
+    expiry strip stay."""
     p = tab.goto("/options?symbol=ACME-DEMO", 2000)
     p.click("#ocFill")
     wait_oc(p, "o.ev && o.ev.status === 'ok'")
     lefts = p.evaluate("[...document.querySelectorAll('main.oc > .oc-box')].map((e) => Math.round(e.getBoundingClientRect().left))")
-    assert len(lefts) == 4 and len(set(lefts)) == 1                                  # stacked, one column
+    assert len(lefts) == 5 and len(set(lefts)) == 1                                  # stacked, one column
     assert p.evaluate("document.documentElement.scrollHeight <= window.innerHeight")    # the page itself doesn't scroll
     strip = p.locator("#ocStrip").bounding_box()["y"]
     p.evaluate("document.querySelector('main.oc').scrollTop = 99999")
@@ -952,6 +953,19 @@ def test_refreshes_leave_a_symbol_being_typed_alone(tab):
     assert p.input_value("#emSyms") == "AMZN LL"
     p.keyboard.press("Escape")
     assert p.input_value("#emSyms") == "NVDA"
+
+def test_option_chain_strike_profile(tab):
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    assert p.inner_text("#ocProfileTitle") == "Strike profile · Fri Oct 30"
+    assert "active" in p.get_attribute("#ocProfileNear", "class")                 # Near by default
+    near = p.locator("#ocProfile rect").count()
+    p.click("#ocProfileAll")
+    assert p.locator("#ocProfile rect").count() > near
+    assert p.locator("#ocProfile .oc-gcall").count() and p.locator("#ocProfile .oc-gput").count()
+    assert p.locator("#ocProfile .oc-pricel").count() == 1
+    assert "most call gamma at" in p.inner_text("#ocProfileNote")
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)                               # remembered
+    assert "active" in p.get_attribute("#ocProfileAll", "class")
 
 
 def test_option_chain_clicks_reverse_and_loss_limit(tab):

@@ -196,6 +196,15 @@ profit/loss grid are stacked in one column and scroll together; the toolbar and 
   strikes nearest it are tagged EM.
   - **Click a bid to sell, an ask to buy** (one contract; click again for more). The structure's legs are
     highlighted in the chain.
+- **Strike profile.** Gamma exposure by strike for the expiry on view: for each strike, gamma × open interest ×
+  100 × price² × 1%, the dollars of delta its options gain or lose for a 1% move in the stock. Calls are drawn up
+  (green) and puts down (red), the usual convention, which assumes dealers are long calls and short puts. The
+  dashed line is the stock's price. **Near** shows the 5 strikes either side of the price, **All** every strike in
+  the snapshot (**Strikes** sets how many). Hover a bar for its value and open interest. Below it: the net, and the
+  strikes with the most call and put gamma.
+  - Open interest comes from TWS with the quotes. TWS sends it only on a subscription (not with snapshots), so
+    the collector subscribes for about 3 seconds per batch and cancels; it's as of the previous close and
+    changes once a day, so later refreshes that day reuse it.
 - **Structure.** The legs with their mid price, delta and theta, and the net debit or credit. **Buy/Sell**
   switches a leg's side, the box sets the number of contracts, × removes it; **Reverse** flips every leg.
   - **Templates**, filled from the expected move of the expiry you're viewing with **Fill from expected move**:

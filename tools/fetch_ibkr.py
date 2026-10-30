@@ -404,7 +404,8 @@ class Collector:
         try:
             w = int(window) if window.isdigit() else option_chain.DEFAULT_WINDOW
             data = self.option_quotes.fetch_chain(contract, sym, [e for e in expiries.split(",") if e],
-                                                  min(max(w, 1), max(option_chain.WINDOWS)), self.now())
+                                                  min(max(w, 1), max(option_chain.WINDOWS)), self.now(),
+                                                  previous=option_chain.read(sym))
         except Exception as e:                       # noqa: BLE001  (TWS or ib_async: tell the page, carry on)
             data = {"symbol": sym, "fetched": time.time(), "quoted_at": self.now().isoformat(), "error": f"TWS: {e}"}
         option_chain.write(sym, data)
