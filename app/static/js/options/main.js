@@ -2,7 +2,7 @@
    snapshots when they're missing or stale (or on Refresh), builds a structure from clicks or a template, and
    evaluates it. Read-only: nothing here places or prepares orders. */
 import { OPTIONS_KEY } from "../keys.js";
-import { $, api, cleanSymbol, el, load, store } from "../util.js";
+import { $, api, cleanSymbol, el, inUse, load, setValue, store, submitted, trackEdits } from "../util.js";
 import { renderChain, renderStrip } from "./chain.js";
 import { renderGraph, renderGrid, renderStats, stopText } from "./evaluation.js";
 import { levelsFor, showOnChart } from "./levels.js";
@@ -74,7 +74,7 @@ async function loadChain(refresh = false) {
 }
 
 function render() {
-  $("ocSym").value = st.symbol;
+  setValue($("ocSym"), st.symbol);
   $("demoBanner").hidden = !isDemo() && !view?.synthetic;
   document.title = `${st.symbol || "Option chain"} · Option chain`;
   history.replaceState(null, "", st.symbol ? `/options?symbol=${encodeURIComponent(st.symbol)}` : "/options");
@@ -91,6 +91,7 @@ function render() {
 
 function fillSelects() {
   const back = $("ocBack");
+  if (inUse(back)) return;                       // open: rebuilt on the next refresh
   back.innerHTML = "";
   for (const e of (view?.expirations || []).filter((x) => x > (st.expiry || "")).slice(0, 12)) {
     const o = el("option", null, fmt(e)); o.value = e; o.selected = e === st.back; back.appendChild(o);
@@ -145,8 +146,10 @@ async function evaluate() {
   if (r.status !== "ok") { show(false); return; }
   show(true);
   const at = $("ocAt");
-  at.innerHTML = "";
-  for (const t of r.times) { const o = el("option", null, t.label); o.value = t.id; o.selected = t.id === r.at; at.appendChild(o); }
+  if (!inUse(at)) {
+    at.innerHTML = "";
+    for (const t of r.times) { const o = el("option", null, t.label); o.value = t.id; o.selected = t.id === r.at; at.appendChild(o); }
+  }
   $("ocAtLabel").textContent = `At ${r.at_label}`;
   renderStats($("ocStats"), r);
   renderGraph($("ocGraph"), r, r.price, view.move);
@@ -172,8 +175,10 @@ async function fillSaved(selected) {
 }
 
 // ---------------------------------------------------------------- controls
+trackEdits($("ocSym"), () => st.symbol);
 $("ocForm").onsubmit = (e) => {
   e.preventDefault();
+  submitted($("ocSym"));
   const raw = $("ocSym").value.trim().toUpperCase();
   const sym = cleanSymbol(raw) || (DEMO_RE.test(raw) ? raw : null);
   if (!sym) { message(`"${raw}" isn't a stock symbol.`); return; }

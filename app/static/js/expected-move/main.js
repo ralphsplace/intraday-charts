@@ -1,7 +1,7 @@
 /* Starts the expected-move page (/expected-move?symbols=AMZN,LLY&date=2026-10-30): shows what's cached, asks the
    TWS collector for fresh option quotes when they're missing or stale (or on Refresh), and waits for them. */
 import { EXPECTED_MOVE_KEY } from "../keys.js";
-import { $, api, load, store } from "../util.js";
+import { $, api, load, setValue, store, submitted, trackEdits } from "../util.js";
 import { renderCards, renderSummary } from "./render.js";
 
 const POLL_MS = 3000, GIVE_UP_MS = 3 * 60 * 1000;
@@ -34,8 +34,8 @@ async function show(symbols, date, refresh = false) {
   clearTimeout(poll);
   const mine = ++asking;
   current = { symbols, date };
-  $("emSyms").value = symbols.join(" ");
-  $("emDate").value = date;
+  setValue($("emSyms"), symbols.join(" "));
+  setValue($("emDate"), date);
   $("demoBanner").hidden = !symbols.some(isDemo);
   history.replaceState(null, "", `/expected-move?symbols=${encodeURIComponent(symbols.join(","))}&date=${date}`);
   store(EXPECTED_MOVE_KEY, current);
@@ -64,8 +64,11 @@ async function show(symbols, date, refresh = false) {
   }
 }
 
+trackEdits($("emSyms"), () => (current ? current.symbols.join(" ") : ""));
+trackEdits($("emDate"), () => (current ? current.date : $("emDate").value));
 $("emForm").onsubmit = (e) => {
   e.preventDefault();
+  submitted($("emSyms")); submitted($("emDate"));
   const syms = parse($("emSyms").value);
   if (!syms.length || !$("emDate").value) { message("Type one or more stock symbols and pick a date."); return; }
   waitingSince = 0;

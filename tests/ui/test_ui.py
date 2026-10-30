@@ -927,6 +927,33 @@ def test_option_chain_panels_scroll_under_a_fixed_expiry_strip(tab):
     assert abs(w - p.evaluate("document.querySelector('#ocGraph').clientWidth")) < 2          # the graph fills its panel
 
 
+def test_refreshes_leave_a_symbol_being_typed_alone(tab):
+    """While a page polls for data (no collector here: the requests wait), what someone types in its symbol box stays
+    until Enter; Escape puts the page's symbol back. Option chain and expected-move pages (the earnings page uses
+    the same rule, but only polls when SEC_CONTACT is set)."""
+    p = tab.goto("/options?symbol=QQQ", 1500)
+    wait_oc(p, "o.state.symbol === 'QQQ'")
+    p.click("#ocSym")
+    p.fill("#ocSym", "SP")                                          # typing, not submitted
+    p.wait_for_timeout(6000)                                        # two polls (every 2.5 s)
+    assert p.input_value("#ocSym") == "SP"
+    p.click("#ocRefresh")                                           # still kept after clicking elsewhere
+    p.wait_for_timeout(3000)
+    assert p.input_value("#ocSym") == "SP"
+    p.focus("#ocSym")
+    p.keyboard.press("Escape")
+    assert p.input_value("#ocSym") == "QQQ"
+    p.fill("#ocSym", "SPY")
+    p.press("#ocSym", "Enter")
+    wait_oc(p, "o.state.symbol === 'SPY'")
+    p = tab.goto("/expected-move?symbols=NVDA&date=2026-10-30", 1500)
+    p.fill("#emSyms", "AMZN LL")
+    p.wait_for_timeout(7000)                                        # two polls (every 3 s)
+    assert p.input_value("#emSyms") == "AMZN LL"
+    p.keyboard.press("Escape")
+    assert p.input_value("#emSyms") == "NVDA"
+
+
 def test_option_chain_clicks_reverse_and_loss_limit(tab):
     p = tab.goto("/options?symbol=ACME-DEMO", 2000)
     p.click("#ocClear")

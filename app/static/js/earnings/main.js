@@ -1,7 +1,7 @@
 /* Starts the earnings page (/earnings?symbol=NVDA): asks the server for the view, and when the daily prices or
    earnings dates aren't cached yet, asks the TWS collector for them and waits. */
 import { EARNINGS_DAYS_KEY, EARNINGS_MODE_KEY, EARNINGS_SYMBOL_KEY } from "../keys.js";
-import { $, api, btn, cleanSymbol as cleanStock, load, store } from "../util.js";
+import { $, api, btn, cleanSymbol as cleanStock, load, setValue, store, submitted, trackEdits } from "../util.js";
 import { EarningsChart } from "./chart.js";
 import { fmtDate, renderLegend } from "./legend.js";
 import { DEFAULT_MODE, MODES } from "./modes.js";
@@ -81,7 +81,7 @@ async function show(sym) {
   clearTimeout(poll);
   current = sym;
   const mine = ++asking;
-  $("sym").value = sym;
+  setValue($("sym"), sym);
   $("title").textContent = `${sym} around its last earnings reports`;
   document.title = `${sym} · Earnings`;
   $("demoBanner").hidden = !isDemo(sym);
@@ -113,8 +113,10 @@ async function show(sym) {
   message(v.message || "Nothing to show.");
 }
 
+trackEdits($("sym"), () => current || "");
 $("symForm").onsubmit = (e) => {
   e.preventDefault();
+  submitted($("sym"));
   const sym = cleanSymbol($("sym").value);
   if (!sym) { $("sym").classList.add("bad"); message(`"${$("sym").value}" isn't a stock symbol.`); return; }
   $("sym").classList.remove("bad");
