@@ -578,7 +578,7 @@ def main(argv=None):
             return 0
         except (TWSUnavailable, ConnectionError, OSError) as e:
             hint = ("Is TWS running and logged in, with 'Enable ActiveX and Socket Clients' ticked, port "
-                    f"{args.port}, and this machine's address under Trusted IPs? See README, 'Connecting to TWS'.")
+                    f"{args.port}, and this machine's address under Trusted IPs? See the user guide, 'Connecting to TWS'.")
             if not args.live:
                 log.error("Could not reach TWS at %s:%s (%s). %s", args.host, args.port, e, hint)
                 return 2

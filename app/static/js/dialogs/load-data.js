@@ -39,7 +39,7 @@ export function renderCollector() {
   const line = (cls, text) => box.appendChild(el("div", cls, text));
   if (!st || !st.running) {
     line("bad", "TWS collector: not running" + (st && st.age != null ? ` (last seen ${ago(st.age)})` : "") + ".");
-    line("muted", "Requests are saved and run when it starts. See README, section 4.");
+    line("muted", "Requests are saved and run when it starts. See the user guide: Connecting to TWS.");
     if (st && st.waiting_requests) line("muted", `${st.waiting_requests} request${st.waiting_requests > 1 ? "s" : ""} waiting.`);
     return;
   }

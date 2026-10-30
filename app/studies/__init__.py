@@ -7,7 +7,7 @@
     levels       prior day, support/resistance, session levels, Initial Balance, ATR levels, events
     internals    NYSE TICK and cumulative TICK
 
-Importing the package registers every study. To add one, see README, "Adding your own study".
+Importing the package registers every study. To add one, see docs/development.md, "Adding a study".
 """
 from .. import engine as en  # noqa: F401  (studies.en, used by the tests)
 from .. import indicators as ind  # noqa: F401

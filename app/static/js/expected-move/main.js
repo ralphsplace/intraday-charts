@@ -17,7 +17,7 @@ function message(text) { $("emMsg").hidden = !text; $("emMsg").textContent = tex
 function waiting(it) {
   if (isDemo(it.symbol)) return "no synthetic quotes for this symbol in this data folder";
   if (it.message && it.status === "missing" && !waitingSince) return it.message;
-  if (!collector || !collector.running) return "the request is saved and runs when the TWS collector starts (README, section 4)";
+  if (!collector || !collector.running) return "the request is saved and runs when the TWS collector starts (user guide: Connecting to TWS)";
   if (!collector.connected) return `waiting for TWS: ${collector.message || "not connected"}`;
   if ((collector.bad_symbols || {})[it.symbol]) return `IBKR doesn't know ${it.symbol}`;
   return "asking TWS for option quotes…";

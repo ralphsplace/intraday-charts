@@ -355,7 +355,7 @@ def earnings_view(symbol: str, before: Annotated[int, Query(ge=1, le=earnings.MA
     v = earnings.view(_one_symbol(symbol, demo_ok=True), before=before, after=after)
     v["lookups_on"] = earnings_lookups_on()
     if v["status"] == "missing" and "earnings dates" in v["missing"] and not v["lookups_on"]:
-        v.update(status="off", message="Earnings-date lookups are off. Set SEC_CONTACT in .env (README, "
+        v.update(status="off", message="Earnings-date lookups are off. Set SEC_CONTACT in .env (user guide, "
                  "\"Earnings view\") so the TWS collector can look them up on SEC EDGAR.")
     return v
 

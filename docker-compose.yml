@@ -5,7 +5,7 @@
 # Chart only (when the collector runs on the TWS PC instead, see tools/run_collector_windows.bat):
 #   docker compose up -d --build
 #
-# Security (README, "Purpose and security model"): only devices on your home network get answers
+# Security (docs/security.md, "Purpose and security model"): only devices on your home network get answers
 # (ALLOWED_NETWORKS), the containers run as a normal user with a read-only system, and TWS is used read-only.
 
 # The project's name, so containers, network and image keep their names whatever the folder is called

@@ -27,7 +27,7 @@ const ago = (s) => (s == null ? "" : s < 90 ? "just now" : s < 5400 ? `${Math.ro
 
 // what the page is waiting for, from the collector's last report
 function waitingText() {
-  if (!collector || !collector.running) return "The request is saved and runs when the TWS collector starts (README, section 4).";
+  if (!collector || !collector.running) return "The request is saved and runs when the TWS collector starts (user guide: Connecting to TWS).";
   if (!collector.connected) return `Waiting for TWS: ${collector.message || "not connected"}.`;
   return "Asking TWS for option quotes…";
 }

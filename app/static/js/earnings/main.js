@@ -71,7 +71,7 @@ function draw() {
 async function waitingText(v) {
   const st = await api("/api/collector").catch(() => null);
   const what = v.missing.join(" and ");
-  if (!st || !st.running) return `No ${what} for ${v.symbol} yet. The request is saved and runs when the TWS collector starts (README, section 4).`;
+  if (!st || !st.running) return `No ${what} for ${v.symbol} yet. The request is saved and runs when the TWS collector starts (user guide: Connecting to TWS).`;
   if (!st.connected) return `Waiting for TWS. ${st.message || ""}`;
   if ((st.bad_symbols || {})[v.symbol]) return `IBKR doesn't know ${v.symbol}. Check the symbol.`;
   return `Fetching ${v.symbol}'s ${what}…`;

@@ -57,12 +57,12 @@ export function describeWait(sym, day) {
            `during regular hours (09:30–16:00) and history starts when recording starts. ` +
            (rec ? "Recording now." : why ? `The collector can't record it: ${why}.` :
             st?.running ? "The collector isn't recording it at the moment." :
-                  "The collector isn't running (README, section 4).");
+                  "The collector isn't running (user guide: Connecting to TWS).");
   }
   if (!st) return `No ${sym} bars for ${day} yet. Asking the TWS collector…`;
   if (!st.running) {
     return `No ${sym} bars for ${day} yet. The request is saved and runs when the TWS collector starts ` +
-           `(README, section 4). Collector last seen: ${ago(st.age)}.`;
+           `(user guide: Connecting to TWS). Collector last seen: ${ago(st.age)}.`;
   }
   if (!st.connected) return `Waiting for TWS. ${st.message || ""}`;
   if ((st.bad_symbols || {})[sym]) return `IBKR doesn't know ${sym}. Check the symbol.`;
