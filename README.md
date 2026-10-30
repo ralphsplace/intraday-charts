@@ -201,7 +201,11 @@ profit/loss grid are stacked in one column and scroll together; the toolbar and 
   - **Templates**, filled from the expected move of the expiry you're viewing with **Fill from expected move**:
     double diagonal (short call and put at the strikes nearest the expected move, long call and put one strike
     closer in the back expiry), call diagonal, call calendar, call vertical, straddle, strangle, iron condor
-    (wings 2 strikes out) and call butterfly.
+    (wings 2 strikes out), call butterfly, and the **wish list**.
+  - **Wish list** (puts, +1 / −3 / +1): sell 3 puts at the strike nearest the expected move below the price and
+    buy 1 put 2 strikes above and 1 put 2 strikes below. It's a put butterfly plus one more short put at its middle
+    strike: usually a credit, the most profit at the middle strike at expiry, and below the lower wing it's like
+    owning 100 shares bought at the middle strike (less the credit). For a stock you'd buy at that price anyway.
   - **Save structure** keeps it on the NAS by name (`data/user/structures.json`); **Saved** opens one again,
     re-priced at the latest quotes.
 - **Evaluation**, for 1 structure in $:

@@ -38,9 +38,10 @@ TEMPLATES = {
     "strangle": "Strangle at the expected move",
     "iron_condor": "Iron condor at the expected move",
     "butterfly": "Call butterfly across the expected move",
+    "wish_list": "Wish list: puts 1 x -3 x 1 at the expected move",
 }
 NEEDS_BACK = {"double_diagonal", "diagonal", "calendar"}
-WING = 2               # iron condor wings: this many listed strikes beyond the short strikes
+WING = 2               # iron condor and wish list wings: this many listed strikes beyond the short strike(s)
 
 
 # ---------------------------------------------------------------- Black-Scholes
@@ -162,6 +163,12 @@ def _crossings(xs: list[float], ys: list[float], level: float = 0.0) -> list[flo
     return [round(x, 2) for x in dict.fromkeys(out)]
 
 
+def _breakevens(xs: list[float], ys: list[float]) -> list[float]:
+    """Where the profit/loss crosses 0, over the whole range evaluated (also beyond the risk graph)."""
+    pts = sorted(set(zip(xs, ys, strict=True)))
+    return _crossings([p[0] for p in pts], [p[1] for p in pts])
+
+
 def _nice(x: float) -> float:
     """A round step near x: 0.5, 1, 2, 2.5, 5 x a power of ten."""
     if x <= 0:
@@ -188,7 +195,9 @@ def evaluate(legs: list[dict], price: float, now: pd.Timestamp, at_id: str = "fr
 
     curve_now = [pnl(x, now) for x in xs]
     curve_at = [pnl(x, at["at"]) for x in xs]
-    wide = [price * f / 100 for f in range(5, 301, 1)] + xs        # best and worst beyond the graph too
+    # best and worst beyond the graph too, down to a stock price of nearly 0 (where short puts lose the most)
+    # (and every strike: at expiry the profit/loss only bends there, so the best and worst land on one)
+    wide = [price * 0.0001] + [price * f / 100 for f in range(1, 301, 1)] + xs + [float(leg["strike"]) for leg in legs]
     wide_at = [pnl(x, at["at"]) for x in wide]
     best_i = max(range(len(wide)), key=lambda i: wide_at[i])
     worst = min(wide_at)
@@ -199,7 +208,7 @@ def evaluate(legs: list[dict], price: float, now: pd.Timestamp, at_id: str = "fr
         "iv_shift": iv_shift, "greeks": greeks(legs, price, now),
         "graph": {"prices": [round(x, 2) for x in xs], "now": [round(v, 2) for v in curve_now],
                   "at": [round(v, 2) for v in curve_at]},
-        "breakevens": _crossings(xs, curve_at),
+        "breakevens": _breakevens(wide, wide_at),
         "max_profit": {"value": round(wide_at[best_i], 2), "price": round(wide[best_i], 2), "unlimited": calls > 0},
         "max_loss": {"value": round(worst, 2), "unlimited": calls < 0},
         "chance": chance(legs, price, now, at["at"], sigma, iv_shift, net),
@@ -283,6 +292,11 @@ def template(name: str, cache: dict, front: str, back: str | None) -> list[dict]
         return [leg(1, front, atm, "C"), leg(1, front, atm, "P")]
     if name == "strangle":
         return [leg(1, front, up, "C"), leg(1, front, dn, "P")]
+    if name == "wish_list":
+        # a put butterfly with one more short put at its body: +1 above, -3 at the strike nearest the expected move
+        # below the price, +1 below. Paid to wait for a price you'd buy at; below the lower wing it's like
+        # owning 100 shares from the middle strike (less the credit)
+        return [leg(1, front, beyond(dn, "P", -WING), "P"), leg(-3, front, dn, "P"), leg(1, front, beyond(dn, "P", WING), "P")]
     if name == "iron_condor":
         return [leg(-1, front, up, "C"), leg(1, front, beyond(up, "C", WING), "C"),
                 leg(-1, front, dn, "P"), leg(1, front, beyond(dn, "P", WING), "P")]
