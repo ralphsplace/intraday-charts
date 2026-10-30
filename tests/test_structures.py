@@ -100,6 +100,38 @@ def test_chain_view(chain):
     assert option_chain.view("ACME-DEMO", "20261102")["expiry"] == "20261030"              # not quoted in full: the first
 
 
+def test_strike_profile(chain):
+    v = option_chain.view("ACME-DEMO")
+    prof = v["profile"]
+    assert v["oi_day"] == "2026-10-28" and prof["missing"] == 0 and len(prof["strikes"]) == 19
+    row = next(r for r in v["rows"] if r["strike"] == 53.0)
+    x = next(p for p in prof["strikes"] if p["strike"] == 53.0)
+    price = v["price"]
+    assert x["call_oi"] == fake_tws.fake_open_interest("ACME-DEMO", 53.0, "C")
+    assert x["call"] == pytest.approx(row["C"]["gamma"] * x["call_oi"] * 100 * price ** 2 * 0.01, rel=1e-6)   # $ per 1% move
+    assert x["put"] < 0 < x["call"]                                               # puts plotted below zero
+    assert prof["net"] == pytest.approx(sum(p["call"] + p["put"] for p in prof["strikes"]), abs=0.05)
+    assert prof["call_wall"] == max(prof["strikes"], key=lambda p: p["call"])["strike"]
+    assert option_chain.gamma_exposure(None, 100, 50) is None
+
+
+def test_open_interest_is_fetched_once_a_day(cache):
+    clock = Clock("2026-10-28 10:00")
+    ib, col = make(cache, clock, live=True)
+    col.option_quotes.option = fake_tws.FakeOption
+    ask = lambda: control.submit(["AMZN"], chain={"expiries": ["20261030"], "window": 5})   # noqa: E731
+    ask(); drain(col, clock)
+    subs = [r for r in ib.requests if r[1] == "mktdata" and r[2] == "101"]
+    assert len(subs) == 22 and not ib.tickers                                    # 11 strikes x C/P, all cancelled
+    assert option_chain.view("AMZN")["profile"]["missing"] == 0
+    ask(); drain(col, clock)                                                     # again the same day: reused
+    assert len([r for r in ib.requests if r[1] == "mktdata" and r[2] == "101"]) == 22
+    assert option_chain.view("AMZN")["profile"]["missing"] == 0
+    clock.t = pd.Timestamp("2026-10-29 10:00", tz=ET)                            # the next day: fetched again
+    ask(); drain(col, clock)
+    assert len([r for r in ib.requests if r[1] == "mktdata" and r[2] == "101"]) == 44
+
+
 def test_double_diagonal_template_follows_the_rule(chain):
     from app import expected_move as em
     legs = st.template("double_diagonal", chain, "20261030", "20261106")

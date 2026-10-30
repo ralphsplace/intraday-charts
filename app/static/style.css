@@ -346,3 +346,11 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 /* while a tool is armed on every chart, its first hint shows on the chart under the mouse only */
 .panel:not(:hover) .phint.first { display: none; }
 .drawtools button { padding: 3px 6px; font-size: 12px; }
+
+/* the option chain page's strike profile */
+.oc-seg { display: inline-flex; gap: 2px; }
+.oc-seg button { padding: 3px 12px; font-size: 12px; }
+.oc-svg .oc-gcall { fill: var(--bull); }
+.oc-svg .oc-gput { fill: var(--bear); }
+.oc-sw-gcall { background: var(--bull); border-color: var(--bull); }
+.oc-sw-gput { background: var(--bear); border-color: var(--bear); }

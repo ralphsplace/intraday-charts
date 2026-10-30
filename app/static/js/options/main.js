@@ -6,12 +6,14 @@ import { $, api, cleanSymbol, el, load, store } from "../util.js";
 import { renderChain, renderStrip } from "./chain.js";
 import { renderGraph, renderGrid, renderStats, stopText } from "./evaluation.js";
 import { levelsFor, showOnChart } from "./levels.js";
+import { renderProfile } from "./profile.js";
 import { addLeg, renderLegs } from "./structure.js";
 
 const POLL_MS = 2500, GIVE_UP_MS = 3 * 60 * 1000, MAX_EXPIRIES = 4;
 const IV_SHIFTS = [-5, -3, -2, -1, 0, 1, 2, 3, 5];
 const DEMO_RE = /^[A-Z]{1,6}-DEMO$/;
-const fresh = () => ({ symbol: "", expiry: null, back: null, window: 9, legs: [], at: "front_close", ivShift: 0, stop: null, template: "double_diagonal" });
+const fresh = () => ({ symbol: "", expiry: null, back: null, window: 9, legs: [], at: "front_close", ivShift: 0, stop: null,
+                       template: "double_diagonal", profile: "near" });
 
 let st = { ...fresh(), ...(load(OPTIONS_KEY) || {}) };
 let view = null, ev = null, waitingSince = 0, poll = null, asking = 0, evalSeq = 0, collector = null, pendingFill = null;
@@ -85,8 +87,19 @@ function render() {
     ? `${view.expiry_label} · expected move ${view.move == null ? "–" : `±${view.move.toFixed(2)} (${(view.price - view.move).toFixed(2)} – ${(view.price + view.move).toFixed(2)})`}`
     : "No chain yet";
   if (ok) renderChain($("ocChain"), view, st.legs, clickQuote); else $("ocChain").innerHTML = "";
+  drawProfile();
   fillSelects();
   renderLegs($("ocLegs"), st.legs, ev, setLegs);
+}
+
+// the strike profile for the expiry on view: gamma exposure by strike
+function drawProfile() {
+  const ok = view?.status === "ok";
+  $("ocProfileTitle").textContent = ok && view.expiry ? `Strike profile · ${view.expiry_label}` : "Strike profile";
+  $("ocProfileAll").classList.toggle("active", st.profile === "all");
+  $("ocProfileNear").classList.toggle("active", st.profile !== "all");
+  if (ok) renderProfile($("ocProfile"), $("ocProfileNote"), view, st.profile);
+  else { $("ocProfile").innerHTML = ""; $("ocProfileNote").textContent = ""; }
 }
 
 function fillSelects() {
@@ -187,6 +200,8 @@ $("ocRefresh").onclick = () => { waitingSince = 0; loadChain(true); };
 $("ocBack").onchange = () => { st.back = $("ocBack").value; save(); loadChain(); };
 $("ocTemplate").onchange = () => { st.template = $("ocTemplate").value; save(); };
 $("ocFill").onclick = () => fill($("ocTemplate").value);
+$("ocProfileAll").onclick = () => { st.profile = "all"; save(); drawProfile(); };
+$("ocProfileNear").onclick = () => { st.profile = "near"; save(); drawProfile(); };
 $("ocReverse").onclick = () => setLegs(st.legs.map((l) => ({ ...l, qty: -l.qty })));
 $("ocClear").onclick = () => setLegs([]);
 for (const s of IV_SHIFTS) { const o = el("option", null, s ? `${s > 0 ? "+" : "−"}${Math.abs(s)} pts` : "0 pts"); o.value = s; $("ocIv").appendChild(o); }
@@ -228,7 +243,7 @@ loadChain();
 let resizing = null;     // the risk graph is drawn to its panel's width: redraw it when the window changes size
 window.addEventListener("resize", () => {
   clearTimeout(resizing);
-  resizing = setTimeout(() => { if (ev?.status === "ok" && view) renderGraph($("ocGraph"), ev, ev.price, view.move); }, 150);
+  resizing = setTimeout(() => { drawProfile(); if (ev?.status === "ok" && view) renderGraph($("ocGraph"), ev, ev.price, view.move); }, 150);
 });
 
 window.__options = { get state() { return st; }, get view() { return view; }, get ev() { return ev; } };   // for the browser tests

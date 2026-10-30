@@ -37,6 +37,21 @@
       <span><i class="oc-sw oc-sw-buy"></i>Bought leg</span>
     </div>
   </section>
+  <section class="oc-box" aria-label="Strike profile">
+    <div class="oc-head">
+      <h2 id="ocProfileTitle">Strike profile</h2>
+      <span class="oc-seg" role="group" aria-label="Strikes shown">
+        <button id="ocProfileAll" type="button" title="Every strike in the snapshot (Strikes sets how many)">All</button>
+        <button id="ocProfileNear" type="button" title="The strikes nearest the price">Near</button>
+      </span>
+    </div>
+    <div id="ocProfile" class="oc-graph"></div>
+    <div class="oc-key muted small">
+      <span><i class="oc-sw oc-sw-gcall"></i>Call gamma</span>
+      <span><i class="oc-sw oc-sw-gput"></i>Put gamma</span>
+      <span id="ocProfileNote"></span>
+    </div>
+  </section>
   <section class="oc-box" aria-label="Structure">
     <div class="oc-head">
       <h2>Structure</h2>

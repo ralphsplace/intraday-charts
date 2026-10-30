@@ -164,6 +164,26 @@ class FakeTicker:
         return round((1400 + 250 * np.cos(self._m() / 23)) * self.scale)
 
 
+def fake_open_interest(symbol: str, strike: float, right: str) -> float:
+    """Invented open interest: most near the price, puts heavier below it and calls above, and more on round
+    strikes (every 5th step), like a real chain."""
+    s = fake_stock_price(symbol)
+    x = (strike - s) / (0.08 * s)
+    side = 1.6 if (right == "P") == (strike < s) else 0.7
+    roundish = 2.5 if round(strike / fake_step(s)) % 5 == 0 else 1.0
+    return float(round(4000 * np.exp(-x * x) * side * roundish))
+
+
+class FakeOptionTicker:
+    """An option subscription with generic tick 101: its open interest in callOpenInterest or putOpenInterest."""
+
+    def __init__(self, contract):
+        self.contract = contract
+        oi = fake_open_interest(contract.symbol, contract.strike, contract.right[:1])
+        self.callOpenInterest = oi if contract.right[:1] == "C" else float("nan")
+        self.putOpenInterest = oi if contract.right[:1] == "P" else float("nan")
+
+
 class FakeIB:
     def __init__(self, now=None, delay=0.0):
         self.now = now or (lambda: pd.Timestamp.now(tz=ET))
@@ -203,8 +223,8 @@ class FakeIB:
         (VOL-NYSE) in bid/ask, like TWS sends them."""
         if not getattr(contract, "conId", 0):     # like ib_async: only a qualified contract can be subscribed
             raise ValueError(f"Contract {contract.symbol} can't be hashed because no 'conId' value exists")
-        self.requests.append((contract.symbol, "mktdata", None, True))
-        t = FakeTicker(contract, self.now)
+        self.requests.append((contract.symbol, "mktdata", genericTickList, True))
+        t = FakeOptionTicker(contract) if isinstance(contract, FakeOption) else FakeTicker(contract, self.now)
         self.tickers.append(t)
         return t
 
