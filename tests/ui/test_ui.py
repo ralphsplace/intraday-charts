@@ -6,6 +6,9 @@ import json
 LAST = "2026-10-16"          # last synthetic day
 
 
+WIDE = 1840   # Ralph's screen: the chart page's top bar fits one line there with any font (at 1500 it depends on the font)
+
+
 def app_state(page, expr):
     return page.evaluate(f"(() => {{ const a = window.__chartApp; return {expr}; }})()")
 
@@ -673,9 +676,10 @@ def test_environment_check_on_the_dashboards_page(tab):
 
 
 def test_checks_needing_attention_are_linked_from_every_page(tab):
+    tab.page.set_viewport_size({"width": WIDE, "height": 850})
     for path in ("/QQQs", "/dashboards"):          # no collector in the tests: TWS connection is "Check"
         p = tab.goto(path, 1500)
-        assert p.evaluate("document.querySelector('header.toolbar').offsetHeight") < 60, path   # one line at 1500 px
+        assert p.evaluate("document.querySelector('header.toolbar').offsetHeight") < 60, path   # one line on Ralph's screen
         # how many need attention depends on the machine (e.g. running as root here, not on GitHub's runners)
         n = p.evaluate("fetch('/api/environment').then((r) => r.json()).then((d) => d.checks.filter((c) => c.status !== 'ok').length)")
         link = p.locator(".dashnav a.envwarn")
@@ -1048,6 +1052,7 @@ def test_dashboard_from_top_and_bottom_counts(tab):
 
 def test_mixed_layout_columns_resize_row_by_row(tab):
     """In 2 over 4 each row has its own column splitters: dragging one in the bottom row leaves the top row alone."""
+    tab.page.set_viewport_size({"width": WIDE, "height": 850})    # the top bar on one line, whatever the fonts
     p = tab.goto("/Internals", 3000)
     rects = "[...document.querySelectorAll('#grid .panel')].map((e) => { const r = e.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.width)]; })"
     before = p.evaluate(rects)
