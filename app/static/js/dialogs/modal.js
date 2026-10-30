@@ -1,4 +1,5 @@
 /* Opening and closing dialogs; Escape closes dialogs, menus, drawing tools and a maximized chart. */
+import { setTools } from "../drawings.js";
 import { toggleMaximize } from "../grid.js";
 import { closeMenu } from "../saved.js";
 import { app } from "../state.js";
@@ -17,7 +18,7 @@ export function init() {
     const drawing = app.panels.some((p) => p.tool);
     document.querySelectorAll(".modal").forEach((m) => (m.hidden = true));
     closeMenu();
-    app.panels.forEach((p) => p.tool && p.setTool(null));
+    if (drawing) setTools(null);
     if (!modalOpen && !drawing && app.maximized) toggleMaximize(app.maximized);
   });
 

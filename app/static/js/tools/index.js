@@ -1,8 +1,8 @@
-/* Drawing tools: the buttons in each chart's header (Alert, Line, Trend, VWAP). Each tool is one module in this
+/* Drawing tools: the buttons in the top bar (Alert, Line, Trend, VWAP). Each tool is one module in this
    folder, and every module has the same shape:
 
      type                      stored with each drawing, e.g. "hline"
-     button, tip               the header button's text and tooltip
+     button, tip               the top bar button's text and tooltip
      hints                     what to do for each click, e.g. ["Click the first point", "Click the second point"]
      needsTime                 true when a click must land on the time axis (between bars is fine)
      create(panel, points)     the new drawing's fields, once it has as many points as hints
@@ -16,7 +16,7 @@
      actions(panel, d)         optional: extra legend buttons for the drawing
      place(panel, points)      optional: instead of storing a drawing, do this with the clicks (e.g. add a study)
 
-   To add a tool: add a module here and list it below. The header, legend, settings and alerts pick it up. */
+   To add a tool: add a module here and list it below. The top bar, legend, settings and alerts pick it up. */
 import alert from "./alert.js";
 import avwap from "./avwap.js";
 import hline from "./hline.js";

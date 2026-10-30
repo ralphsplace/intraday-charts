@@ -255,7 +255,8 @@ def test_session_structure_studies(tab):
     """Initial Balance, anchored VWAP (from the VWAP button), relative volume and TPO on one chart."""
     p = tab.goto("/QQQs", 2500)
     first = p.locator(".panel").first
-    first.locator(".tools button", has_text="VWAP").click()
+    p.locator("#drawTools button", has_text="VWAP").click()
+    first.locator(".chart").hover()                                       # the hint shows on the chart under the mouse
     assert first.locator(".phint").inner_text() == "Click the bar to anchor a VWAP at"
     box = first.locator(".chart").bounding_box()
     t = app_state(p, "a.panels[0].view.bars.find((b) => b.session === 'rth').time + 3600")      # 10:30
@@ -405,7 +406,7 @@ def test_replay_steps_and_plays(tab):
 def test_drawings_line_and_alert(tab):
     p = tab.goto("/QQQs")
     panel = p.locator(".panel").first
-    panel.locator(".tools button", has_text="Line").click()
+    p.locator("#drawTools button", has_text="Line").click()
     box = panel.locator(".chart").bounding_box()
     p.mouse.click(box["x"] + box["width"] * 0.4, box["y"] + box["height"] * 0.3)
     p.wait_for_timeout(500)
@@ -418,11 +419,12 @@ def test_drawings_line_and_alert(tab):
 
 
 def test_drawing_tools_alert_trend_and_settings(tab):
-    """Every tool from the registry: header buttons, a two-click trend line, an alert that fires going forward
+    """Every tool from the registry: the top bar's buttons, a two-click trend line, an alert that fires going forward
     (and Re-arm), and a drawing's settings dialog."""
     p = tab.goto("/QQQs")
     panel = p.locator(".panel").first
-    assert panel.locator(".tools button").all_inner_texts() == ["Alert", "Line", "Trend", "VWAP"]
+    assert p.locator("#drawTools button").all_inner_texts() == ["Alert", "Line", "Trend", "VWAP"]
+    assert panel.locator(".phead button", has_text="Alert").count() == 0          # not in the chart headers
     drawn = lambda: p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1') || '{}')").get("QQQ", [])
     # replay to 10:00, then put an alert just above the price there
     p.fill("#cursor", "600"); p.dispatch_event("#cursor", "input"); p.dispatch_event("#cursor", "change")
@@ -430,13 +432,14 @@ def test_drawing_tools_alert_trend_and_settings(tab):
     box = panel.locator(".chart").bounding_box()
     price = app_state(p, "a.panels[0].view.price")
     y = app_state(p, f"a.panels[0].candles.priceToCoordinate({price} + 0.3)")
-    panel.locator(".tools button", has_text="Alert").click()
+    p.locator("#drawTools button", has_text="Alert").click()
     p.mouse.click(box["x"] + box["width"] * 0.3, box["y"] + y)
     p.wait_for_timeout(400)
     alert = drawn()[0]
     assert alert["type"] == "alert" and alert["op"] == ">=" and "triggered" not in alert
     # the trend line takes two clicks; the hint changes in between
-    panel.locator(".tools button", has_text="Trend").click()
+    p.locator("#drawTools button", has_text="Trend").click()
+    panel.locator(".chart").hover()
     assert panel.locator(".phint").inner_text() == "Click the first point"
     p.mouse.click(box["x"] + 100, box["y"] + 300)
     assert panel.locator(".phint").inner_text() == "Click the second point"
@@ -957,17 +960,34 @@ def test_structure_levels_show_on_a_chart(tab):
 
 
 # ---------------------------------------------------------------- Internals dashboard (2 charts over 4 internals)
-def test_drawing_tools_follow_each_charts_width(tab):
-    """The Alert, Line, Trend and VWAP buttons show on charts wide enough for them, however many charts the grid has
-    (the 2-over-4 Internals dashboard: two wide charts on top, four narrow ones below), and on a maximized chart."""
+def test_top_bar_drawing_tools_on_any_chart(tab):
+    """The top bar's tools arm every chart: the next click on any chart (here a small one at the bottom of the 2-over-4
+    Internals dashboard) places the drawing there, and the tool is then disarmed everywhere. Escape and the button
+    again disarm it too, and a tool stays armed across a layout change."""
     p = tab.goto("/Internals", 3000)
-    shown = lambda i: p.locator(".panel").nth(i).locator(".tools").is_visible()   # noqa: E731
-    assert [shown(i) for i in range(6)] == [True, True, False, False, False, False]
-    p.locator(".panel").nth(4).locator(".maxbtn").click()
-    p.wait_for_timeout(500)
-    assert shown(4)
-    p.locator(".panel").nth(4).locator(".tools button", has_text="Alert").click()  # and it's usable there
-    assert "active" in p.locator(".panel").nth(4).locator(".tools button", has_text="Alert").get_attribute("class")
+    alert = p.locator("#drawTools button", has_text="Alert")
+    alert.click()
+    assert "active" in alert.get_attribute("class")
+    assert app_state(p, "a.panels.every((x) => x.tool === 'alert')")
+    p.locator(".panel").nth(4).locator(".chart").hover()                               # only the chart under the mouse
+    assert p.locator(".panel").nth(4).locator(".phint").inner_text() == "Click to place an alert line"
+    assert not p.locator(".panel").nth(0).locator(".phint").is_visible()
+    box = p.locator(".panel").nth(4).locator(".chart").bounding_box()                   # TICK-NYSE
+    p.mouse.click(box["x"] + box["width"] * 0.5, box["y"] + box["height"] * 0.4)
+    p.wait_for_timeout(400)
+    drawn = p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1') || '{}')")
+    assert [d["type"] for d in drawn.get("TICK-NYSE", [])] == ["alert"] and not drawn.get("QQQ")
+    assert app_state(p, "a.panels.every((x) => !x.tool)") and "active" not in (alert.get_attribute("class") or "")
+    p.locator("#drawTools button", has_text="Line").click()
+    p.keyboard.press("Escape")
+    assert app_state(p, "a.panels.every((x) => !x.tool)")
+    p.locator("#drawTools button", has_text="Line").click()
+    p.locator("#drawTools button", has_text="Line").click()                             # again: off
+    assert app_state(p, "a.panels.every((x) => !x.tool)")
+    p.locator("#drawTools button", has_text="Trend").click()
+    p.select_option("#layout", "1x1")
+    p.wait_for_timeout(800)
+    assert app_state(p, "a.panels.every((x) => x.tool === 'trend')")
 
 
 def test_internals_dashboard(tab):

@@ -16,7 +16,7 @@ button.primary { background: #1f3b37; border-color: var(--teal); color: #fff; }
 .error { color: var(--bear); padding: 20px; }
 
 /* ---------------------------------------------------------------- top toolbar */
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .group { display: flex; gap: 6px; align-items: center; }
 label { color: var(--muted); }
 label select { margin-left: 4px; }
@@ -41,16 +41,14 @@ main.grid { position: relative; flex: 1; min-height: 0; display: grid; gap: 4px;
   white-space: nowrap; }
 .phead button, .phead select { padding: 1px 6px; font-size: 12px; border-radius: 4px; }
 .phead .sym { max-width: 150px; font-weight: 600; }
-.phead .tools { display: inline-flex; gap: 2px; margin-left: 4px; }
 .fx { font-style: italic; font-family: Georgia, serif; }
 .phint { color: var(--amber); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .ptitle { margin-left: auto; font-size: 12px; color: var(--muted); padding-left: 6px; }
 .ptitle b { color: var(--text); font-weight: 600; }
 .ptitle .up { color: var(--bull); } .ptitle .down { color: var(--bear); }
-/* the drawing tools (Alert, Line, Trend, VWAP) and the title's symbol go when this chart's own header is too narrow
-   for them, not by how many charts the grid has: a wide chart in a big grid, or a maximized one, keeps them */
+/* the title's symbol goes when this chart's own header is too narrow for it (not by how many charts the grid has) */
 .panel { container-type: inline-size; }
-@container (max-width: 640px) { .phead .tools, .phead .ptitle b { display: none; } }
+@container (max-width: 640px) { .phead .ptitle b { display: none; } }
 
 /* compact premarket-scan strip inside each panel */
 
@@ -341,3 +339,9 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .oc-grid tr.oc-nowrow { outline: 1px solid var(--amber); outline-offset: -1px; }
 .oc-gtag { margin-left: 6px; font-size: 11px; color: var(--amber); font-weight: 400; }
 .oc-notes { max-width: 1100px; padding: 0 12px 20px; }
+
+/* the drawing tools in the top bar: compact, like the chart headers' buttons */
+.drawtools { display: inline-flex; gap: 2px; margin-left: 4px; }
+/* while a tool is armed on every chart, its first hint shows on the chart under the mouse only */
+.panel:not(:hover) .phint.first { display: none; }
+.drawtools button { padding: 3px 6px; font-size: 12px; }
