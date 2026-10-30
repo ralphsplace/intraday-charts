@@ -1,5 +1,6 @@
 /* The grid of charts: building it for a layout, the active chart, column/row splitters, maximize. */
 import { fillDays } from "./data.js";
+import { setTools } from "./drawings.js";
 import { Panel } from "./panel.js";
 import { LAYOUTS, layoutLabel, shape } from "./layouts.js";
 import { app, newConfig, save } from "./state.js";
@@ -33,6 +34,7 @@ export function buildGrid() {
   setActive(app.panels[0]);
   updateBanner();
   fillDays();
+  if (app.tool) setTools(app.tool);           // a tool armed in the top bar stays armed on the new charts
 }
 
 // ---------------------------------------------------------------- resizing: splitters and maximize

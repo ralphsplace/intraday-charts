@@ -15,8 +15,9 @@ import * as settingsDlg from "./dialogs/settings.js";
 import * as replay from "./replay.js";
 import * as loadData from "./dialogs/load-data.js";
 import * as saved from "./saved.js";
+import * as drawTools from "./drawtools.js";
 
-for (const m of [grid, modal, studiesDlg, settingsDlg, replay, loadData, saved]) m.init();
+for (const m of [grid, modal, studiesDlg, settingsDlg, replay, loadData, saved, drawTools]) m.init();
 
 window.__chartApp = app;   // for debugging from the browser console (and the browser tests)
 window.__priceTypes = PT;

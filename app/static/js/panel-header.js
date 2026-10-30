@@ -4,7 +4,6 @@ import { openStudies } from "./dialogs/studies.js";
 import { setActive, toggleMaximize } from "./grid.js";
 import { openSavedMenu } from "./saved.js";
 import { save } from "./state.js";
-import { TOOLS } from "./tools/index.js";
 import { btn, el } from "./util.js";
 import { parseTf, rangesFor, timeframeList } from "./timeframes.js";
 import { PriceTypes as PT } from "./pricetypes.js";
@@ -44,19 +43,13 @@ export class PanelHeader {
     const priceGrp = el("span", "pricegrp"); priceGrp.append(this.priceSel, priceBtn);
     const fx = btn("", () => { setActive(this); openStudies(); }, "Studies", "fxbtn");
     fx.innerHTML = '<span class="fx">f(x)</span>';
-    const tools = el("span", "tools");
-    this.toolBtns = {};
-    for (const t of TOOLS) {
-      const b = btn(t.button, () => this.setTool(this.tool === t.type ? null : t.type)); b.title = t.tip;
-      this.toolBtns[t.type] = b; tools.appendChild(b);
-    }
     this.title = el("span", "ptitle");
     this.hint = el("span", "phint");
     this.maxBtn = btn("\u2922", () => toggleMaximize(this), "Maximize this chart", "maxbtn");
     this.maxBtn.title = "Maximize this chart (or double-click the header). Click again to restore the grid.";
     const viewsBtn = btn("\u2261", (e) => { setActive(this); openSavedMenu(e.currentTarget, "views", this); }, "Saved chart views", "viewsbtn");
     viewsBtn.title = "Save this chart's view under a name, or load a saved one";
-    head.append(this.symIn, viewsBtn, this.tfSel, this.daysSel, priceGrp, fx, tools, this.hint, this.title, this.maxBtn);
+    head.append(this.symIn, viewsBtn, this.tfSel, this.daysSel, priceGrp, fx, this.hint, this.title, this.maxBtn);
     head.addEventListener("dblclick", (e) => { if (e.target === head || e.target === this.title) toggleMaximize(this); });
 
     const wrap = el("div", "pchart");
