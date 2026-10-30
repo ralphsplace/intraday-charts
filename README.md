@@ -5,6 +5,8 @@ chart grids. It runs in Docker on your NAS and reads 1-minute bars from a local 
 filled from Trader Workstation (TWS): type a symbol into a chart, or pick symbols and a day under
 **Load data**, and the collector fetches them.
 
+![A 2-over-4 dashboard replaying Oct 28: QQQ 1-minute candles with Bollinger bands, SMAs, the MA cloud, an anchored VWAP and VZO dots (top left); QQQ's current price over ATR levels, the volume profile and session levels (top right); VOLD-NYSE, -VIX, TICK-NYSE and ADD-NYSE below](img/scalpingView.png)
+
 Studies are added, configured and removed the way TWS Advanced Charts does it:
 - **f(x) Studies** opens the list.
 - **Settings** on a study's legend entry opens its configuration.
@@ -101,6 +103,8 @@ windows, drawings and earnings-page choices to the new names the first time it o
 
 ### Earnings view
 
+![AMZN's last 6 earnings reports in the Price $ view, 10 trading days before and 5 after, with day 0 and +1 marked and each quarter's move in the legend](img/earningsView.png)
+
 `http://<your-nas>:8050/earnings` (also **Earnings** in the drop-down at the top left of every page). Type a
 stock and press Enter: its last 6 earnings reports are drawn over each other, one coloured line each, with a legend.
 
@@ -148,6 +152,8 @@ stock and press Enter: its last 6 earnings reports are drawn over each other, on
   after all. Day 0 would then be off for late-evening filings, and `tools/earnings_sources.py` needs to convert them.
 
 ### Expected move view
+
+![AMZN's expected move by Fri Oct 30 with the diagonal's legs. These quotes were taken after hours, so the page flags them: no implied volatility, and a parity-implied price away from the stock's](img/expectedMoveView.png)
 
 `http://<your-nas>:8050/expected-move` (also **Expected move** in the drop-down at the top left of every page). Type
 one or more stocks (e.g. `AMZN LLY MA INTC MRK CAT`, up to 20) and a date, then press **Show**. The first option
@@ -217,6 +223,8 @@ never places or prepares orders. Type a stock and press Enter.
 - **Needs** a US options market-data subscription in IBKR (OPRA), like the expected-move page.
 
 ### Dashboards
+
+![The Manage dashboards page: two dashboards (NAS2 the default, SPY), creating one, and the environment check with every item OK](img/managedDashboardsView.png)
 
 Each dashboard has its own address: `http://<your-nas>:8050/<name>` (any letter case). The drop-down at
 the top left of every page switches between them, and its last entry, **Manage dashboards…**, opens
@@ -1009,6 +1017,7 @@ requirements-dev.txt    tests, coverage, browser tests and the linter
 pyproject.toml          project metadata, linter (ruff) and coverage settings
 .github/workflows/ci.yml  lint and test on every push
 LICENSE, NOTICE         Apache License 2.0, and the third-party notice for Lightweight Charts
+img/                    screenshots for this README (not part of the Docker image)
 ```
 
 ---
