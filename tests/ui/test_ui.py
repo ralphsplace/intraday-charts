@@ -940,6 +940,33 @@ def test_option_chain_strike_profile(tab):
     assert "most call gamma at" in p.inner_text("#ocProfileNote")
     p = tab.goto("/options?symbol=ACME-DEMO", 2000)                               # remembered
     assert "active" in p.get_attribute("#ocProfileAll", "class")
+    
+    
+def test_refreshes_leave_a_symbol_being_typed_alone(tab):
+    """While a page polls for data (no collector here: the requests wait), what someone types in its symbol box stays
+    until Enter; Escape puts the page's symbol back. Option chain and expected-move pages (the earnings page uses
+    the same rule, but only polls when SEC_CONTACT is set)."""
+    p = tab.goto("/options?symbol=QQQ", 1500)
+    wait_oc(p, "o.state.symbol === 'QQQ'")
+    p.click("#ocSym")
+    p.fill("#ocSym", "SP")                                          # typing, not submitted
+    p.wait_for_timeout(6000)                                        # two polls (every 2.5 s)
+    assert p.input_value("#ocSym") == "SP"
+    p.click("#ocRefresh")                                           # still kept after clicking elsewhere
+    p.wait_for_timeout(3000)
+    assert p.input_value("#ocSym") == "SP"
+    p.focus("#ocSym")
+    p.keyboard.press("Escape")
+    assert p.input_value("#ocSym") == "QQQ"
+    p.fill("#ocSym", "SPY")
+    p.press("#ocSym", "Enter")
+    wait_oc(p, "o.state.symbol === 'SPY'")
+    p = tab.goto("/expected-move?symbols=NVDA&date=2026-10-30", 1500)
+    p.fill("#emSyms", "AMZN LL")
+    p.wait_for_timeout(7000)                                        # two polls (every 3 s)
+    assert p.input_value("#emSyms") == "AMZN LL"
+    p.keyboard.press("Escape")
+    assert p.input_value("#emSyms") == "NVDA"
 
 
 def test_option_chain_clicks_reverse_and_loss_limit(tab):
@@ -1025,6 +1052,104 @@ def test_top_bar_drawing_tools_on_any_chart(tab):
     p.select_option("#layout", "1x1")
     p.wait_for_timeout(800)
     assert app_state(p, "a.panels.every((x) => x.tool === 'trend')")
+
+
+# ---------------------------------------------------------------- adding and removing charts and watch lists
+def cell_symbols(p):
+    return app_state(p, "a.cells.map((c) => c.symbol || 'watch list')")
+
+
+def layout_action(p, cell, action):
+    p.locator("#grid .panel").nth(cell).locator(".viewsbtn").click()
+    box = p.locator("#savedMenu").bounding_box()                           # the menu stays inside the window
+    assert box["y"] >= 0 and box["y"] + box["height"] <= p.viewport_size["height"]
+    p.click(f"#savedMenu button[data-action='{action}']")
+    p.wait_for_timeout(800)
+
+
+def test_splitters_follow_the_grid_when_the_top_bar_grows(tab):
+    """The top bar can grow after the charts are laid out (a late warning badge, wider fonts): the row splitter must
+    move with the charts, or it sits on the bottom charts' headers and takes their clicks."""
+    p = tab.goto("/Internals", 3000)
+    gap = "(() => { const s = document.querySelector('.splitter.row').getBoundingClientRect(); "\
+          "const top = window.__chartApp.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
+    assert p.evaluate(gap) < 4
+    p.add_style_tag(content="header.toolbar { padding-bottom: 40px; }")
+    p.wait_for_timeout(500)
+    assert p.evaluate(gap) < 4
+    p.locator("#grid .panel").nth(2).locator(".viewsbtn").click()              # not covered by the splitter
+    assert p.locator("#savedMenu").is_visible()
+
+
+def test_add_spy_far_left_turns_two_over_four_into_two_over_five(tab):
+    p = tab.goto("/Internals", 3000)
+    assert app_state(p, "a.layout") == "2/4"
+    layout_action(p, 2, "chart-left")                                       # left of VOLD-NYSE: the bottom row's far left
+    assert p.evaluate("document.activeElement === window.__chartApp.cells[2].symIn")    # type the symbol straight away
+    p.keyboard.type("SPY")
+    p.keyboard.press("Enter")
+    wait_state(p, "a.cells[2].symbol === 'SPY' && a.cells[2].view")
+    assert app_state(p, "a.layout") == "2/5" and p.locator("#layout option:checked").inner_text() == "2 over 5"
+    assert cell_symbols(p) == ["QQQ", "SPY", "SPY", "VOLD-NYSE", "-VIX", "TICK-NYSE", "ADD-NYSE"]
+    assert app_state(p, "[a.cells[2].tf, a.cells[2].price.type]") == app_state(p, "[a.cells[3].tf, a.cells[3].price.type]")  # a copy
+    assert app_state(p, "JSON.stringify(a.prefs.sizes['2/5'].cols[1])") == "[1,1,1,1,1]"            # equal widths stay equal
+    p = tab.goto("/Internals", 3000)                                         # kept in this browser
+    assert app_state(p, "a.layout") == "2/5" and cell_symbols(p)[2] == "SPY"
+    layout_action(p, 2, "remove")                                           # remove it: back to 2 over 4, with Undo
+    assert app_state(p, "a.layout") == "2/4" and "SPY" not in cell_symbols(p)[2:]
+    assert "SPY chart removed." in p.inner_text("#toasts")
+    p.locator("#toasts .toastbtn").click()
+    wait_state(p, "a.layout === '2/5' && a.cells[2].symbol === 'SPY'")
+
+
+def test_add_a_watch_list_right_of_the_top_row_turns_two_over_four_into_three_over_four(tab):
+    p = tab.goto("/Internals", 3000)
+    layout_action(p, 1, "watchlist-right")
+    assert app_state(p, "a.layout") == "3/4" and p.locator("#layout option:checked").inner_text() == "3 over 4"
+    assert cell_symbols(p) == ["QQQ", "SPY", "watch list", "VOLD-NYSE", "-VIX", "TICK-NYSE", "ADD-NYSE"]
+    wl = p.locator(".panel.wl")
+    assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Volume", "High", "Low"]
+    assert wl.locator("tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)") == \
+        ["QQQ", "SPY", "VOLD-NYSE", "-VIX", "TICK-NYSE", "ADD-NYSE"]            # starts with the symbols on screen
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr td').length > 20")      # the numbers arrived
+    assert wl.locator("tr[data-symbol='TICK-NYSE'] td").nth(3).inner_text() == "–"            # no % change for internals
+    # a row click shows it on the active chart (the first); the arrow keys move through the list
+    p.locator("#grid .panel").first.click(position={"x": 300, "y": 200})
+    wl.locator("tr[data-symbol='SPY']").click()
+    wait_state(p, "a.cells[0].symbol === 'SPY'")
+    assert wl.locator("tr.sel").get_attribute("data-symbol") == "SPY"
+    wl.locator(".wlbody").focus()
+    p.keyboard.press("ArrowDown")
+    wait_state(p, "a.cells[0].symbol === 'VOLD-NYSE'")
+    # linked to a chosen chart instead
+    second = app_state(p, "a.cells[1].id")
+    wl.locator("select.wllink").select_option(second)
+    wl.locator("tr[data-symbol='QQQ']").click()
+    wait_state(p, "a.cells[1].symbol === 'QQQ'")
+    assert app_state(p, "a.cells[0].symbol") == "VOLD-NYSE"
+    # its own list
+    wl.locator("button.wledit").click()
+    wl.locator("textarea").fill("SPY, QQQ")
+    wl.locator(".wleditor button[type=submit]").click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    p = tab.goto("/Internals", 3000)                                         # kept in this browser
+    assert app_state(p, "a.layout") == "3/4"
+    assert p.locator(".panel.wl tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)") == ["SPY", "QQQ"]
+    layout_action(p, 2, "remove")
+    assert app_state(p, "a.layout") == "2/4" and "Watch list removed." in p.inner_text("#toasts")
+
+
+def test_layout_limits(tab):
+    p = tab.goto("/QQQs", 2000)
+    p.locator("#grid .panel").first.locator(".viewsbtn").click()
+    assert p.locator("#savedMenu button[data-action='remove']").is_disabled()            # the last chart stays
+    p.keyboard.press("Escape")
+    for _ in range(5):
+        layout_action(p, 0, "chart-right")
+    assert app_state(p, "a.layout") == "6/1" or app_state(p, "a.cells.length") == 6
+    p.locator("#grid .panel").first.locator(".viewsbtn").click()
+    b = p.locator("#savedMenu button[data-action='chart-right']")
+    assert b.is_disabled() and "at most 6" in b.get_attribute("title")
 
 
 def test_internals_dashboard(tab):

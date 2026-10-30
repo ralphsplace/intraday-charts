@@ -2,7 +2,7 @@
 import { renderCollector } from "./dialogs/load-data.js";
 import { toast } from "./notify.js";
 import { app, cachedSymbols, hasBars } from "./state.js";
-import { $, api, el } from "./util.js";
+import { $, api, el, inUse } from "./util.js";
 
 // the Day list: days cached for any chart's symbol, plus days asked for that are still being fetched
 export function fillDays() {
@@ -13,13 +13,14 @@ export function fillDays() {
   const list = [...days].sort().reverse();
   const sel = $("day");
   const cur = app.day;
+  if (app.live) app.day = cal.live_day || list[0];
+  else app.day = list.includes(cur) ? cur : (list[0] || cal.last_session);
+  if (inUse(sel)) return app.day !== cur;          // open: the menu is rebuilt on the next refresh
   sel.innerHTML = "";
   list.forEach((d) => {
     const cached = app.live || app.panels.some((p) => hasBars(p.symbol, d));
     const o = el("option", null, d + (cached ? "" : " (loading)")); o.value = d; sel.appendChild(o);
   });
-  if (app.live) app.day = cal.live_day || list[0];
-  else app.day = list.includes(cur) ? cur : (list[0] || cal.last_session);
   if (app.day && !list.includes(app.day)) { const o = el("option", null, app.day); o.value = app.day; sel.appendChild(o); }
   sel.value = app.day;
   return app.day !== cur;
@@ -118,4 +119,4 @@ export function fillSymbolList() {
   Object.entries(app.saved.watchlists || {}).forEach(([n, syms]) => (syms || []).forEach((s) => add(s, n)));
 }
 
-export function refreshAll() { return Promise.all(app.panels.map((p) => p.refresh())); }
+export function refreshAll() { return Promise.all(app.cells.map((p) => p.refresh())); }

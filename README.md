@@ -5,7 +5,7 @@ chart grids. It runs in Docker on your NAS and reads 1-minute bars from a local 
 filled from Trader Workstation (TWS): type a symbol into a chart, or pick symbols and a day under
 **Load data**, and the collector fetches them.
 
-![A 2-over-4 dashboard replaying Oct 28: QQQ 1-minute candles with Bollinger bands, SMAs, the MA cloud, an anchored VWAP and VZO dots (top left); QQQ's current price over ATR levels, the volume profile and session levels (top right); VOLD-NYSE, -VIX, TICK-NYSE and ADD-NYSE below](img/scalpingView.png)
+![A 2-over-4 dashboard in Live on Oct 30: QQQ 3-minute candles with VWAP, Bollinger bands, SMAs, the MA cloud, VZO dots, a trend line, a line and an alert that has fired (top left); QQQ's current price over ATR levels and the volume profile (top right); VOLD-NYSE, -VIX, TICK-NYSE and ADD-NYSE below. The drawing tools are in the top bar](img/scalpingView.png)
 
 Studies are added, configured and removed the way TWS Advanced Charts does it:
 - **f(x) Studies** opens the list.
@@ -183,6 +183,8 @@ The page asks the collector for option quotes and fills in as they arrive (a few
 
 ### Option chain view
 
+![QQQ's chain for Mon Nov 2 from TWS, taken after the close: deltas, implied volatility and each expiry's expected move in the strip. Bid and ask are empty outside regular hours, so build structures during the session. The four panels (chain, structure, evaluation, profit/loss grid) scroll under the fixed expiry strip](img/optionsView.png)
+
 `http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page). A chain
 for building option structures and judging them before you trade. It is read-only: it evaluates structures and
 never places or prepares orders. Type a stock and press Enter. The chain, the structure, the evaluation and the
@@ -210,7 +212,11 @@ profit/loss grid are stacked in one column and scroll together; the toolbar and 
   - **Templates**, filled from the expected move of the expiry you're viewing with **Fill from expected move**:
     double diagonal (short call and put at the strikes nearest the expected move, long call and put one strike
     closer in the back expiry), call diagonal, call calendar, call vertical, straddle, strangle, iron condor
-    (wings 2 strikes out) and call butterfly.
+    (wings 2 strikes out), call butterfly, and the **wish list**.
+  - **Wish list** (puts, +1 / −3 / +1): sell 3 puts at the strike nearest the expected move below the price and
+    buy 1 put 2 strikes above and 1 put 2 strikes below. It's a put butterfly plus one more short put at its middle
+    strike: usually a credit, the most profit at the middle strike at expiry, and below the lower wing it's like
+    owning 100 shares bought at the middle strike (less the credit). For a stock you'd buy at that price anyway.
   - **Save structure** keeps it on the NAS by name (`data/user/structures.json`); **Saved** opens one again,
     re-priced at the latest quotes.
 - **Evaluation**, for 1 structure in $:
@@ -260,6 +266,28 @@ its row's charts (or all rows) equal again.
 **Any number of top and bottom charts:** on the Dashboards page, create a dashboard with "Start from: Top and
 bottom rows of charts…" and pick how many charts go on top and how many below (1 to 6 each), e.g. 3 over 5.
 The Layout menu shows that dashboard's own layout alongside the named ones.
+
+**Adding and removing charts.** Each chart's **≡** menu has a **Layout** section:
+- **+ Chart left / + Chart right** adds a chart next to this one in its row. Example: **+ Chart left** on the
+  bottom-left chart of 2 over 4 gives 2 over 5. The new chart is a copy of this one (same candle duration,
+  range, price type and studies), with its symbol box selected: type a symbol and press Enter.
+- **+ Row below** adds a new row with one chart under this chart's row.
+- **+ Watch list left / + Watch list right** adds a watch list (below) instead.
+- **Remove this chart** closes it up; a row left empty goes away. **Undo** on the message that follows brings it back.
+- Widths stay equal in a row of equal charts; otherwise the new chart takes half the width of the one it's
+  added next to. A row holds at most 6 charts and a window at most 4 rows. The last chart can't be removed.
+- The result is kept for the dashboard in this browser, and **Layouts ▾** can save it like any layout.
+
+**Watch list.** A list of symbols with fixed columns: **Last, Chg, Chg %, Volume, High, Low**, from the
+cached 1-minute bars of the day on screen. In Replay they follow the cursor; in Live they update every 5 seconds.
+- **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the linked chart:
+  the **Active chart** by default, or a chosen one in **Chart**.
+- **Own list** or a watch list saved under **Load data…**. **Edit** takes symbols separated by spaces, commas or
+  lines, or a thinkorswim share link. A new watch list starts with the symbols on screen.
+- Symbols not cached for that day say so; **Fetch from TWS** asks the collector for them (in Live it then
+  streams them).
+- Market internals (TICK, ADD, VOLD and so on) show no % change and no volume, which mean nothing for them.
+- Its **≡** menu adds a chart or watch list next to it, or removes it.
 
 Pages ask for their scripts at an address that changes with every update, so no browser (Chrome, Firefox or
 any other) can run an old copy with a new page. A browser that opened a dashboard while it still had old
@@ -975,6 +1003,7 @@ app/static/earnings.html    the earnings page (/earnings)
 app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event move, diagonal legs (no network)
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
+app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
 app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
 app/static/options.html the option-chain page (/options); its scripts in js/options/
 app/static/js/          the pages' code, as ES modules, one job each (no build step; the browser loads them directly):
@@ -998,7 +1027,10 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   keys.js               this browser's storage keys (also used by the dashboards page)
   pricetypes.js         price types: candles, Heikin-Ashi, OHLC bars, line, area, current price line
   primitives.js         canvas drawings: volume profile, extended-hours shading, zones, trend lines
-  grid.js               the grid of charts, active chart, splitters, maximize
+  grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
+  layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
+  layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
+  watchlist.js          the watch list cell: symbols, columns, the linked chart
   layouts.js            the window layouts, as rows of charts (e.g. 2 over 4, or any top/bottom count)
   data.js               bars from TWS: the Day list, requests, waiting messages, polling
   replay.js             the toolbar: layout, day, display options, replay and Live

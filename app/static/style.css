@@ -354,3 +354,35 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .oc-svg .oc-gput { fill: var(--bear); }
 .oc-sw-gcall { background: var(--bull); border-color: var(--bull); }
 .oc-sw-gput { background: var(--bear); border-color: var(--bear); }
+/* ---------------------------------------------------------------- the Layout section of a chart's ≡ menu */
+.menu .mlayout { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+.menu .mgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.menu .mgrid button { font-size: 12px; padding: 4px 6px; }
+.menu .mgrid button[data-action="remove"] { color: #ffb4b2; }
+.menu .mgrid button:disabled { opacity: .45; cursor: not-allowed; }
+.toast .toastbtn { margin-left: 10px; padding: 1px 10px; font-size: 12px; }
+
+/* ---------------------------------------------------------------- watch list cell */
+.panel.wl { align-items: stretch; }
+.panel.wl .phead .wltitle { font-size: 12px; margin: 0 4px; }
+.panel.wl .wllinkl { font-size: 12px; color: var(--muted); }
+.panel.wl .wllist, .panel.wl .wllink { max-width: 130px; }
+.panel.wl .wlgrow { flex: 1; }
+.wleditor { display: flex; flex-direction: column; gap: 6px; padding: 6px; border-bottom: 1px solid var(--line); }
+.wleditor textarea { background: #0f1318; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font: inherit; resize: vertical; }
+.wlrow { display: flex; gap: 6px; align-items: center; }
+.wlbody { flex: 1; min-height: 0; overflow: auto; outline: none; }
+.wlbody:focus-visible { box-shadow: inset 0 0 0 1px var(--teal); }
+.wltable { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.wltable th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; text-align: right;
+  padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.wltable td { text-align: right; padding: 3px 6px; border-bottom: 1px solid #1d232b; white-space: nowrap; }
+.wltable th:first-child, .wltable td:first-child { text-align: left; }
+.wltable tr.wlr { cursor: pointer; }
+.wltable tr.wlr:hover td { background: #1a2028; }
+.wltable tr.wlr.sel td { background: #1f3b37; }
+.wltable td.wlsym { font-weight: 600; }
+.wltable td.wlchg.up { color: var(--bull); }
+.wltable td.wlchg.down { color: var(--bear); }
+.wlfoot { display: flex; gap: 8px; align-items: center; padding: 4px 6px; border-top: 1px solid var(--line); }
+.wlfoot .wlfetch { font-size: 12px; padding: 1px 8px; margin-left: auto; }
