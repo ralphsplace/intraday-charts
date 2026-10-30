@@ -74,6 +74,19 @@ def test_iron_condor_best_worst_and_loss_limit():
     assert r["greeks"]["theta"] > 0 and r["greeks"]["vega"] < 0                              # short premium
 
 
+def test_wish_list_payoff():
+    """Puts +1 x -3 x 1 (110 / 100 / 90, a 0.20 credit): the credit above 110, a butterfly's peak at 100, and below
+    90 like owning 100 shares from 100 (worst as the stock goes to 0)."""
+    legs = [leg(1, 110, "P", 5.0), leg(-3, 100, "P", 2.0), leg(1, 90, "P", 0.8)]
+    r = st.evaluate(legs, 105.0, NOW, "front_close", sigma=0.3)
+    assert r["kind"] == "credit" and r["cost"] == pytest.approx(-20)
+    assert r["breakevens"] == [pytest.approx(94.9, abs=0.05)]                     # 2S - 189.8 = 0; none above
+    assert r["max_profit"]["value"] == pytest.approx(1020, abs=1) and r["max_profit"]["price"] == pytest.approx(100, abs=0.6)
+    assert r["max_loss"]["value"] == pytest.approx(-9980, abs=5) and not r["max_loss"]["unlimited"]
+    at = dict(zip(r["graph"]["prices"], r["graph"]["at"], strict=True))
+    assert at[max(at)] == pytest.approx(20, abs=0.5)                              # above 110: the credit
+
+
 def test_iv_change_moves_a_calendar():
     legs = [leg(-1, 100, "C", 1.2), leg(1, 100, "C", 3.0, expiry="20261106", iv=0.3)]
     base = st.evaluate(legs, 100.0, NOW, "front_close", sigma=0.3)["max_profit"]["value"]
@@ -111,6 +124,18 @@ def test_double_diagonal_template_follows_the_rule(chain):
     assert long_p["strike"] == short_p["strike"] + 1
     r = option_chain.evaluate("ACME-DEMO", legs, "front_close", 0.0, None)
     assert r["status"] == "ok" and r["kind"] == "debit" and len(r["legs"]) == 4
+
+
+def test_wish_list_template(chain):
+    from app import expected_move as em
+    legs = st.template("wish_list", chain, "20261030", None)
+    assert [(x["qty"], x["right"]) for x in legs] == [(1, "P"), (-3, "P"), (1, "P")]
+    up, body, low = (x["strike"] for x in legs)
+    price, move = chain["price"], em.straddle_at(chain, "20261030", chain["price"])["value"]
+    assert body == em.nearest([k for k in em.listed_side(chain, "20261030", "P") if k <= price], price - move)
+    assert up - body == body - low == st.WING                                     # $1 strikes, 2 out
+    r = option_chain.evaluate("ACME-DEMO", legs, "front_close", 0.0, None)
+    assert r["status"] == "ok" and len(r["breakevens"]) >= 1
 
 
 def test_other_templates(chain):
