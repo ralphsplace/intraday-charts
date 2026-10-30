@@ -5,7 +5,7 @@ chart grids. It runs in Docker on your NAS and reads 1-minute bars from a local 
 filled from Trader Workstation (TWS): type a symbol into a chart, or pick symbols and a day under
 **Load data**, and the collector fetches them.
 
-![A 2-over-4 dashboard replaying Oct 28: QQQ 1-minute candles with Bollinger bands, SMAs, the MA cloud, an anchored VWAP and VZO dots (top left); QQQ's current price over ATR levels, the volume profile and session levels (top right); VOLD-NYSE, -VIX, TICK-NYSE and ADD-NYSE below](img/scalpingView.png)
+![A 2-over-4 dashboard in Live on Oct 30: QQQ 3-minute candles with VWAP, Bollinger bands, SMAs, the MA cloud, VZO dots, a trend line, a line and an alert that has fired (top left); QQQ's current price over ATR levels and the volume profile (top right); VOLD-NYSE, -VIX, TICK-NYSE and ADD-NYSE below. The drawing tools are in the top bar](img/scalpingView.png)
 
 Studies are added, configured and removed the way TWS Advanced Charts does it:
 - **f(x) Studies** opens the list.
@@ -182,6 +182,8 @@ The page asks the collector for option quotes and fills in as they arrive (a few
 - **Needs** a US options market-data subscription in IBKR (OPRA). Without it, the page says no quotes came back.
 
 ### Option chain view
+
+![QQQ's chain for Mon Nov 2 from TWS, taken after the close: deltas, implied volatility and each expiry's expected move in the strip. Bid and ask are empty outside regular hours, so build structures during the session. The four panels (chain, structure, evaluation, profit/loss grid) scroll under the fixed expiry strip](img/optionsView.png)
 
 `http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page). A chain
 for building option structures and judging them before you trade. It is read-only: it evaluates structures and
