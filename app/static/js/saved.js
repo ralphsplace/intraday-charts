@@ -114,13 +114,18 @@ export async function openSavedMenu(anchor, kind, panel) {
   api(`/api/saved/${kind}`).then((d) => { app.saved[kind] = d; renderList(); }).catch(() => {});
 }
 
+// under its button, or above it when there's no room below (a bottom-row chart); never past the window's edge
 function placeMenu(m, anchor) {
   m.hidden = false;
   const r = anchor.getBoundingClientRect();
   const w = Math.min(340, window.innerWidth - 16);
   m.style.width = w + "px";
   m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
-  m.style.top = (r.bottom + 4) + "px";
+  m.style.maxHeight = (window.innerHeight - 16) + "px";
+  m.style.overflowY = "auto";
+  const h = m.offsetHeight;
+  const below = r.bottom + 4, above = r.top - 4 - h;
+  m.style.top = (below + h <= window.innerHeight - 8 ? below : above >= 8 ? above : Math.max(8, window.innerHeight - 8 - h)) + "px";
 }
 
 // a watch list's menu: just its Layout section

@@ -1046,8 +1046,24 @@ def cell_symbols(p):
 
 def layout_action(p, cell, action):
     p.locator("#grid .panel").nth(cell).locator(".viewsbtn").click()
+    box = p.locator("#savedMenu").bounding_box()                           # the menu stays inside the window
+    assert box["y"] >= 0 and box["y"] + box["height"] <= p.viewport_size["height"]
     p.click(f"#savedMenu button[data-action='{action}']")
     p.wait_for_timeout(800)
+
+
+def test_splitters_follow_the_grid_when_the_top_bar_grows(tab):
+    """The top bar can grow after the charts are laid out (a late warning badge, wider fonts): the row splitter must
+    move with the charts, or it sits on the bottom charts' headers and takes their clicks."""
+    p = tab.goto("/Internals", 3000)
+    gap = "(() => { const s = document.querySelector('.splitter.row').getBoundingClientRect(); "\
+          "const top = window.__chartApp.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
+    assert p.evaluate(gap) < 4
+    p.add_style_tag(content="header.toolbar { padding-bottom: 40px; }")
+    p.wait_for_timeout(500)
+    assert p.evaluate(gap) < 4
+    p.locator("#grid .panel").nth(2).locator(".viewsbtn").click()              # not covered by the splitter
+    assert p.locator("#savedMenu").is_visible()
 
 
 def test_add_spy_far_left_turns_two_over_four_into_two_over_five(tab):

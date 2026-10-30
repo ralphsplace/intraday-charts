@@ -160,6 +160,9 @@ export function updateBanner() { $("demoBanner").hidden = !app.panels.some((p) =
 
 export function init() {
   window.addEventListener("resize", () => requestAnimationFrame(placeSplitters));
+  // the grid also moves and resizes without the window doing so: the top bar wrapping to a second row (a late
+  // warning badge, wider fonts), the replay bar going away in Live. Splitters left behind would sit on charts.
+  new ResizeObserver(() => requestAnimationFrame(placeSplitters)).observe($("grid"));
   showLayout();
 }
 
