@@ -32,7 +32,8 @@ export function renderStats(box, ev) {
 // the risk graph, drawn as SVG: x = stock price, y = profit/loss in $ for 1 structure
 export function renderGraph(box, ev, price, move) {
   box.innerHTML = "";
-  const W = 660, H = 270, L = 52, R = 10, T = 18, B = 26;
+  // as wide as its panel (text keeps its size), a fixed height
+  const W = Math.max(480, Math.round(box.clientWidth || 660)), H = 300, L = 60, R = 10, T = 18, B = 26;
   const xs = ev.graph.prices, a = ev.graph.at, n = ev.graph.now;
   const lo = Math.min(...a, ...n, 0), hi = Math.max(...a, ...n, 0), pad = (hi - lo) * 0.08 || 1;
   const y0 = lo - pad, y1 = hi + pad;

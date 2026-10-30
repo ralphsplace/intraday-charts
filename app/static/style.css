@@ -16,7 +16,7 @@ button.primary { background: #1f3b37; border-color: var(--teal); color: #fff; }
 .error { color: var(--bear); padding: 20px; }
 
 /* ---------------------------------------------------------------- top toolbar */
-.toolbar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .group { display: flex; gap: 6px; align-items: center; }
 label { color: var(--muted); }
 label select { margin-left: 4px; }
@@ -41,13 +41,14 @@ main.grid { position: relative; flex: 1; min-height: 0; display: grid; gap: 4px;
   white-space: nowrap; }
 .phead button, .phead select { padding: 1px 6px; font-size: 12px; border-radius: 4px; }
 .phead .sym { max-width: 150px; font-weight: 600; }
-.phead .tools { display: inline-flex; gap: 2px; margin-left: 4px; }
 .fx { font-style: italic; font-family: Georgia, serif; }
 .phint { color: var(--amber); font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
 .ptitle { margin-left: auto; font-size: 12px; color: var(--muted); padding-left: 6px; }
 .ptitle b { color: var(--text); font-weight: 600; }
 .ptitle .up { color: var(--bull); } .ptitle .down { color: var(--bear); }
-.grid.many .phead .tools, .grid.many .phead .ptitle b { display: none; }
+/* the title's symbol goes when this chart's own header is too narrow for it (not by how many charts the grid has) */
+.panel { container-type: inline-size; }
+@container (max-width: 640px) { .phead .ptitle b { display: none; } }
 
 /* compact premarket-scan strip inside each panel */
 
@@ -261,10 +262,11 @@ main.em { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px; }
 .oc-chip .muted { margin-left: 4px; }
 .oc-tag { margin-left: 8px; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #22303a; color: #9fe3d4; }
 .oc-msg { margin: 10px 12px 0; color: var(--muted); }
-main.oc { display: flex; flex-wrap: wrap; gap: 16px; padding: 14px 12px 8px; align-items: flex-start; }
+/* one column: chain, structure, evaluation, grid; they scroll together under the fixed toolbar and expiry strip */
+body.oc-page { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+body.oc-page > header, body.oc-page > .banner, body.oc-page > .oc-strip, body.oc-page > .oc-msg { flex: none; }
+main.oc { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 14px 12px 8px; }
 .oc-box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
-.oc-chainbox { flex: 999 1 560px; }
-.oc-side { flex: 1 1 540px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
 .oc-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); }
 .oc-head h2 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; white-space: nowrap; }
 .oc-head select, .oc-row select { background: #0f1318; }
@@ -309,7 +311,7 @@ button.oc-selltag { background: #4a1f22; border-color: var(--bear); color: #ffb4
 button.oc-buytag { background: #173a35; border-color: var(--teal); color: #9fe3d4; }
 .oc-qty { width: 52px; padding: 2px 4px; background: #0f1318; border: 1px solid var(--line); border-radius: 6px; color-scheme: dark; }
 button.oc-x { padding: 0 8px; color: var(--muted); }
-.oc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+.oc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
 .oc-stat { background: var(--panel); padding: 7px 12px; font-size: 11px; }
 .oc-statv { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .oc-graph { margin: 0; padding: 8px 12px 8px; }
@@ -337,4 +339,10 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .oc-grid tr { border-top: 1px solid #1d232b; }
 .oc-grid tr.oc-nowrow { outline: 1px solid var(--amber); outline-offset: -1px; }
 .oc-gtag { margin-left: 6px; font-size: 11px; color: var(--amber); font-weight: 400; }
-.oc-notes { max-width: 1100px; padding: 0 12px 20px; }
+.oc-notes { max-width: 1100px; padding: 0 0 12px; }
+
+/* the drawing tools in the top bar: compact, like the chart headers' buttons */
+.drawtools { display: inline-flex; gap: 2px; margin-left: 4px; }
+/* while a tool is armed on every chart, its first hint shows on the chart under the mouse only */
+.panel:not(:hover) .phint.first { display: none; }
+.drawtools button { padding: 3px 6px; font-size: 12px; }

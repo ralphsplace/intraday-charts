@@ -8,6 +8,14 @@ import { TOOLS, toolFor } from "./tools/index.js";
 import { load, store, uid } from "./util.js";
 
 let drawings = load(DRAWINGS_KEY) || {};
+
+// the drawing tool armed in the top bar: armed on every chart, so the next click on any chart places it; cleared on
+// all of them once placed (or with Escape, or the button again)
+export function setTools(type) {
+  app.tool = type || null;
+  app.panels.forEach((p) => p.setTool(app.tool));
+  document.querySelectorAll("#drawTools [data-tool]").forEach((b) => b.classList.toggle("active", b.dataset.tool === app.tool));
+}
 export const drawingsFor = (sym) => (drawings[sym] || []).filter((d) => toolFor(d.type));
 export function saveDrawings(sym) {
   store(DRAWINGS_KEY, drawings);
@@ -50,8 +58,8 @@ export class DrawingTools {
 
   setTool(type) {
     this.tool = type; this.pending = null;
-    Object.entries(this.toolBtns).forEach(([k, b]) => b.classList.toggle("active", k === type));
     this.hint.textContent = type ? toolFor(type).hints[0] : "";
+    this.hint.classList.toggle("first", !!type);
     this.chartEl.classList.toggle("drawing", !!type);
     this.renderDrawings();
   }
@@ -73,13 +81,14 @@ export class DrawingTools {
     if (points.length < tool.hints.length) {             // more clicks to go
       this.pending = { type: tool.type, points };
       this.hint.textContent = tool.hints[points.length];
+      this.hint.classList.remove("first");
       this.renderDrawings();
       return;
     }
     if (tool.place) tool.place(this, points);            // e.g. VWAP: adds a study rather than a drawing
     else addDrawing(this.symbol, { type: tool.type, ...tool.create(this, points) });
     tool.placed?.();
-    this.setTool(null);
+    setTools(null);
   }
 
   // while placing a drawing, the mouse position is the preview's next point

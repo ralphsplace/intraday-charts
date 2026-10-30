@@ -185,7 +185,8 @@ The page asks the collector for option quotes and fills in as they arrive (a few
 
 `http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page). A chain
 for building option structures and judging them before you trade. It is read-only: it evaluates structures and
-never places or prepares orders. Type a stock and press Enter.
+never places or prepares orders. Type a stock and press Enter. The chain, the structure, the evaluation and the
+profit/loss grid are stacked in one column and scroll together; the toolbar and the expiry strip stay at the top.
 
 - **Expiry strip.** The next 8 expiries, each with its days left and expected move (the at-the-money straddle).
   Click one to view its chain. The expiry tagged *back* is the later one for calendars and diagonals (pick it
@@ -359,8 +360,10 @@ keep their price-axis labels but drop their names.
 
 ### Drawings
 
-Each chart header has **Alert**, **Line**, **Trend** and **VWAP** tools. Drawings belong to the symbol, so
-they appear on every chart of that symbol, on any timeframe.
+The **Alert**, **Line**, **Trend** and **VWAP** tools are in the top bar, next to **Layouts**. Press one, then
+click the chart you want it on: any chart in the window, small or large. The chart under the mouse says what to
+click. Once it's placed, the tool switches off; Escape or pressing the button again cancels it. Drawings belong to
+the symbol, so they appear on every chart of that symbol, on any timeframe.
 
 | Tool | How | Notes |
 |---|---|---|
@@ -973,12 +976,13 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   state.js              the window's state (charts, layout, day, cursor, preferences) and saving it
   util.js               DOM helpers, server calls, browser storage
   panel.js              one chart: settings, fetching its view, drawing it; the parts below are mixed into it
-  panel-header.js       a chart's header (symbol, candle duration, range, price type, f(x), tools, maximize)
+  panel-header.js       a chart's header (symbol, candle duration, range, price type, f(x), maximize)
   timeframes.js         the candle durations and ranges, as the server lists them
   study-layers.js       draws a chart's studies by running the output modules' hooks
   outputs/              one module per kind of study output (lines, levels, profile, box, event lines, ...)
   legends.js            the legend on each pane, with Settings / Hide / Remove
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
+  drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)
   styles.js             line types, dash patterns, colours
   params.js             settings parameters (the shape the settings dialog takes)
