@@ -49,16 +49,45 @@ def quoted_at(cache: dict) -> pd.Timestamp:
 
 
 def _side(q: dict | None, s: float, k: float, t: float, right: str) -> dict | None:
-    """One option's row cell: bid, ask, mid, IV (IBKR's, else from the mid) and delta (IBKR's, else Black-Scholes)."""
+    """One option's row cell: bid, ask, mid, IV (IBKR's, else from the mid), delta and gamma (IBKR's, else
+    Black-Scholes) and open interest."""
     if not q:
         return None
     m, how = em.mid(q)
     iv = q.get("iv") or (st.implied_vol(m, s, k, t, right) if m else None)
-    delta = q.get("delta")
-    if delta is None and iv:
-        delta = st.bs_greeks(s, k, t, iv, right)["delta"]
+    delta, gamma = q.get("delta"), q.get("gamma")
+    if iv and (delta is None or gamma is None):
+        g = st.bs_greeks(s, k, t, iv, right)
+        delta = g["delta"] if delta is None else delta
+        gamma = g["gamma"] if gamma is None else gamma
     return {"bid": q.get("bid"), "ask": q.get("ask"), "mid": round(m, 4) if m is not None else None, "how": how,
-            "iv": round(iv, 4) if iv else None, "delta": round(delta, 3) if delta is not None else None}
+            "iv": round(iv, 4) if iv else None, "delta": round(delta, 3) if delta is not None else None,
+            "gamma": gamma, "oi": q.get("oi")}
+
+
+def gamma_exposure(gamma: float | None, oi: float | None, price: float) -> float | None:
+    """Dollars of delta per 1% move in the stock held by an option's open interest: gamma x OI x 100 x S^2 x 1%."""
+    if gamma is None or oi is None:
+        return None
+    return gamma * oi * st.MULT * price * price * 0.01
+
+
+def strike_profile(rows: list[dict], price: float) -> dict:
+    """Gamma exposure by strike: calls +, puts - (the usual convention: dealers long calls, short puts). Strikes
+    without open interest are left out and counted."""
+    out, missing = [], 0
+    for r in rows:
+        c, p = r.get("C") or {}, r.get("P") or {}
+        cg, pg = gamma_exposure(c.get("gamma"), c.get("oi"), price), gamma_exposure(p.get("gamma"), p.get("oi"), price)
+        if cg is None and pg is None:
+            missing += 1
+            continue
+        out.append({"strike": r["strike"], "call": round(cg or 0.0, 2), "put": round(-(pg or 0.0), 2),
+                    "call_oi": c.get("oi"), "put_oi": p.get("oi")})
+    net = sum(x["call"] + x["put"] for x in out)
+    return {"strikes": out, "missing": missing, "net": round(net, 2),
+            "call_wall": max(out, key=lambda x: x["call"])["strike"] if out else None,
+            "put_wall": min(out, key=lambda x: x["put"])["strike"] if out else None}
 
 
 def view(symbol: str, expiry: str | None = None) -> dict:
@@ -90,6 +119,7 @@ def view(symbol: str, expiry: str | None = None) -> dict:
             qk = quotes[em._key(k)]
             rows.append({"strike": k, "C": _side(qk.get("C"), price, k, t, "C"), "P": _side(qk.get("P"), price, k, t, "P")})
     s = em.straddle_at(cache, expiry, price) if expiry else None
+    profile = strike_profile(rows, price)
     warnings = []
     if not cache.get("market_open"):
         warnings.append("Quotes taken outside regular hours: option prices are often wide or stale until 09:30 ET.")
@@ -98,6 +128,7 @@ def view(symbol: str, expiry: str | None = None) -> dict:
             "expiry": expiry, "expiry_label": em.fmt_expiry(expiry), "rows": rows,
             "move": round(s["value"], 2) if s else None, "atm_iv": s["iv"] if s else None,
             "next_weekly": em.pick_expiries(cache.get("expirations", []), _iso(expiry), _iso(expiry))["next"] if expiry else None,
+            "profile": profile, "oi_day": cache.get("oi_day"),
             "warnings": warnings}
 
 
