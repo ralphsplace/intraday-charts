@@ -17,8 +17,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import (control, dashboards, earnings, engine, envcheck, expected_move, option_chain, periods, saved, security,
-               sessions, store, structures, studies, templates, timeframes, watchlist)
+from . import (control, dashboards, earnings, engine, envcheck, expected_move, option_chain, periods, quotes, saved,
+               security, sessions, store, structures, studies, templates, timeframes, watchlist)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -133,6 +133,19 @@ def stop_live(req: FetchRequest):
 @app.get("/api/collector")
 def collector_status():
     return control.read_status()
+
+
+MAX_QUOTE_SYMBOLS = 100
+
+
+@app.get("/api/quotes")
+def quote_rows(symbols: str, day: str, cursor: int | None = Query(None, ge=0, le=24 * 60)):
+    """Watch list rows from the cached 1-minute bars of `day` (up to the Replay cursor, when given)."""
+    parts = [x for x in re.split(r"[\s,;]+", symbols or "") if x]
+    if len(parts) > MAX_QUOTE_SYMBOLS:
+        raise HTTPException(400, f"At most {MAX_QUOTE_SYMBOLS} symbols")
+    syms = list(dict.fromkeys(_one_symbol(x, demo_ok=True) for x in parts))
+    return {"day": _date(day), "items": quotes.rows(syms, day, cursor)}
 
 
 @app.post("/api/symbols/parse")

@@ -1,6 +1,7 @@
 /* Saved chart views and window layouts (kept on the server), and their menu. */
 import { refreshAll, requestData } from "./data.js";
 import { buildGrid, setActive, showLayout } from "./grid.js";
+import { layoutSection } from "./layout-actions.js";
 import { isLayout, layoutLabel } from "./layouts.js";
 import { defaultSpan, isPeriod, rangeLabel, tfLabel } from "./timeframes.js";
 import { app, normStudies, save } from "./state.js";
@@ -11,7 +12,7 @@ export function closeMenu() { $("savedMenu").hidden = true; menuFor = null; }
 
 export function layoutSnapshot() {
   save();
-  return { layout: app.layout, configs: clone(app.configs.slice(0, app.panels.length)),
+  return { layout: app.layout, configs: clone(app.configs.slice(0, app.cells.length)),
            sizes: clone((app.prefs.sizes || {})[app.layout] || null),
            prefs: { fitLevels: app.prefs.fitLevels, extShade: app.prefs.extShade, sync: app.prefs.sync } };
 }
@@ -31,13 +32,13 @@ export async function applyLayout(d) {
 }
 
 export function applyView(panel, d, keepSymbol) {
-  const i = app.panels.indexOf(panel);
+  const i = app.cells.indexOf(panel);
   if (i < 0) return;
-  app.configs[i] = { symbol: keepSymbol ? panel.symbol : (d.symbol || panel.symbol), tf: d.tf || 3, days: d.days || 1,
+  app.configs[i] = { id: panel.id, symbol: keepSymbol ? panel.symbol : (d.symbol || panel.symbol), tf: d.tf || 3, days: d.days || 1,
                      spans: d.spans, price: d.price, style: d.style, studies: normStudies(clone(d.studies || [])) };
   buildGrid(); save();
   if (app.live) requestData([app.configs[i].symbol]);
-  setActive(app.panels[i]);
+  setActive(app.cells[i]);
   refreshAll();
 }
 
@@ -106,15 +107,30 @@ export async function openSavedMenu(anchor, kind, panel) {
   };
   saveB.onclick = doSave;
   name.onkeydown = (e) => { if (e.key === "Enter") doSave(); if (e.key === "Escape") closeMenu(); };
+  if (kind === "views") m.appendChild(layoutSection(panel));     // add a chart or watch list next to it, or remove it
   renderList();
+  placeMenu(m, anchor);
+  name.focus();
+  api(`/api/saved/${kind}`).then((d) => { app.saved[kind] = d; renderList(); }).catch(() => {});
+}
+
+function placeMenu(m, anchor) {
   m.hidden = false;
   const r = anchor.getBoundingClientRect();
   const w = Math.min(340, window.innerWidth - 16);
   m.style.width = w + "px";
   m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + "px";
   m.style.top = (r.bottom + 4) + "px";
-  name.focus();
-  api(`/api/saved/${kind}`).then((d) => { app.saved[kind] = d; renderList(); }).catch(() => {});
+}
+
+// a watch list's menu: just its Layout section
+export function openCellMenu(anchor, cell) {
+  if (menuFor === anchor) return closeMenu();
+  menuFor = anchor;
+  const m = $("savedMenu");
+  m.innerHTML = "";
+  m.appendChild(layoutSection(cell));
+  placeMenu(m, anchor);
 }
 
 export function init() {

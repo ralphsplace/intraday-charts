@@ -3,7 +3,8 @@ import { fillDays } from "./data.js";
 import { setTools } from "./drawings.js";
 import { Panel } from "./panel.js";
 import { LAYOUTS, layoutLabel, shape } from "./layouts.js";
-import { app, newConfig, save } from "./state.js";
+import { app, isWatchlist, newConfig, save } from "./state.js";
+import { WatchList } from "./watchlist.js";
 import { $, el } from "./util.js";
 
 // ================================================================ layout
@@ -14,8 +15,8 @@ export function setActive(p) {
 }
 
 export function buildGrid() {
-  app.panels.forEach((p) => p.destroy());
-  app.panels = [];
+  app.cells.forEach((p) => p.destroy());
+  app.cells = []; app.panels = [];
   const sh = shape(app.layout), n = sh.count;
   while (app.configs.length < n) app.configs.push(newConfig());
   const grid = $("grid");
@@ -25,10 +26,11 @@ export function buildGrid() {
   // uniform layouts: the charts sit in the grid itself; mixed ones: a box per row, each with its own columns
   const boxes = sh.uniform ? [] : sh.rows.map(() => grid.appendChild(el("div", "gridrow")));
   for (let i = 0; i < n; i++) {
-    const p = new Panel(app.configs[i], i);
+    const cfg = app.configs[i];
+    const p = isWatchlist(cfg) ? new WatchList(cfg, i) : new Panel(cfg, i);
     (sh.uniform ? grid : boxes[sh.rowOf(i)]).appendChild(p.root);
-    p.fillSymbols();
-    app.panels.push(p);
+    app.cells.push(p);
+    if (p instanceof Panel) { p.fillSymbols(); app.panels.push(p); }
   }
   applyGridSizes();
   setActive(app.panels[0]);
@@ -66,7 +68,7 @@ export function applyGridSizes() {
     grid.style.gridTemplateRows = tracks(rows);
     boxes.forEach((b, r) => { b.hidden = false; b.style.gridTemplateColumns = tracks(cols[r]); });
   }
-  app.panels.forEach((p) => {
+  app.cells.forEach((p) => {
     p.root.hidden = !!app.maximized && app.maximized !== p;
     p.maxBtn.classList.toggle("active", app.maximized === p);
     p.maxBtn.textContent = app.maximized === p ? "⤡" : "⤢";
@@ -76,7 +78,7 @@ export function applyGridSizes() {
 
 export function toggleMaximize(p) {
   app.maximized = app.maximized === p ? null : p;
-  setActive(p);
+  if (p instanceof Panel) setActive(p);
   applyGridSizes();
 }
 
@@ -99,17 +101,17 @@ export function placeSplitters() {
     specs.forEach((s) => addSplitter(s.kind, s.i, s.r));
     sps = [...grid.querySelectorAll(".splitter")];
   }
-  const show = !app.maximized && app.panels.length;
+  const show = !app.maximized && app.cells.length;
   const g = grid.getBoundingClientRect();
   for (const sp of sps) {
     sp.hidden = !show;
     if (!show) continue;
     const i = +sp.dataset.i, r = +sp.dataset.r;
     if (sp.dataset.kind === "row") {
-      sp.style.top = (app.panels[sh.first[i]].root.getBoundingClientRect().bottom - g.top - 1) + "px";
+      sp.style.top = (app.cells[sh.first[i]].root.getBoundingClientRect().bottom - g.top - 1) + "px";
       continue;
     }
-    sp.style.left = (app.panels[sh.first[r] + i].root.getBoundingClientRect().right - g.left - 1) + "px";
+    sp.style.left = (app.cells[sh.first[r] + i].root.getBoundingClientRect().right - g.left - 1) + "px";
     if (!sh.uniform) {                                   // only as tall as its own row
       const b = boxes[r].getBoundingClientRect();
       sp.style.top = (b.top - g.top) + "px"; sp.style.height = b.height + "px"; sp.style.bottom = "auto";
