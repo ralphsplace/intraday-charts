@@ -47,3 +47,17 @@ export function svgEl(tag, attrs) {
   for (const [k, val] of Object.entries(attrs)) e.setAttribute(k, val);
   return e;
 }
+
+// ---------------------------------------------------------------- what someone is typing or picking
+// A refresh never writes over a box someone is typing in, or has typed in and not yet submitted (Enter or the form's
+// button), and never rebuilds a menu that has the focus. The text stays until it's submitted, or Escape puts back
+// what the page shows.
+export const inUse = (e) => !!e && (document.activeElement === e || e.dataset.edited === "1");
+export function setValue(e, value) { if (!inUse(e)) e.value = value; }
+export function trackEdits(e, current) {
+  e.addEventListener("input", () => { e.dataset.edited = "1"; });
+  e.addEventListener("keydown", (k) => {
+    if (k.key === "Escape" && e.dataset.edited) { delete e.dataset.edited; e.value = current(); }
+  });
+}
+export const submitted = (e) => { delete e.dataset.edited; };
