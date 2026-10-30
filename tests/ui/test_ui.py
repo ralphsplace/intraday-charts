@@ -957,6 +957,19 @@ def test_structure_levels_show_on_a_chart(tab):
 
 
 # ---------------------------------------------------------------- Internals dashboard (2 charts over 4 internals)
+def test_drawing_tools_follow_each_charts_width(tab):
+    """The Alert, Line, Trend and VWAP buttons show on charts wide enough for them, however many charts the grid has
+    (the 2-over-4 Internals dashboard: two wide charts on top, four narrow ones below), and on a maximized chart."""
+    p = tab.goto("/Internals", 3000)
+    shown = lambda i: p.locator(".panel").nth(i).locator(".tools").is_visible()   # noqa: E731
+    assert [shown(i) for i in range(6)] == [True, True, False, False, False, False]
+    p.locator(".panel").nth(4).locator(".maxbtn").click()
+    p.wait_for_timeout(500)
+    assert shown(4)
+    p.locator(".panel").nth(4).locator(".tools button", has_text="Alert").click()  # and it's usable there
+    assert "active" in p.locator(".panel").nth(4).locator(".tools button", has_text="Alert").get_attribute("class")
+
+
 def test_internals_dashboard(tab):
     p = tab.goto("/Internals", 4000)
     assert p.locator("#layout").input_value() == "2/4" and p.locator(".panel:visible").count() == 6
