@@ -928,6 +928,20 @@ def test_option_chain_panels_scroll_under_a_fixed_expiry_strip(tab):
     assert abs(w - p.evaluate("document.querySelector('#ocGraph').clientWidth")) < 2          # the graph fills its panel
 
 
+def test_option_chain_strike_profile(tab):
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    assert p.inner_text("#ocProfileTitle") == "Strike profile · Fri Oct 30"
+    assert "active" in p.get_attribute("#ocProfileNear", "class")                 # Near by default
+    near = p.locator("#ocProfile rect").count()
+    p.click("#ocProfileAll")
+    assert p.locator("#ocProfile rect").count() > near
+    assert p.locator("#ocProfile .oc-gcall").count() and p.locator("#ocProfile .oc-gput").count()
+    assert p.locator("#ocProfile .oc-pricel").count() == 1
+    assert "most call gamma at" in p.inner_text("#ocProfileNote")
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)                               # remembered
+    assert "active" in p.get_attribute("#ocProfileAll", "class")
+    
+    
 def test_refreshes_leave_a_symbol_being_typed_alone(tab):
     """While a page polls for data (no collector here: the requests wait), what someone types in its symbol box stays
     until Enter; Escape puts the page's symbol back. Option chain and expected-move pages (the earnings page uses
@@ -953,19 +967,6 @@ def test_refreshes_leave_a_symbol_being_typed_alone(tab):
     assert p.input_value("#emSyms") == "AMZN LL"
     p.keyboard.press("Escape")
     assert p.input_value("#emSyms") == "NVDA"
-
-def test_option_chain_strike_profile(tab):
-    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
-    assert p.inner_text("#ocProfileTitle") == "Strike profile · Fri Oct 30"
-    assert "active" in p.get_attribute("#ocProfileNear", "class")                 # Near by default
-    near = p.locator("#ocProfile rect").count()
-    p.click("#ocProfileAll")
-    assert p.locator("#ocProfile rect").count() > near
-    assert p.locator("#ocProfile .oc-gcall").count() and p.locator("#ocProfile .oc-gput").count()
-    assert p.locator("#ocProfile .oc-pricel").count() == 1
-    assert "most call gamma at" in p.inner_text("#ocProfileNote")
-    p = tab.goto("/options?symbol=ACME-DEMO", 2000)                               # remembered
-    assert "active" in p.get_attribute("#ocProfileAll", "class")
 
 
 def test_option_chain_clicks_reverse_and_loss_limit(tab):

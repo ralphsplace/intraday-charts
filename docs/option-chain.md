@@ -1,5 +1,7 @@
 # Option chain view
 
+![QQQ's chain for Mon Nov 2 from TWS, taken after the close: deltas, implied volatility and each expiry's expected move in the strip. Bid and ask are empty outside regular hours, so build structures during the session. The four panels (chain, structure, evaluation, profit/loss grid) scroll under the fixed expiry strip](img/optionsView.png)
+
 `http://<your-nas>:8050/options` (also **Option chain** in the drop-down at the top left of every page).
 
 **What it's for:** building an option structure from the chain and judging it before you trade: its
