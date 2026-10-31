@@ -1,8 +1,10 @@
 /* How the earnings chart can show the quarters. Each mode says which value of a point it draws and how to
    format and explain it; the chart, legend and toolbar are built from this list. Both modes use the
    split-adjusted closes from the server (app/earnings.py). */
-export const pct = (v) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(1) + "%";
-export const usd = (v) => "$" + v.toFixed(2);
+import { fixed, signedPct } from "../format.js";
+
+export const pct = (v) => signedPct(v);
+export const usd = (v) => "$" + fixed(v);
 
 export const MODES = {
   relative: {

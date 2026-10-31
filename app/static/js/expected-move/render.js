@@ -1,17 +1,11 @@
 /* Draws the expected-move view: a comparison table across the symbols, then one card per symbol with the moves,
    the event priced between expiries, the diagonal's legs and any warnings. Data: /api/expected-move. */
+import { ago, expiryDate, fixed, pct, signed } from "../format.js";
 import { el } from "../util.js";
 
-const money = (x) => (x == null ? "–" : x.toFixed(2));
-const signed = (x) => (x == null ? "–" : (x >= 0 ? "+" : "−") + Math.abs(x).toFixed(2));
-const pct = (x) => (x == null ? "–" : x.toFixed(1) + "%");
-const ivPct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
-export const expiryLabel = (e) => {
-  if (!e) return "";
-  const d = new Date(`${e.slice(0, 4)}-${e.slice(4, 6)}-${e.slice(6)}T12:00:00`);
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-};
-const ago = (s) => (s == null ? "" : s < 90 ? "just now" : s < 5400 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`);
+const money = (x) => fixed(x);                                         // prices and strikes, without a $
+const ivPct = (x) => pct(x == null ? x : x * 100, 0);                    // implied volatility comes as a fraction
+export const expiryLabel = expiryDate;
 // when the quotes were taken (the collector's clock), else when they were saved
 const quotedAt = (it) => (it.quoted_at || it.fetched ? new Date(it.quoted_at || it.fetched * 1000).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" }) + " ET" : "");
 

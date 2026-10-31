@@ -2,6 +2,7 @@
 import { describeWait, fillDays, refreshAll, requestData } from "./data.js";
 import { renderActiveList } from "./dialogs/studies.js";
 import { DrawingTools } from "./drawings.js";
+import { fmtValue } from "./format.js";
 import { updateBanner } from "./grid.js";
 import { Legends } from "./legends.js";
 import { publish } from "./links.js";
@@ -11,7 +12,7 @@ import { PriceTypes as PT } from "./pricetypes.js";
 import { app, defaultSymbol, defaultsFor, normStudies, save } from "./state.js";
 import { StudyLayers, attachOutputs } from "./study-layers.js";
 import { COLORS } from "./styles.js";
-import { $, LWC, api, cleanSymbol, clone, el, fmtValue, uid } from "./util.js";
+import { $, LWC, api, cleanSymbol, clone, el, uid } from "./util.js";
 import { defaultSpan, findTf, isPeriod } from "./timeframes.js";
 
 export class Panel {

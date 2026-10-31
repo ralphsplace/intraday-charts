@@ -1,9 +1,10 @@
 /* The expiry strip and the chain table for one expiry. Clicking a bid adds a sold leg, an ask a bought one.
    Data: /api/options/chain. */
+import { fixed, pct as fmtPct } from "../format.js";
 import { el } from "../util.js";
 
-export const num = (x, d = 2) => (x == null ? "–" : x.toFixed(d));
-const pct = (x) => (x == null ? "–" : (x * 100).toFixed(1) + "%");
+const num = fixed;
+const pct = (x) => fmtPct(x == null ? x : x * 100);                  // implied volatility comes as a fraction
 
 export function renderStrip(box, view, state, pick) {
   box.innerHTML = "";

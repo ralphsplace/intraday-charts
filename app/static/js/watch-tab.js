@@ -7,9 +7,9 @@
      finviz      a FinViz screen or portfolio (feed.js)
      holdings    the account's stock and ETF positions (app/positions.py; HOLDINGS=on in .env)
    Rows come from /api/quotes, or /api/positions for holdings (the quote columns plus the position's). */
-import { ago } from "./data.js";
 import { columnsFor, sortValue } from "./columns.js";
 import { Feed } from "./feed.js";
+import { ago, amount, sign } from "./format.js";
 import * as lists from "./lists.js";
 import { app } from "./state.js";
 import { api, el, orElse, uid } from "./util.js";
@@ -143,8 +143,8 @@ export class WatchTab {
     else if (h.status === "error") say(h.message || "TWS didn't send the positions.", "bad");
     else {
       const t = h.totals || {};
-      const pnl = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
-      say(`Value ${Math.round(t.market_value || 0).toLocaleString("en-US")}`);
+      const pnl = (x) => sign(Math.round(x || 0)) + amount(x || 0, 0);
+      say(`Value ${amount(t.market_value || 0, 0)}`);
       say(`Unrl ${pnl(t.unrealized)}`, t.unrealized > 0 ? "up" : t.unrealized < 0 ? "down" : null);
       say(`Day ${pnl(t.day_pnl)}`, t.day_pnl > 0 ? "up" : t.day_pnl < 0 ? "down" : null);
       const acc = (h.accounts || []).length;

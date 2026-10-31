@@ -5,7 +5,7 @@
    Kinds: text ones (price, signed, pct, count, ratio, qty, money, pnl, time, date, text, state) and graphical
    ones (range: the day's range; range52: the 52-week range; spark: the day's prices; pnlbar). A column marked
    heat can shade its cells by value; one with a bar scale draws a bar behind its number. */
-import { fmtValue } from "./util.js";
+import { amount, fmtValue, price, sign, signedPct } from "./format.js";
 
 export let COLUMNS = {};
 export let DEFAULTS = { quote: ["symbol", "last", "change", "pct", "volume", "high", "low"] };
@@ -34,9 +34,7 @@ export function columnsFor(kind, chosen) {
   return (DEFAULTS[kind] || DEFAULTS.quote).filter((id) => id === "symbol" || can.includes(id));
 }
 
-const sign = (x) => (x > 0 ? "+" : x < 0 ? "−" : "");
-const price = (x) => (Math.abs(x) >= 1e6 ? fmtValue(x) : x.toFixed(2));        // 25.04M for big internals
-const money = (x) => Math.abs(x).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (x) => amount(x, 2);
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // a value's text and colour class ("up" / "down" / "" / others), for the text kinds
@@ -48,7 +46,7 @@ export function cellText(id, row) {
   switch (c.kind) {
     case "price": return [price(x), ""];
     case "signed": return [sign(x) + price(Math.abs(x)), dir];
-    case "pct": return [sign(x) + Math.abs(x).toFixed(2) + "%", dir];
+    case "pct": return [signedPct(x, 2), dir];
     case "count": return [fmtValue(x).replace(/\.00$/, ""), ""];
     case "ratio": return [x.toFixed(2) + "×", ""];
     case "qty": return [x.toLocaleString("en-US", { maximumFractionDigits: 4 }), x < 0 ? "down" : ""];

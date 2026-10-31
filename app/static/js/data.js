@@ -1,4 +1,5 @@
 /* Bars from TWS: the Day list, requests to the collector, what a waiting chart says, polling, symbol suggestions. */
+import { ago } from "./format.js";
 import { symbolsOf } from "./lists.js";
 import { renderCollector } from "./dialogs/load-data.js";
 import { toast } from "./notify.js";
@@ -41,12 +42,6 @@ export function requestData(symbols, day) {
   });
 }
 
-export function ago(secs) {
-  if (secs == null) return "never";
-  if (secs < 90) return Math.round(secs) + " s ago";
-  if (secs < 5400) return Math.round(secs / 60) + " min ago";
-  return Math.round(secs / 3600) + " h ago";
-}
 
 // what a chart waiting for bars should say, from the collector's last status report
 export function describeWait(sym, day) {

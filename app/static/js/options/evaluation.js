@@ -1,13 +1,9 @@
 /* The evaluation: key numbers, the risk graph (profit/loss against the stock's price, now and at the chosen time,
    over the expected move) and the profit/loss grid by price and time. Data: /api/options/evaluate. */
+import { dollars, signed } from "../format.js";
 import { el, svgEl } from "../util.js";
 
-export const money = (x) => {
-  if (x == null) return "–";
-  const r = Math.round(x);
-  return (r > 0 ? "+" : r < 0 ? "−" : "") + "$" + Math.abs(r).toLocaleString("en-US");
-};
-const signed = (x, d = 1) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(d);
+export const money = (x) => dollars(x);
 
 export function renderStats(box, ev) {
   box.innerHTML = "";
@@ -17,7 +13,7 @@ export function renderStats(box, ev) {
     ["Max loss", ml.unlimited ? "Unlimited (calls)" : ml.value >= 0 ? `none (worst ${money(ml.value)})` : money(ml.value)],
     ["Breakevens", ev.breakevens.length ? ev.breakevens.map((x) => x.toFixed(2)).join(" / ") : "none"],
     ["Chance of profit", ev.chance == null ? "–" : `≈ ${Math.round(ev.chance)}%`],
-    ["Delta (shares)", signed(ev.greeks.delta)],
+    ["Delta (shares)", signed(ev.greeks.delta, 1)],
     ["Gamma", signed(ev.greeks.gamma, 2)],
     ["Theta / day", money(ev.greeks.theta)],
     ["Vega / IV pt", money(ev.greeks.vega)],
