@@ -20,6 +20,12 @@ export class Feed {
   }
 
   config() { return this.address ? { source: this.source, address: this.address, label: this.label } : null; }
+  // the list's FinViz address changed (or the tab was opened): start over from it
+  configure(cfg) {
+    this.stop();
+    this.source = cfg?.source || "finviz"; this.address = cfg?.address || ""; this.label = cfg?.label || "";
+    this.symbols = []; this.fields = {}; this.view = null; this.checked = 0;
+  }
   stop() { clearTimeout(this.timer); this.timer = null; this.waiting = false; }
 
   ask(address, opts) {

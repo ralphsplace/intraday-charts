@@ -1,4 +1,5 @@
 /* Bars from TWS: the Day list, requests to the collector, what a waiting chart says, polling, symbol suggestions. */
+import { symbolsOf } from "./lists.js";
 import { renderCollector } from "./dialogs/load-data.js";
 import { toast } from "./notify.js";
 import { app, cachedSymbols, hasBars } from "./state.js";
@@ -116,7 +117,7 @@ export function fillSymbolList() {
     const o = el("option"); o.value = sym; if (note) o.label = note; list.appendChild(o);
   };
   cachedSymbols().forEach((s) => add(s, "cached"));
-  Object.entries(app.saved.watchlists || {}).forEach(([n, syms]) => (syms || []).forEach((s) => add(s, n)));
+  Object.entries(app.saved.watchlists || {}).forEach(([n, v]) => symbolsOf(v).forEach((s) => add(s, n)));
 }
 
 export function refreshAll() { return Promise.all(app.cells.map((p) => p.refresh())); }

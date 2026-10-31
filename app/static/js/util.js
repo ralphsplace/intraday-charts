@@ -61,3 +61,12 @@ export function trackEdits(e, current) {
   });
 }
 export const submitted = (e) => { delete e.dataset.edited; };
+
+/* Redraw without moving the page. Parts emptied and refilled in a redraw (innerHTML = "", then rebuilt) make the
+   page shorter for a moment; if anything measures the layout meanwhile, a page scrolled to the bottom is pulled up
+   and stays there. Keeps the scroller's position across fn() (synchronous). */
+export function keepScroll(scroller, fn) {
+  const el = scroller || document.scrollingElement;
+  const top = el ? el.scrollTop : 0;
+  try { return fn(); } finally { if (el && el.scrollTop !== top) el.scrollTop = top; }
+}

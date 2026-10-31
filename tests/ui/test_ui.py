@@ -911,6 +911,25 @@ def test_option_chain_page_builds_and_evaluates_a_template(tab):
     wait_oc(p, "o.ev && o.ev.at === 'front_noon'")
 
 
+def test_option_chain_redraws_keep_the_page_scrolled_where_it_was(tab):
+    """Scrolled to the bottom and left there, a refresh mustn't pull the page back up (the panels are emptied and
+    rebuilt on every refresh; measuring the graph's width meanwhile used to clamp the scroll position)."""
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    p.select_option("#ocTemplate", "double_diagonal")
+    p.click("#ocFill")
+    wait_oc(p, "o.ev && o.ev.status === 'ok' && o.state.legs.length === 4")
+    p.add_style_tag(content="main.oc { overflow-anchor: none; }")   # as browsers that don't anchor the scroll (Firefox here)
+    bottom = p.evaluate("(() => { const m = document.querySelector('main.oc'); m.scrollTop = m.scrollHeight; return m.scrollTop; })()")
+    assert bottom > 100
+    for step in range(3):                                                # a full refresh: chain, profile, structure, graph
+        p.click("#ocStrip .oc-chip.active")
+        p.select_option("#ocIv", ("-2", "0", "2")[step])
+        wait_oc(p, f"o.ev.iv_shift === {(-2, 0, 2)[step] / 100}")
+        p.evaluate("window.dispatchEvent(new Event('resize'))")
+        p.wait_for_timeout(400)
+        assert abs(p.evaluate("document.querySelector('main.oc').scrollTop") - bottom) <= 1, step
+
+
 def test_option_chain_panels_scroll_under_a_fixed_expiry_strip(tab):
     """One column (chain, strike profile, structure, evaluation, grid) that scrolls on its own; the toolbar and the
     expiry strip stay."""
@@ -1208,55 +1227,83 @@ def wl_rows(p):
     return p.locator(".panel.wl tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)")
 
 
-def test_watch_list_tabs_and_columns(tab):
+def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
     wl = p.locator(".panel.wl")
-    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list"] and wl.locator("button.wltabx").count() == 0
-    # a second tab: its own list, typed straight away
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+    assert wl.locator("button.wltabx").count() == 0
+    # + : a new list, "Watch list 2", typed straight away
     wl.locator("button.wltabadd").click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
     assert wl.locator(".wleditor").is_visible()
     wl.locator("textarea").fill("SPY QQQ")
     wl.locator(".wleditor button[type=submit]").click()
     p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
-    assert wl_rows(p) == ["SPY", "QQQ"]
-    # renamed with a double-click; switching tabs switches lists
+    assert wl_rows(p) == ["SPY", "QQQ"] and wl.locator("button.wltab").all_inner_texts() == ["Watch list 1", "Watch list 2"]
+    # renamed with a double-click: a unique name, app-wide
+    wl.locator("button.wltab.on").dblclick()
+    wl.locator("input.wltabname").fill("Watch list 1")
+    wl.locator("input.wltabname").press("Enter")
+    assert "already a watch list" in p.inner_text("#toasts")
     wl.locator("button.wltab.on").dblclick()
     wl.locator("input.wltabname").fill("Index ETFs")
     wl.locator("input.wltabname").press("Enter")
-    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list", "Index ETFs"]
+    p.wait_for_function("[...document.querySelectorAll('.panel.wl button.wltab')].map((b) => b.textContent).join() === 'Watch list 1,Index ETFs'")
+    lists = json.loads((data / "user" / "watchlists.json").read_text())
+    assert set(lists) == {"Watch list 1", "Index ETFs"} and lists["Index ETFs"]["symbols"] == ["SPY", "QQQ"]
     wl.locator("button.wltab").first.click()
     p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 1")
     assert wl_rows(p) == ["QQQ"]
     wl.locator("button.wltab").nth(1).click()
     p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    # the same list in another watch list panel: one list, edited in one place
+    layout_action(p, 0, "watchlist-right")
+    wl2 = p.locator(".panel.wl").first
+    wl2.locator("select.wllist").select_option("Index ETFs")
+    p.wait_for_function("document.querySelectorAll('.panel.wl')[0].querySelectorAll('tr.wlr').length === 2")
+    wl2.locator("button.wledit").click()
+    wl2.locator("textarea").fill("SPY QQQ NVDA")
+    wl2.locator(".wleditor button[type=submit]").click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl')[1].querySelectorAll('tr.wlr').length === 3")
+    layout_action(p, 1, "remove")
     # columns: per tab, from the registry; Defaults puts them back
+    wl = p.locator(".panel.wl")
     wl.locator("button.wlcolbtn").click()
     col_box(wl, "Volume").uncheck()
     col_box(wl, "High").uncheck()
     assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Low"]
     assert wl.locator(".wlcols label:has-text('Qty')").count() == 0          # position columns: Holdings only
-    # kept with the dashboard: tabs, names, the tab on view and its columns
+    # kept with the dashboard: tabs, the tab on view and its columns
     p = tab.goto("/QQQs", 2000)
     wl = p.locator(".panel.wl")
-    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list", "Index ETFs"]
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list 1", "Index ETFs"]
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
-    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 3")
     assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Low"]
     wl.locator("button.wlcolbtn").click()
     wl.locator("button.wlcolreset").click()
     assert len(wl.locator("tr:first-child th").all_inner_texts()) == 7
-    wl.locator("button.wltabadd").click()                                      # each + opens the editor
-    assert wl.locator(".wleditor").is_visible()
-    wl.locator(".wleditor button:has-text('Cancel')").click()
-    wl.locator("button.wltabx").click()                                      # closed again: back to two
-    wl.locator("button.wltab").nth(1).click()
-    # closing a tab, with Undo
+    # closing a tab keeps the list; Undo brings the tab back
     wl.locator("button.wltabx").click()
-    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list"]
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list 1"]
+    assert "the watch list itself is kept" in p.inner_text("#toasts")
+    assert "Index ETFs" in wl.locator("select.wllist option").all_inner_texts()
     p.locator("#toasts .toastbtn").last.click()
     p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
+
+
+def test_a_thinkorswim_link_says_why_it_cant_be_read(tab):
+    p = tab.goto("/QQQs", 1500)
+    layout_action(p, 0, "watchlist-right")
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+    wl.locator("button.wledit").click()
+    wl.locator("textarea").fill("HTTP://TOS.MX/!FDKFI2MJ")
+    wl.locator(".wleditor button[type=submit]").click()
+    p.wait_for_function("document.querySelector('.panel.wl .wleditor .muted').textContent.includes('thinkorswim')")
+    assert wl.locator(".wleditor").is_visible() and wl_rows(p) == ["QQQ"]          # nothing changed, no "HTTP"
 
 
 def test_watch_list_columns_graphics_sorting_and_heat(tab):
@@ -1323,12 +1370,13 @@ def test_a_holdings_tab_shows_positions_with_cost_value_and_pnl(tab, data):
         p = tab.goto("/QQQs", 1500)
         layout_action(p, 0, "watchlist-right")
         wl = p.locator(".panel.wl")
-        wl.locator("select.wllist").select_option("@holdings")
+        p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+        wl.locator("select.wllist").select_option("@new-holdings")
         p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 3")
         assert wl_rows(p) == ["QQQ", "SPY", "NVDA"]                               # biggest first
         assert wl.locator("tr:first-child th").all_inner_texts() == \
             ["Symbol", "Qty", "Avg cost", "Last", "Mkt value", "Unrl P/L", "Unrl P/L %", "Day P/L", "Chg %"]
-        assert wl.locator("button.wltab.on").inner_text() == "Holdings"
+        assert wl.locator("button.wltab.on").inner_text() == "Watch list 2"
         qqq = wl.locator("tr[data-symbol='QQQ'] td").all_inner_texts()
         last = float(qqq[3])
         assert qqq[1] == "100" and qqq[2] == "600.00"
@@ -1358,7 +1406,8 @@ def test_a_watch_list_from_a_finviz_screen(tab, data):
         p = tab.goto("/QQQs", 1500)
         layout_action(p, 0, "watchlist-right")
         wl = p.locator(".panel.wl")
-        wl.locator("select.wllist").select_option("@feed")                    # no address yet: the editor opens
+        p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+        wl.locator("select.wllist").select_option("@new-finviz")              # a new list: its address first
         assert wl.locator(".wleditor").is_visible()
         wl.locator("textarea").fill("https://example.com/screener.ashx?f=x")
         wl.locator(".wleditor button[type=submit]").click()
@@ -1370,6 +1419,9 @@ def test_a_watch_list_from_a_finviz_screen(tab, data):
         reqs = [json.loads(f.read_text()) for f in (data / "control" / "requests").glob("*.json")]
         assert [r["list"] for r in reqs if r.get("list")] == [ref]               # the collector was asked
         assert "auth" not in json.dumps(app_state(p, "a.cells[1].config()"))     # the token isn't kept
+        lists = json.loads((data / "user" / "watchlists.json").read_text())
+        assert lists["Watch list 2"]["source"] == "finviz" and "auth" not in json.dumps(lists)
+        assert wl.locator("button.wltab.on").inner_text() == "Watch list 2"
         assert wl.locator("a.wlfeedlabel").get_attribute("href") == "https://finviz.com/screener.ashx?v=111&f=ta_topgainers"
         # the collector's answer arrives: the list follows
         list_sources.write(ref, {"status": "ok", "symbols": ["NVDA", "QQQ"], "total": 2, "fetched": time.time() + 1})
@@ -1378,7 +1430,7 @@ def test_a_watch_list_from_a_finviz_screen(tab, data):
         assert "fetched" in wl.locator(".wlfoot").inner_text()
         p = tab.goto("/QQQs", 2000)                                             # kept with the dashboard
         p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
-        assert p.locator(".panel.wl select.wllist").input_value() == "@feed"
+        assert p.locator(".panel.wl select.wllist").input_value() == "Watch list 2"
     finally:
         store.DATA_DIR = old
 
