@@ -597,7 +597,7 @@ def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
-                                                                 "Option chain", "Manage dashboards…"]
+                                                                 "Option chain", "Config", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
@@ -1250,7 +1250,7 @@ def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     wl.locator("input.wltabname").fill("Index ETFs")
     wl.locator("input.wltabname").press("Enter")
     p.wait_for_function("[...document.querySelectorAll('.panel.wl button.wltab')].map((b) => b.textContent).join() === 'Watch list 1,Index ETFs'")
-    lists = json.loads((data / "user" / "watchlists.json").read_text())
+    lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
     assert set(lists) == {"Watch list 1", "Index ETFs"} and lists["Index ETFs"]["symbols"] == ["SPY", "QQQ"]
     wl.locator("button.wltab").first.click()
     p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 1")
@@ -1292,6 +1292,84 @@ def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     p.locator("#toasts .toastbtn").last.click()
     p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
+
+
+def test_renaming_moves_a_list_deleting_removes_it_and_columns_drag(tab, data):
+    p = tab.goto("/QQQs", 1500)
+    layout_action(p, 0, "watchlist-right")
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+    # the name being typed is readable: light text on a dark field
+    wl.locator("button.wltab.on").dblclick()
+    box = wl.locator("input.wltabname")
+    fg, bg = box.evaluate("(e) => [getComputedStyle(e).color, getComputedStyle(e).backgroundColor]")
+    lum = lambda c: sum(int(x) for x in re.findall(r"\d+", c)[:3])                    # noqa: E731
+    assert lum(fg) - lum(bg) > 300
+    box.fill("Dashboard")
+    box.press("Enter")
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab.on')?.textContent === 'Dashboard'")
+    lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
+    assert list(lists) == ["Dashboard"]                                                 # a move, not a copy
+    assert wl.locator("select.wllist option").all_inner_texts().count("Watch list 1") == 0
+    # columns: drag Low onto Last
+    head = lambda: [x.split(" ")[0] for x in wl.locator("tr:first-child th").all_inner_texts()]   # noqa: E731
+    assert head()[:3] == ["Symbol", "Last", "Chg"]
+    wl.locator("th", has_text=re.compile(r"^Low$")).drag_to(wl.locator("th", has_text=re.compile(r"^Last$")))
+    assert head() == ["Symbol", "Low", "Last", "Chg", "Chg", "Volume", "High"]
+    p = tab.goto("/QQQs", 2000)                                                         # kept
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length >= 1")
+    assert head()[1] == "Low"
+    # delete from the list menu, asked first on the message
+    wl.locator("select.wllist").select_option("@delete")
+    assert 'Delete the watch list "Dashboard"' in p.inner_text("#toasts")
+    p.locator("#toasts .toastbtn").last.click()
+    p.wait_for_function("document.querySelector('.panel.wl .wlfoot')?.textContent.includes('was deleted')")
+    assert json.loads((data / "user" / "config.json").read_text())["watchlists"] == {}
+
+
+def test_the_config_page_edits_lists_columns_and_study_defaults(tab, data):
+    p = tab.goto("/QQQs", 1500)
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+    p = tab.goto("/config", 1500)
+    assert p.locator(".dashsel").input_value() == "\u0000config"
+    # watch lists: rename and delete
+    row = p.locator("#cfgLists tr[data-name='Watch list 1']")
+    row.locator("button.cfg-rename").click()
+    row.locator("input.cfg-input").fill("Core")
+    row.locator("input.cfg-input").press("Enter")
+    p.wait_for_selector("#cfgLists tr[data-name='Core']")
+    p.locator("#cfgLists tr[data-name='Core'] button.cfg-delete").click()
+    p.locator("#cfgLists tr[data-name='Core'] button.cfg-delete").click()               # the second click deletes
+    p.wait_for_selector("#cfgLists tr[data-name='Core']", state="detached")
+    # watch list columns: add Gap %, move it up, and new tabs start with them
+    p.click(".cfg-tabs button[data-sec=columns]")
+    p.click(".cfg-avail button[data-id=gap_pct]")
+    p.wait_for_selector(".cfg-col[data-id=gap_pct]")
+    for _ in range(6):
+        p.click(".cfg-col[data-id=gap_pct] .cfg-up")
+    p.wait_for_function("document.querySelectorAll('.cfg-col')[1]?.dataset.id === 'gap_pct'")
+    assert json.loads((data / "user" / "config.json").read_text())["watch_columns"]["quote"][:2] == ["symbol", "gap_pct"]
+    # study defaults: SMA length 21 for new studies
+    p.click(".cfg-tabs button[data-sec=studies]")
+    p.fill("#cfgFind", "simple")
+    p.click("button.cfg-study[data-type=sma]")
+    p.fill("#cfgStudyForm [data-key=length]", "21")
+    p.click("#cfgStudySave")
+    p.wait_for_function("document.querySelector('#cfgStudyMsg').textContent.startsWith('Saved')")
+    assert "•" in p.locator("button.cfg-study[data-type=sma]").inner_text()
+    p = tab.goto("/QQQs", 2000)
+    assert app_state(p, "a.catalog.find((s) => s.type === 'sma').params.find((x) => x.key === 'length').default") == 21
+    wl = p.locator(".panel.wl")
+    wl.locator("button.wltabadd").click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
+    assert [x.split(" ")[0] for x in wl.locator("tr:first-child th").all_inner_texts()][:2] == ["Symbol", "Gap"]
+    p = tab.goto("/config", 1500)
+    p.click(".cfg-tabs button[data-sec=studies]")
+    p.click("button.cfg-study[data-type=sma]")
+    p.click("#cfgStudyReset")
+    p.wait_for_function("!document.querySelector('button.cfg-study[data-type=sma]').textContent.includes('•')")
 
 
 def test_a_thinkorswim_link_says_why_it_cant_be_read(tab):
@@ -1419,7 +1497,7 @@ def test_a_watch_list_from_a_finviz_screen(tab, data):
         reqs = [json.loads(f.read_text()) for f in (data / "control" / "requests").glob("*.json")]
         assert [r["list"] for r in reqs if r.get("list")] == [ref]               # the collector was asked
         assert "auth" not in json.dumps(app_state(p, "a.cells[1].config()"))     # the token isn't kept
-        lists = json.loads((data / "user" / "watchlists.json").read_text())
+        lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
         assert lists["Watch list 2"]["source"] == "finviz" and "auth" not in json.dumps(lists)
         assert wl.locator("button.wltab.on").inner_text() == "Watch list 2"
         assert wl.locator("a.wlfeedlabel").get_attribute("href") == "https://finviz.com/screener.ashx?v=111&f=ta_topgainers"

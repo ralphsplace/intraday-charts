@@ -1,29 +1,32 @@
-"""Named watch lists: one list of named watch lists for the whole app, kept on the NAS (data/user/watchlists.json,
-the same file Load data saves to), so every dashboard, browser and device sees the same lists.
+"""Named watch lists: one set for the whole app, kept in the application config (app/app_config.py, section
+"watchlists": name -> definition), so every dashboard, browser and device sees the same lists.
 
 One job: create, change, rename and delete them. A name is unique (it's the key); a new list is called
 "Watch list N", N one more than the highest in use. Each list also has an id that never changes, so a watch list
 tab that shows it still finds it after it's renamed elsewhere.
 
-A list is {"id", "source", ...} by source:
+A definition is {"id", "source", ...} by source:
     symbols    {"symbols": [...]}                         typed or imported symbols
     finviz     {"feed": {"source", "address", "label"}}    a FinViz screen or portfolio (app/list_sources.py)
     holdings   {}                                         the account's positions (app/positions.py)
-Lists saved before ids existed are plain symbol lists ([...]); they're read as source "symbols" and given an id
-the first time they're changed.
+Lists saved before ids existed are plain symbol lists ([...]); they're given an id the first time the lists are
+read, so a rename can never leave a tab behind on the old name.
 """
 from __future__ import annotations
 
 import re
 import uuid
 
-from . import saved
+from . import app_config, saved
 
-KIND = "watchlists"
 SOURCES = ("symbols", "finviz", "holdings")
 DEFAULT = "Watch list"
 MAX_SYMBOLS = 500
 _N = re.compile(rf"^{DEFAULT} (\d+)$")
+
+
+def _new_id() -> str:
+    return uuid.uuid4().hex[:12]
 
 
 def normal(value) -> dict:
@@ -39,7 +42,17 @@ def normal(value) -> dict:
 
 
 def all_lists() -> dict:
-    return {n: normal(v) for n, v in saved.all_items(KIND).items()}
+    lists = {n: normal(v) for n, v in app_config.section("watchlists").items()}
+    if any(not v["id"] for v in lists.values()):              # older lists: give them ids, once
+        with app_config.editing() as d:
+            wl = d.setdefault("watchlists", {})
+            for n, v in list(wl.items()):
+                item = normal(v)
+                if not item["id"]:
+                    item["id"] = _new_id()
+                wl[n] = item
+        lists = {n: normal(v) for n, v in app_config.section("watchlists").items()}
+    return lists
 
 
 def next_name(names) -> str:
@@ -64,53 +77,56 @@ def _clean(source: str, data: dict) -> dict:
     return out
 
 
+def _check_name(name: str) -> str:
+    name = (name or "").strip()
+    if not saved.valid_name(name):
+        raise ValueError(f"Names are 1 to {saved.NAME_MAX} characters, without / or \\")
+    return name
+
+
 def create(source: str, data: dict | None = None, name: str | None = None) -> tuple[str, dict]:
     """A new list, under `name` or the next default name; ValueError if the name is taken or invalid."""
-    item = {"id": uuid.uuid4().hex[:12], **_clean(source, data or {})}
-    with saved._locked(KIND) as p:
-        d = saved._read(p)
-        name = name or next_name(d)
-        if not saved.valid_name(name):
-            raise ValueError(f"Names are 1 to {saved.NAME_MAX} characters, without / or \\")
-        if name in d:
+    item = {"id": _new_id(), **_clean(source, data or {})}
+    with app_config.editing() as d:
+        wl = d.setdefault("watchlists", {})
+        name = _check_name(name) if name else next_name(wl)
+        if name in wl:
             raise ValueError(f'There is already a watch list called "{name}"')
-        d[name] = item
-        saved._write(p, d)
+        wl[name] = item
     return name, item
 
 
 def update(name: str, source: str, data: dict) -> dict:
     """New contents for a list, keeping its name and id (one is given if it had none)."""
-    with saved._locked(KIND) as p:
-        d = saved._read(p)
-        old = normal(d.get(name, []))
-        item = {"id": old["id"] or uuid.uuid4().hex[:12], **_clean(source, data)}
-        d[name] = item
-        saved._write(p, d)
+    with app_config.editing() as d:
+        wl = d.setdefault("watchlists", {})
+        old = normal(wl.get(name, []))
+        item = {"id": old["id"] or _new_id(), **_clean(source, data)}
+        wl[name] = item
     return item
 
 
 def rename(old: str, new: str) -> dict:
-    new = (new or "").strip()
-    if not saved.valid_name(new):
-        raise ValueError(f"Names are 1 to {saved.NAME_MAX} characters, without / or \\")
-    with saved._locked(KIND) as p:
-        d = saved._read(p)
-        if old not in d:
+    """A list under a new name, the same id and contents: a move, never a copy."""
+    new = _check_name(new)
+    with app_config.editing() as d:
+        wl = d.setdefault("watchlists", {})
+        if old not in wl:
             raise KeyError(f'No watch list called "{old}"')
-        if new != old and new in d:
+        if new != old and new in wl:
             raise ValueError(f'There is already a watch list called "{new}"')
-        item = normal(d.pop(old))
-        item["id"] = item["id"] or uuid.uuid4().hex[:12]
-        d[new] = {k: v for k, v in item.items()}
-        saved._write(p, d)
+        item = normal(wl.pop(old))
+        item["id"] = item["id"] or _new_id()
+        wl[new] = item
     return item
 
 
 def delete(name: str) -> None:
-    saved.delete(KIND, name)
+    with app_config.editing() as d:
+        d.setdefault("watchlists", {}).pop(name, None)
 
 
 def set_symbols(name: str, symbols: list) -> dict:
     """Load data's "Save as watchlist": a symbol list under `name`, keeping the id of a list it replaces."""
+    _check_name(name)
     return update(name, "symbols", {"symbols": symbols})

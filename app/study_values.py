@@ -27,7 +27,7 @@ def check(spec: dict) -> dict:
     tf = int(spec.get("tf") or 1)
     if tf not in TIMEFRAMES:
         raise ValueError(f"Timeframe {tf} isn't one of {TIMEFRAMES}")
-    params = studies_base.coerce(studies_base.REGISTRY[t], spec.get("params") or {})
+    params = studies_base.effective_params(t, spec.get("params") or {})
     return {"type": t, "params": params, "output": str(spec.get("output") or t), "tf": tf}
 
 

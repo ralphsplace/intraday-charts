@@ -20,7 +20,8 @@ Each chart has its own:
 - **Link colour**, the small square after the symbol: charts and watch lists of the same colour show the same
   symbol ([Symbol links](layouts.md#symbol-links)).
 - **Price type**, in the menu after the range (below).
-- **Studies:** none by default ([Studies](studies.md)).
+- **Studies:** none by default ([Studies](studies.md)). Each study starts with the defaults set on the
+  [Config page](config.md).
 
 ### Daily, weekly and monthly candles
 

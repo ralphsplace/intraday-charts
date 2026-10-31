@@ -18,7 +18,7 @@ export { MAX_SYMBOLS };
 export const MAX_TABS = 12;
 const DEMO_RE = /-DEMO$/;
 // the list menu's entries besides the named lists
-const NEW_SYMBOLS = "@new", NEW_FINVIZ = "@new-finviz", NEW_HOLDINGS = "@new-holdings";
+const NEW_SYMBOLS = "@new", NEW_FINVIZ = "@new-finviz", NEW_HOLDINGS = "@new-holdings", DELETE = "@delete";
 
 export class WatchList {
   constructor(cfg, index) {
@@ -140,6 +140,16 @@ export class WatchList {
     this.refresh();
   }
 
+  // delete the tab's list everywhere (asked first, on the message); the tab moves to another list or a new one
+  deleteList() {
+    const t = this.tab(), name = t.list;
+    toastAction(`Delete the watch list "${name}" everywhere (every dashboard and tab)?`, "Delete", async () => {
+      try { await lists.remove(name); } catch (e) { toast(e.message, true); return; }
+      for (const c of app.cells) if (c.tabs) c.render();                 // every watch list panel
+      toast(`Deleted "${name}". Its tabs say so: pick another list in their menu, or close them.`);
+    });
+  }
+
   // a new tab with a new, empty "Watch list N" (app-wide), its editor open to type the symbols
   async addTab() {
     let r;
@@ -160,6 +170,7 @@ export class WatchList {
       v = r.name;
     }
     if (v === NEW_FINVIZ) { this.render(); this.edit("finviz", true); return; }
+    if (v === DELETE) { this.render(); this.deleteList(); return; }
     t.stop();
     const [name, item] = lists.find(null, v);
     t.list = name; t.listId = item?.id || null; t.rows = []; t.held = null; t.resolve();
@@ -196,8 +207,12 @@ export class WatchList {
         toast(`There is already a watch list called "${v}": names are unique across the app.`, true);
       } else if (keep && v && v !== t.list && t.item) {
         try {
-          await lists.rename(t.list, v);                         // app-wide: every tab showing it follows
-          for (const c of app.cells) for (const x of c.tabs || []) if (x.listId === t.listId) x.resolve();
+          const old = t.list, r = await lists.rename(old, v);     // a move: same id, new name, app-wide
+          for (const c of app.cells) {
+            for (const x of c.tabs || []) {
+              if (x.listId === r.item.id || x.list === old) { x.list = r.name; x.listId = r.item.id; x.resolve(); }
+            }
+          }
           save();
         } catch (e) { toast(e.message, true); }
       }
@@ -273,6 +288,7 @@ export class WatchList {
       add(NEW_SYMBOLS, "New watch list…");
       add(NEW_FINVIZ, "New FinViz screen or portfolio…");
       add(NEW_HOLDINGS, "New Holdings list (IBKR)");
+      if (t.item) add(DELETE, `Delete "${t.list}"…`);
       this.listSel.value = t.list;
     }
     const charts = this.charts();
@@ -289,6 +305,18 @@ export class WatchList {
       th.title = (c.tip ? c.tip + ". " : "") + "Click to sort: up, down, then the list's own order";
       th.setAttribute("aria-sort", on ? (t.sort.dir === 1 ? "ascending" : "descending") : "none");
       th.onclick = () => { t.toggleSort(id); save(); this.render(); };
+      if (id !== "symbol") {                               // drag a header onto another to move it there
+        th.draggable = true;
+        th.title += ". Drag to move the column";
+        th.ondragstart = (e) => { e.dataTransfer.setData("text/x-wlcol", id); e.dataTransfer.effectAllowed = "move"; };
+      }
+      th.ondragover = (e) => { if (e.dataTransfer.types.includes("text/x-wlcol")) { e.preventDefault(); th.classList.add("dropto"); } };
+      th.ondragleave = () => th.classList.remove("dropto");
+      th.ondrop = (e) => {
+        e.preventDefault(); th.classList.remove("dropto");
+        const from = e.dataTransfer.getData("text/x-wlcol");
+        if (from && from !== id) { t.moveColumn(from, id); save(); this.render(); }
+      };
       h.appendChild(th);
     }
     tb.appendChild(h);
