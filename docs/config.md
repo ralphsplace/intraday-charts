@@ -54,3 +54,7 @@ aren't allowed (a length out of range, say) are brought within range, as in a st
 Editing it by hand works too (the page and the charts read it again when it changes). Unknown studies, settings or
 columns are ignored. Watch lists saved before the application config existed (`data/user/watchlists.json`) are
 moved in the first time anything changes.
+
+If a hand edit leaves the file unreadable (a missing comma, say), the app shows defaults and refuses every change
+with a message naming the file, so nothing you wrote is lost; fix the typo and it picks the file up again. Saved
+views, layouts and dashboards (`data/user/*.json`) work the same way.

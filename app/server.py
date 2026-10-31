@@ -13,11 +13,11 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import Body, FastAPI, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
+from . import (control, dashboards, jsonfile, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
                app_config, positions, saved, security, sessions, store, structures, studies, study_values, templates, timeframes,
                watch_fields, watchlist, watchlists)
 
@@ -47,6 +47,12 @@ def _settings() -> security.Settings:
 
 
 app = FastAPI(title="Intraday charts", lifespan=lifespan)
+
+
+@app.exception_handler(jsonfile.BrokenFile)
+def broken_file(_request, e: jsonfile.BrokenFile):
+    """A hand-edited user file that doesn't parse: say which, and change nothing (it's never written over)."""
+    return JSONResponse({"detail": str(e)}, status_code=409)
 app.add_middleware(security.LocalOnly, settings=_settings())    # home network only; see app/security.py
 
 

@@ -82,3 +82,18 @@ def test_the_config_page(client, cache):
     assert {"studies", "watch_columns", "watchlists", "path"} <= set(v) and v["path"] == "data/user/config.json"
     from app import dashboards
     assert not dashboards.valid_name("config")                                       # the page's address is taken
+
+
+def test_a_broken_config_file_is_never_written_over(cache, client):
+    """A typo made by hand reads as empty, but a change is refused (409) instead of replacing the file."""
+    from app import jsonfile, watchlists
+
+    p = app_config.path()
+    p.parent.mkdir(parents=True)
+    p.write_text('{"watchlists": {"Mine": {"source": "symbols", "symbols": ["SPY"]}},')     # trailing comma
+    assert app_config.section("watchlists") == {}
+    with pytest.raises(jsonfile.BrokenFile, match="config.json"):
+        watchlists.create("symbols", {"symbols": ["QQQ"]})
+    r = client.put("/api/config/studies/sma", json={"sma_color": "#ffffff"})
+    assert r.status_code == 409 and "config.json" in r.json()["detail"]
+    assert p.read_text().endswith("]}},")                                                   # untouched

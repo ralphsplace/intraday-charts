@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 import uuid
 
-from . import saved, templates
+from . import jsonfile, saved, templates
 
 TYPES = {"charts": "Charts"}
 RESERVED = {"dashboards", "earnings", "expected-move", "options", "config", "api", "static", "favicon.ico"}   # other pages' addresses
@@ -58,7 +58,7 @@ def _clean(d) -> dict:
 
 
 def all_dashboards() -> dict:
-    return _clean(saved._read(saved.path(KIND)))
+    return _clean(jsonfile.read(saved.path(KIND)))
 
 
 def find(name_or_id: str) -> dict | None:
@@ -74,11 +74,12 @@ def default() -> dict:
 
 
 def _mutate(fn):
-    with saved._locked(KIND) as p:
-        d = _clean(saved._read(p))
+    with jsonfile.editing(saved.path(KIND)) as raw:
+        d = _clean(raw)
         out = fn(d)
-        saved._write(p, d)
-        return out if out is not None else d
+        raw.clear()
+        raw.update(d)
+    return out if out is not None else d
 
 
 def _check_name(d, name, except_id=None):

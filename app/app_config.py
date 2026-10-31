@@ -13,13 +13,10 @@ is: it ships with the app and is mounted read-only.
 from __future__ import annotations
 
 import copy
-import fcntl
-import json
-import os
 from contextlib import contextmanager
 from pathlib import Path
 
-from . import store
+from . import jsonfile, store
 
 SECTIONS = ("watchlists", "studies", "watch_columns")
 _cache: dict = {}
@@ -29,17 +26,9 @@ def path() -> Path:
     return store.DATA_DIR / "user" / "config.json"
 
 
-def _read_file(p: Path) -> dict:
-    try:
-        d = json.loads(p.read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
-
-
 def _legacy_watchlists() -> dict:
     """Watch lists kept in their own file before the application config existed (Load data's saves)."""
-    return _read_file(store.DATA_DIR / "user" / "watchlists.json")
+    return jsonfile.read(store.DATA_DIR / "user" / "watchlists.json")
 
 
 def read() -> dict:
@@ -50,7 +39,7 @@ def read() -> dict:
     except OSError:
         key = (str(p), None)
     if _cache.get("key") != key:
-        _cache.update(key=key, data=_read_file(p))
+        _cache.update(key=key, data=jsonfile.read(p))
     d = copy.deepcopy(_cache["data"])
     if "watchlists" not in d:
         d["watchlists"] = _legacy_watchlists()
@@ -67,20 +56,10 @@ def section(name: str) -> dict:
 @contextmanager
 def editing():
     """The config to change in place, written back atomically when the block ends without an error."""
-    p = path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p.with_suffix(".lock"), "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
-            d = _read_file(p)
-            if "watchlists" not in d:
-                d["watchlists"] = _legacy_watchlists()        # moved in on the first change
-            yield d
-            tmp = p.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, indent=1, sort_keys=True))
-            os.replace(tmp, p)
-        finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+    with jsonfile.editing(path()) as d:
+        if "watchlists" not in d:
+            d["watchlists"] = _legacy_watchlists()            # moved in on the first change
+        yield d
 
 
 def put_section(name: str, value: dict) -> dict:
