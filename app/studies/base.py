@@ -50,6 +50,27 @@ def with_alpha(color: str, transparency_pct: float) -> str:
     return f"rgba({r},{g},{b},{round(1 - transparency_pct / 100, 3)})"
 
 
+def fill_params(default_color: str, label: str, transparency: int = 85) -> list[dict]:
+    """A study's "fill between two lines" settings: on or off, a colour and its transparency (section Fill)."""
+    return [P("fill", label, "bool", True, section="Fill"),
+            color(default_color, "fill_color", "Fill colour", section="Fill"),
+            P("fill_transp", "Fill: transparency %", "int", transparency, min=0, max=100, section="Fill")]
+
+
+def fill_between(w, a, b, up: str, down: str | None = None) -> dict:
+    """The "cloud" output: the space between lines a and b over the bars shown (w["current"]), in `up` where a is
+    above b and `down` where it's below (one colour for both when down is None, as for channels)."""
+    keep = w["current"].to_numpy(dtype=bool) & a.notna().to_numpy() & b.notna().to_numpy()
+    return {"points": [{"time": int(t), "a": round(float(x), 4), "b": round(float(y), 4)}
+                       for t, x, y in zip(w["ct"].to_numpy()[keep], a.to_numpy()[keep], b.to_numpy()[keep], strict=True)],
+            "up": up, "down": down or up}
+
+
+def channel_fill(w, upper, lower, p: dict) -> dict:
+    """The cloud output for a channel study with fill_params, or nothing when its fill is off."""
+    return {"cloud": fill_between(w, upper, lower, with_alpha(p["fill_color"], p["fill_transp"]))} if p["fill"] else {}
+
+
 def style_params(plots: list[dict]) -> list[dict]:
     out = []
     for pl in plots:
