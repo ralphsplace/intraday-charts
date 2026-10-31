@@ -2,11 +2,12 @@
    Replay at first; once Live, it stays Live (across dashboards and pages, in this tab) until switched back by
    hand or until TWS can't be reached. */
 import { fillDays, refreshAll, requestData } from "./data.js";
+import { fmtMin } from "./format.js";
 import { buildGrid, placeSplitters } from "./grid.js";
 import { MODE_KEY } from "./keys.js";
 import { toast } from "./notify.js";
 import { LIVE_REFRESH_MS, app, save } from "./state.js";
-import { $, api, fmtMin, orElse } from "./util.js";
+import { $, api, orElse } from "./util.js";
 
 export function stopPlay() { app.playing = false; $("play").textContent = "Play"; }
 export function maxMinute() { return Math.max(...app.panels.map((p) => p.view?.last_minute || 0), 241); }

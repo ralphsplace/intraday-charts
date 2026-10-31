@@ -2,8 +2,6 @@
 export const LWC = window.LightweightCharts;
 export const $ = (id) => document.getElementById(id);
 
-export const fmtMin = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-
 // stocks and ETFs; breadth indexes; series recorded from live quotes (ADD, VOLD); -VIX (VIX upside down)
 export const SYMBOL_RE = /^[A-Z][A-Z0-9]{0,5}(\.[A-Z]{1,2})?$|^(TICK|TRIN|AD|VOL)-(NYSE|NASD|NDX)$|^(ADD|VOLD)-NYSE$|^-VIX$/;
 
@@ -54,12 +52,6 @@ export function btn(text, fn, aria, cls) {
 }
 export function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* unavailable */ } }
 export function load(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
-
-// large values (e.g. NYSE up - down volume) as 25.04M / 1.20B; anything else with 2 decimals
-export function fmtValue(v) {
-  const a = Math.abs(v);
-  return a >= 1e9 ? (v / 1e9).toFixed(2) + "B" : a >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v.toFixed(2);
-}
 
 export const cleanSymbol = (s) => { s = (s || "").trim().toUpperCase(); return SYMBOL_RE.test(s) ? s : null; };
 

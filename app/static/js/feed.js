@@ -1,7 +1,7 @@
 /* A watch list's outside source (a FinViz screen or portfolio): asks the server for the symbols the collector
    fetched, has them fetched again when due, and says how things stand. The server decides what's due and checks
    every address; the source's sign-in token never reaches the page. Data: /api/lists/source. */
-import { ago } from "./data.js";
+import { ago } from "./format.js";
 import { api, btn, el } from "./util.js";
 
 const CHECK_MS = 60_000;       // a list on screen asks this often whether it's due (FinViz itself: every 15 minutes)

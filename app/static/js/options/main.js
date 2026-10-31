@@ -1,6 +1,7 @@
 /* Starts the option-chain page (/options?symbol=QQQ): shows the cached chain, asks the TWS collector for fresh
    snapshots when they're missing or stale (or on Refresh), builds a structure from clicks or a template, and
    evaluates it. Read-only: nothing here places or prepares orders. */
+import { ago } from "../format.js";
 import { OPTIONS_KEY } from "../keys.js";
 import { $, api, cleanSymbol, el, inUse, keepScroll, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 
@@ -26,7 +27,6 @@ const save = () => store(OPTIONS_KEY, st);
 function message(text) { $("ocMsg").hidden = !text; $("ocMsg").textContent = text || ""; }
 const needed = () => [...new Set([st.expiry, st.back, ...st.legs.map((l) => l.expiry)].filter(Boolean))].slice(0, MAX_EXPIRIES);
 const timeOf = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" }) + " ET";
-const ago = (s) => (s == null ? "" : s < 90 ? "just now" : s < 5400 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`);
 
 // what the page is waiting for, from the collector's last report
 function waitingText() {

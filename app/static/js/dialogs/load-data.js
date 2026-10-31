@@ -1,6 +1,7 @@
 /* The Load data dialog: symbols and day to fetch, watchlists, and the collector's status. */
 import { names, normal, symbolsOf } from "../lists.js";
-import { ago, fillDays, fillSymbolList, refreshAll, refreshData, startPolling } from "../data.js";
+import { fillDays, fillSymbolList, refreshAll, refreshData, startPolling } from "../data.js";
+import { ago } from "../format.js";
 import { openModal } from "../dialogs/modal.js";
 import { setMode, showCursor } from "../replay.js";
 import { app } from "../state.js";
