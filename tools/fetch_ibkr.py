@@ -7,10 +7,12 @@ It works through a queue of fetches. The queue is filled from six places:
   - the symbols on the command line (or the SYMBOLS environment variable)
   - the chart page: typing a symbol into a chart, or "Load data" in Replay mode
   - the earnings page: a symbol's daily history and, when SEC_CONTACT is set, its earnings dates from SEC
-    EDGAR (tools/earnings_sources.py; the only internet request the collector makes)
+    EDGAR (tools/earnings_sources.py; an internet request)
   - the expected-move page: option quotes (snapshots) for a symbol's expiry (tools/option_quotes.py)
   - the option-chain page: a symbol's option chain (snapshots) for a few expiries (tools/option_quotes.py)
   - each morning in live mode: the daily history of the streamed symbols
+Watch lists from FinViz (when FINVIZ_TOKEN is set) are fetched straight away, outside the queue
+(tools/list_sources.py; the other internet request, to finviz.com only).
 In live mode it also records the NYSE advance-decline and up/down volume (ADD-NYSE, VOLD-NYSE) from live quotes,
 since IBKR has no history for them (tools/recorder.py; RECORD in .env).
 
@@ -43,9 +45,10 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import control, earnings, envcheck, expected_move, option_chain, sessions, store  # noqa: E402
+from app import control, earnings, envcheck, expected_move, list_sources, option_chain, sessions, store  # noqa: E402
 from option_quotes import OptionQuotes  # noqa: E402
 from earnings_sources import make_source  # noqa: E402
+from list_sources import make_fetchers  # noqa: E402
 from recorder import Recorder  # noqa: E402
 
 ET = "America/New_York"
@@ -264,6 +267,7 @@ class Collector:
         self.live: set = set(control.load_live_symbols()) if args.live else set()
         self.daily_done_for = None
         self.earnings_source = make_source(getattr(args, "sec_contact", None), store.DATA_DIR / "earnings")
+        self.list_fetchers = make_fetchers(os.environ.get("FINVIZ_TOKEN"))   # watch lists from FinViz (.env)
         self.option_quotes = OptionQuotes(ib, **({"option": option} if option else {}))   # tests pass a fake option
         self.recorder = Recorder(ib, getattr(args, "record", []), self.contract, args.write_every, clock) if args.live else None
         err = getattr(ib, "errorEvent", None)
@@ -334,6 +338,9 @@ class Collector:
 
     def take_requests(self) -> None:
         for r in control.take_requests():
+            if r.get("list"):                                 # a watch list from an outside source (FinViz)
+                self.fetch_list(r["list"])
+                continue
             syms = [s for s in (control.clean_symbol(x) for x in r.get("symbols", [])) if s]
             if r.get("stop_live"):
                 self.live.difference_update(syms)
@@ -384,6 +391,22 @@ class Collector:
             log.info("%s %s: %s", sym, day, f"{n} bars cached" if n else "no bars (holiday, or no data permission)")
         self.results.append({"kind": kind, "symbol": sym, "day": day, "bars": n, "at": time.time()})
         self.current = None
+
+    def fetch_list(self, ref) -> None:
+        """A watch list from an outside source (tools/list_sources.py), cached in data/lists/ for the page; a
+        failure too, so the page can say why. Not a TWS request: it doesn't wait in the queue."""
+        if not list_sources.valid(ref):
+            log.warning("Watch list request ignored: not a valid list reference")
+            return
+        fetcher = self.list_fetchers.get(ref["source"])
+        name = list_sources.source(ref["source"]).name
+        res = fetcher.load(ref) if fetcher else {"status": "off", "message": f"{name} lists are off (see .env.example)"}
+        list_sources.write(ref, {**res, "fetched": time.time()})
+        label = list_sources.source(ref["source"]).label(ref)
+        if res["status"] == "ok":
+            log.info("%s: %d symbols", label, len(res["symbols"]))
+        else:
+            log.warning("%s: %s", label, res.get("message"))
 
     def fetch_options(self, contract, sym: str, target: str) -> int:
         """Option quotes for the expected-move page (tools/option_quotes.py), cached in data/options/. A failure

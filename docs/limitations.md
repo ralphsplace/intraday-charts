@@ -21,3 +21,5 @@
   take up to a minute.
 - **News headlines.** IBKR keeps about 6 months of headlines, and their times are read as UTC; the
   match to real headlines hasn't been checked against a live TWS yet.
+- **FinViz watch lists.** Tested against FinViz's export format, not yet against a live FinViz Elite account.
+  Share classes FinViz writes with a dash (`BRK-B`) are left out.

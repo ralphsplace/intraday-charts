@@ -116,7 +116,9 @@ def run(settings: security.Settings | None = None) -> list[dict]:
 
     sec = "The TWS collector looks up earnings dates on SEC EDGAR (sec.gov, public filings, read-only)." \
         if os.environ.get("SEC_CONTACT", "").strip() else "Earnings-date lookups on SEC EDGAR are off (no SEC_CONTACT)."
-    out.append(_check("Internet access", "ok", "The dashboard makes no internet requests. " + sec + " The market-events "
+    fv = (" The TWS collector fetches FinViz watch lists (finviz.com, with your FinViz Elite token, read-only)."
+          if os.environ.get("FINVIZ", "").strip() else " FinViz watch lists are off (no FINVIZ_TOKEN).")
+    out.append(_check("Internet access", "ok", "The dashboard makes no internet requests. " + sec + fv + " The market-events "
                       "tool goes online only when you run it with --gdelt."))
     return out
 

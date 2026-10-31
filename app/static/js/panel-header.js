@@ -2,6 +2,7 @@
 import { openPriceSettings } from "./dialogs/settings.js";
 import { openStudies } from "./dialogs/studies.js";
 import { setActive, toggleMaximize } from "./grid.js";
+import { linkControl } from "./links.js";
 import { openSavedMenu } from "./saved.js";
 import { save } from "./state.js";
 import { btn, el } from "./util.js";
@@ -49,7 +50,7 @@ export class PanelHeader {
     this.maxBtn.title = "Maximize this chart (or double-click the header). Click again to restore the grid.";
     const viewsBtn = btn("\u2261", (e) => { setActive(this); openSavedMenu(e.currentTarget, "views", this); }, "Saved chart views", "viewsbtn");
     viewsBtn.title = "Save this chart's view or load a saved one; add a chart or watch list next to it, or remove it";
-    head.append(this.symIn, viewsBtn, this.tfSel, this.daysSel, priceGrp, fx, this.hint, this.title, this.maxBtn);
+    head.append(this.symIn, linkControl(this), viewsBtn, this.tfSel, this.daysSel, priceGrp, fx, this.hint, this.title, this.maxBtn);
     head.addEventListener("dblclick", (e) => { if (e.target === head || e.target === this.title) toggleMaximize(this); });
 
     const wrap = el("div", "pchart");

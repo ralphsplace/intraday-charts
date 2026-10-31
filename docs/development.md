@@ -102,6 +102,7 @@ app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event m
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
 app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
+app/list_sources.py     watch lists from outside sources (FinViz): addresses checked, fetched lists stored (no network)
 app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
 app/static/options.html the option-chain page (/options); its scripts in js/options/
 app/static/js/          the pages' code, as ES modules, one job each (no build step; the browser loads them directly):
@@ -128,7 +129,9 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
-  watchlist.js          the watch list cell: symbols, columns, the linked chart
+  watchlist.js          the watch list cell: symbols, columns, picking a row
+  feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
+  links.js              symbol links: colour groups of cells that show the same symbol
   layouts.js            the window layouts, as rows of charts (e.g. 2 over 4, or any top/bottom count)
   data.js               bars from TWS: the Day list, requests, waiting messages, polling
   replay.js             the toolbar: layout, day, display options, replay and Live
@@ -141,6 +144,7 @@ app/static/vendor/      TradingView Lightweight Charts 5.2.1 (Apache 2.0), bundl
 tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history and live streaming (read-only)
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT
+tools/list_sources.py   where the collector fetches watch lists from (FinViz Elite exports); off without FINVIZ_TOKEN
 tools/option_quotes.py  option chains and snapshot quotes for the expected-move and option-chain pages
 tools/recorder.py       records ADD-NYSE and VOLD-NYSE from live quotes (no history at IBKR)
 tools/signals.py        buy/sell rules for the backtester only (never drawn on the charts)

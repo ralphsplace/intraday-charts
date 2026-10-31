@@ -4,6 +4,7 @@ import { renderActiveList } from "./dialogs/studies.js";
 import { DrawingTools } from "./drawings.js";
 import { updateBanner } from "./grid.js";
 import { Legends } from "./legends.js";
+import { publish } from "./links.js";
 import { PanelHeader } from "./panel-header.js";
 import { ChartPrimitives as PR } from "./primitives.js";
 import { PriceTypes as PT } from "./pricetypes.js";
@@ -17,6 +18,7 @@ export class Panel {
   constructor(cfg, index) {
     this.index = index;
     this.id = cfg.id || uid();
+    this.link = cfg.link || "";                           // symbol-link group (links.js)
     this.symbol = cfg.symbol; this.tf = findTf(cfg.tf) ? cfg.tf : 3; this.days = cfg.days || 1;
     this.spans = { ...(cfg.spans || {}) };               // months shown, per daily / weekly / monthly duration
     this.price = PT.normalize(cfg.price, cfg.style);     // {type, params}; "style" is how older versions saved it
@@ -28,7 +30,7 @@ export class Panel {
     this.buildChart();
   }
 
-  config() { return { id: this.id, symbol: this.symbol, tf: this.tf, days: this.days, spans: { ...this.spans }, price: clone(this.price), studies: this.studies }; }
+  config() { return { id: this.id, link: this.link, symbol: this.symbol, tf: this.tf, days: this.days, spans: { ...this.spans }, price: clone(this.price), studies: this.studies }; }
 
   // daily, weekly or monthly candles (from daily prices) rather than intraday ones
   isPeriod() { return isPeriod(this.tf); }
@@ -105,7 +107,8 @@ export class Panel {
     if (box.scrollWidth > box.clientWidth) box.style.width = (box.scrollWidth + box.offsetWidth - box.clientWidth + 2) + "px";
   }
 
-  setSymbol(raw) {
+  // linked: the change came from another cell of this chart's link group (links.js), so it isn't passed on
+  setSymbol(raw, linked = false) {
     const sym = cleanSymbol(raw);
     if (!sym) {
       this.symIn.classList.add("bad");
@@ -117,9 +120,12 @@ export class Panel {
     if (sym === this.symbol) return;
     this.symbol = sym; this.fitSymbolBox(); this.fitted = false; this.layoutSig = ""; this.view = null;
     save(); updateBanner();
+    if (!linked) publish(this, sym);
     if (app.live) requestData([sym]);
     if (!app.live && fillDays()) refreshAll(); else this.refresh();
   }
+
+  showLinked(sym) { this.setSymbol(sym, true); }
 
   // ---------------------------------------------------------------- data
   async refresh() {

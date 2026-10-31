@@ -1,6 +1,7 @@
 """The two pages (a chart dashboard and /dashboards), driven in Chromium against the real server on SYNTHETIC bars.
 Every test also fails on any JavaScript error (see the `tab` fixture)."""
 import json
+import time
 
 
 LAST = "2026-10-16"          # last synthetic day
@@ -1121,9 +1122,9 @@ def test_add_a_watch_list_right_of_the_top_row_turns_two_over_four_into_three_ov
     wl.locator(".wlbody").focus()
     p.keyboard.press("ArrowDown")
     wait_state(p, "a.cells[0].symbol === 'VOLD-NYSE'")
-    # linked to a chosen chart instead
-    second = app_state(p, "a.cells[1].id")
-    wl.locator("select.wllink").select_option(second)
+    # linked: it drives the charts of its colour instead (test_symbol_links covers the groups)
+    set_link(p, 2, "blue")
+    set_link(p, 1, "blue")
     wl.locator("tr[data-symbol='QQQ']").click()
     wait_state(p, "a.cells[1].symbol === 'QQQ'")
     assert app_state(p, "a.cells[0].symbol") == "VOLD-NYSE"
@@ -1137,6 +1138,99 @@ def test_add_a_watch_list_right_of_the_top_row_turns_two_over_four_into_three_ov
     assert p.locator(".panel.wl tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)") == ["SPY", "QQQ"]
     layout_action(p, 2, "remove")
     assert app_state(p, "a.layout") == "2/4" and "Watch list removed." in p.inner_text("#toasts")
+
+
+def set_link(p, cell, group):
+    p.locator("#grid .panel").nth(cell).locator("select.linksel").select_option(group)
+
+
+def test_symbol_links_are_colour_groups_across_charts_and_watch_lists(tab):
+    p = tab.goto("/Internals", 3000)
+    layout_action(p, 1, "watchlist-right")                                   # 3 over 4: QQQ, SPY, watch list, 4 internals
+    for i, g in ((0, "red"), (3, "red"), (4, "red"), (1, "green"), (2, "green")):
+        set_link(p, i, g)
+    assert app_state(p, "a.cells.map((c) => c.link)") == ["red", "green", "green", "red", "red", "", ""]
+    box = p.locator("#grid .panel").nth(0).locator(".linkbox")
+    assert box.get_attribute("title").startswith("Linked: Red (2 others)")
+    assert p.locator("#grid .panel").nth(5).locator(".linkbox").get_attribute("title").startswith("Not linked")
+    # typing a symbol into a red chart changes every red chart, and nothing else
+    sym = p.locator("#grid .panel").nth(3).locator("input.sym")
+    sym.fill("SPY")
+    sym.press("Enter")
+    wait_state(p, "a.cells[0].symbol === 'SPY' && a.cells[4].symbol === 'SPY'")
+    assert cell_symbols(p) == ["SPY", "SPY", "watch list", "SPY", "SPY", "TICK-NYSE", "ADD-NYSE"]
+    # the green watch list drives the green chart only, and highlights what its group shows
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length > 3")
+    wl.locator("tr[data-symbol='QQQ']").click()
+    wait_state(p, "a.cells[1].symbol === 'QQQ'")
+    assert app_state(p, "[a.cells[0].symbol, a.cells[3].symbol]") == ["SPY", "SPY"]
+    sym = p.locator("#grid .panel").nth(1).locator("input.sym")               # and follows the green chart back
+    sym.fill("SPY")
+    sym.press("Enter")
+    p.wait_for_function("document.querySelector('.panel.wl tr.sel')?.dataset.symbol === 'SPY'")
+    # moved to red: a click now changes the three red charts
+    set_link(p, 2, "red")
+    wl.locator("tr[data-symbol='QQQ']").click()
+    wait_state(p, "a.cells[0].symbol === 'QQQ' && a.cells[3].symbol === 'QQQ' && a.cells[4].symbol === 'QQQ'")
+    assert app_state(p, "a.cells[1].symbol") == "SPY"
+    # kept with the dashboard; a copy of a linked chart starts unlinked
+    p = tab.goto("/Internals", 3000)
+    assert app_state(p, "a.cells.map((c) => c.link)") == ["red", "green", "red", "red", "red", "", ""]
+    layout_action(p, 0, "chart-right")
+    assert app_state(p, "a.cells[1].link") == "" and app_state(p, "a.cells[0].link") == "red"
+
+
+def test_a_watch_list_saved_linked_to_one_chart_gets_a_colour_group(tab):
+    """Earlier versions linked a watch list to one chart by its id: both get the first free colour."""
+    p = tab.goto("/QQQs", 1500)
+    key = p.evaluate("Object.keys(localStorage).find((k) => JSON.parse(localStorage.getItem(k) || 'null')?.configs)")
+    p.evaluate("""(key) => {
+      const s = JSON.parse(localStorage.getItem(key));
+      s.layout = "2";
+      s.configs = [{ id: "c1", symbol: "SPY", tf: 3, days: 1, studies: [] },
+                   { kind: "watchlist", id: "w1", symbols: ["QQQ", "SPY"], list: "", link: "c1" }];
+      localStorage.setItem(key, JSON.stringify(s));
+    }""", key)
+    p = tab.goto("/QQQs", 2000)
+    assert app_state(p, "a.cells.map((c) => c.link)") == ["red", "red"]
+    p.locator(".panel.wl tr[data-symbol='QQQ']").click()
+    wait_state(p, "a.cells[0].symbol === 'QQQ'")
+
+
+def test_a_watch_list_from_a_finviz_screen(tab, data):
+    from app import list_sources, store
+    old, store.DATA_DIR = store.DATA_DIR, data
+    try:
+        address = "https://elite.finviz.com/screener.ashx?v=111&f=ta_topgainers&auth=NOT-A-REAL-TOKEN"
+        ref = list_sources.normalize("finviz", address)
+        list_sources.write(ref, {"status": "ok", "symbols": ["QQQ", "SPY", "AAPL"], "total": 3, "fetched": time.time()})
+        p = tab.goto("/QQQs", 1500)
+        layout_action(p, 0, "watchlist-right")
+        wl = p.locator(".panel.wl")
+        wl.locator("select.wllist").select_option("@feed")                    # no address yet: the editor opens
+        assert wl.locator(".wleditor").is_visible()
+        wl.locator("textarea").fill("https://example.com/screener.ashx?f=x")
+        wl.locator(".wleditor button[type=submit]").click()
+        p.wait_for_function("document.querySelector('.panel.wl .wleditor .muted').textContent.includes('finviz.com')")
+        wl.locator("textarea").fill(address)
+        wl.locator(".wleditor button[type=submit]").click()
+        p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 3")
+        assert "Asking FinViz" in wl.locator(".wlfoot").inner_text()
+        reqs = [json.loads(f.read_text()) for f in (data / "control" / "requests").glob("*.json")]
+        assert [r["list"] for r in reqs if r.get("list")] == [ref]               # the collector was asked
+        assert "auth" not in json.dumps(app_state(p, "a.cells[1].config()"))     # the token isn't kept
+        assert wl.locator("a.wlfeedlabel").get_attribute("href") == "https://finviz.com/screener.ashx?v=111&f=ta_topgainers"
+        # the collector's answer arrives: the list follows
+        list_sources.write(ref, {"status": "ok", "symbols": ["NVDA", "QQQ"], "total": 2, "fetched": time.time() + 1})
+        p.wait_for_function("[...document.querySelectorAll('.panel.wl tr.wlr')].map((r) => r.dataset.symbol).join() === 'NVDA,QQQ'",
+                            timeout=15000)
+        assert "fetched" in wl.locator(".wlfoot").inner_text()
+        p = tab.goto("/QQQs", 2000)                                             # kept with the dashboard
+        p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+        assert p.locator(".panel.wl select.wllist").input_value() == "@feed"
+    finally:
+        store.DATA_DIR = old
 
 
 def test_layout_limits(tab):

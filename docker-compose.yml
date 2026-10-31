@@ -29,6 +29,7 @@ x-hardening: &hardening
     ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
     ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
     SEC_CONTACT: ${SEC_CONTACT:-}               # earnings page: see .env.example
+    FINVIZ: ${FINVIZ_TOKEN:+on}                 # FinViz watch lists turned on (the token itself goes to the collector only)
 
 services:
   chart:
@@ -62,6 +63,7 @@ services:
       COMPANIONS: ${COMPANIONS:-TICK-NYSE TRIN-NYSE}
       RECORD: ${RECORD-ADD-NYSE VOLD-NYSE}         # recorded from live quotes (Internals); empty to turn off
       DAILY_YEARS: ${DAILY_YEARS:-10}               # daily history kept per symbol (1d / 1w / 1M charts)
+      FINVIZ_TOKEN: ${FINVIZ_TOKEN:-}               # FinViz Elite API token, for FinViz watch lists; see .env.example
     volumes:
       - ./data:/app/data
     depends_on:
