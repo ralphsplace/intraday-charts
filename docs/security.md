@@ -16,7 +16,10 @@ checks that it runs in a secure environment:
 
   - Changes (saving, fetching, editing dashboards) are only accepted from the dashboard's own pages.
 - **Read-only trading data:**
-  - Every TWS connection is opened read-only, and doesn't download the account's positions, orders or executions.
+  - Every TWS connection is opened read-only, and doesn't download the account's orders or executions.
+  - The account's positions are read only when you turn on the watch list's Holdings list (`HOLDINGS=on`):
+    by the collector, once a minute in Live, with account numbers masked. A test checks that nothing else reads
+    the account.
   - The code contains no order calls. A test fails if one is ever added, and the server refuses to start.
   - The tools refuse to connect to a TWS address on the internet. Accepted TWS addresses are this machine,
     Docker's `*.docker.internal` names, and home-network addresses.

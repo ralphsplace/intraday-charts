@@ -397,3 +397,21 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .wlfeed a.wlfeedlabel { color: var(--teal); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wlfeed .bad { color: var(--bear); }
 .wlfeed .wlrefresh { padding: 0 6px; font-size: 11px; }
+/* watch list tabs (watchlist.js) and the column chooser */
+.wltabs { display: flex; align-items: flex-end; gap: 2px; padding: 3px 5px 0; border-bottom: 1px solid var(--line); overflow-x: auto; flex: none; }
+.wltabs button.wltab { padding: 2px 10px; font-size: 12px; border-radius: 5px 5px 0 0; border-bottom: none; background: transparent;
+  color: var(--muted); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wltabs button.wltab.on { background: var(--panel); color: var(--text); border-color: var(--teal); }
+.wltabs button.wltabx, .wltabs button.wltabadd { padding: 0 6px; font-size: 12px; line-height: 18px; margin-bottom: 2px; background: transparent; }
+.wltabs input.wltabname { width: 120px; padding: 1px 6px; font-size: 12px; }
+.wlcols { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.wlcols .wlcol { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.wlcols .wlcolreset { margin-left: auto; padding: 0 8px; font-size: 11px; }
+.wlfeed .up { color: var(--bull); }
+.wlfeed .down { color: var(--bear); }
+/* a wide table (Holdings) scrolls inside the watch list instead of widening its cell */
+.panel.wl { min-width: 0; overflow: hidden; }
+.panel.wl .wlbody { min-width: 0; max-width: 100%; }
+.wltable th { white-space: nowrap; }
+.panel.wl .wlcols .wlcol input { width: auto; margin: 0 2px 0 0; }
+.panel.wl .wltabs input.wltabname { width: 120px; }

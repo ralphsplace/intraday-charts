@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
-               quotes, saved, security, sessions, store, structures, studies, templates, timeframes, watchlist)
+               positions, quotes, saved, security, sessions, store, structures, studies, templates, timeframes, watchlist)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -146,6 +146,13 @@ def quote_rows(symbols: str, day: str, cursor: int | None = Query(None, ge=0, le
         raise HTTPException(400, f"At most {MAX_QUOTE_SYMBOLS} symbols")
     syms = list(dict.fromkeys(_one_symbol(x, demo_ok=True) for x in parts))
     return {"day": _date(day), "items": quotes.rows(syms, day, cursor)}
+
+
+@app.get("/api/positions")
+def position_rows(day: str, cursor: int | None = Query(None, ge=0, le=24 * 60)):
+    """The watch list's Holdings list: the account's stock and ETF positions (read by the collector when
+    HOLDINGS=on) with market value and P/L at the price of `day` (up to the Replay cursor, when given)."""
+    return {"day": _date(day), **positions.view(day, cursor)}
 
 
 @app.post("/api/symbols/parse")

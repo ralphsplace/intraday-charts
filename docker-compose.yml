@@ -29,6 +29,7 @@ x-hardening: &hardening
     ALLOWED_NETWORKS: ${ALLOWED_NETWORKS:-}
     ALLOWED_HOSTS: ${ALLOWED_HOSTS:-}
     SEC_CONTACT: ${SEC_CONTACT:-}               # earnings page: see .env.example
+    HOLDINGS: ${HOLDINGS:-}                     # "on": the watch list's Holdings list reads the account's positions
     FINVIZ: ${FINVIZ_TOKEN:+on}                 # FinViz watch lists turned on (the token itself goes to the collector only)
 
 services:

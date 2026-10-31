@@ -1198,6 +1198,100 @@ def test_a_watch_list_saved_linked_to_one_chart_gets_a_colour_group(tab):
     wait_state(p, "a.cells[0].symbol === 'QQQ'")
 
 
+def wl_rows(p):
+    return p.locator(".panel.wl tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)")
+
+
+def test_watch_list_tabs_and_columns(tab):
+    p = tab.goto("/QQQs", 1500)
+    layout_action(p, 0, "watchlist-right")
+    wl = p.locator(".panel.wl")
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list"] and wl.locator("button.wltabx").count() == 0
+    # a second tab: its own list, typed straight away
+    wl.locator("button.wltabadd").click()
+    assert wl.locator(".wleditor").is_visible()
+    wl.locator("textarea").fill("SPY QQQ")
+    wl.locator(".wleditor button[type=submit]").click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    assert wl_rows(p) == ["SPY", "QQQ"]
+    # renamed with a double-click; switching tabs switches lists
+    wl.locator("button.wltab.on").dblclick()
+    wl.locator("input.wltabname").fill("Index ETFs")
+    wl.locator("input.wltabname").press("Enter")
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list", "Index ETFs"]
+    wl.locator("button.wltab").first.click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 1")
+    assert wl_rows(p) == ["QQQ"]
+    wl.locator("button.wltab").nth(1).click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    # columns: per tab, from the registry; Defaults puts them back
+    wl.locator("button.wlcolbtn").click()
+    wl.locator(".wlcols label:has-text('Volume') input").uncheck()
+    wl.locator(".wlcols label:has-text('High') input").uncheck()
+    assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Low"]
+    assert wl.locator(".wlcols label:has-text('Qty')").count() == 0          # position columns: Holdings only
+    # kept with the dashboard: tabs, names, the tab on view and its columns
+    p = tab.goto("/QQQs", 2000)
+    wl = p.locator(".panel.wl")
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list", "Index ETFs"]
+    assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Low"]
+    wl.locator("button.wlcolbtn").click()
+    wl.locator("button.wlcolreset").click()
+    assert len(wl.locator("tr:first-child th").all_inner_texts()) == 7
+    wl.locator("button.wltabadd").click()                                      # each + opens the editor
+    assert wl.locator(".wleditor").is_visible()
+    wl.locator(".wleditor button:has-text('Cancel')").click()
+    wl.locator("button.wltabx").click()                                      # closed again: back to two
+    wl.locator("button.wltab").nth(1).click()
+    # closing a tab, with Undo
+    wl.locator("button.wltabx").click()
+    assert wl.locator("button.wltab").all_inner_texts() == ["Watch list"]
+    p.locator("#toasts .toastbtn").last.click()
+    p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
+    assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
+
+
+def test_a_holdings_tab_shows_positions_with_cost_value_and_pnl(tab, data):
+    from types import SimpleNamespace as NS
+
+    import positions as reader
+    from app import positions, store
+    old, store.DATA_DIR = store.DATA_DIR, data
+    try:
+        held = [NS(account="U1234567", contract=NS(symbol=s, secType=t, currency="USD"), position=q, avgCost=c)
+                for s, q, c, t in (("QQQ", 100, 600.0, "STK"), ("SPY", -20, 650.0, "STK"), ("NVDA", 10, 150.0, "STK"),
+                                   ("QQQ", 2, 310.0, "OPT"))]
+        positions.write(reader.read_positions(NS(reqPositions=lambda: held)))
+        p = tab.goto("/QQQs", 1500)
+        layout_action(p, 0, "watchlist-right")
+        wl = p.locator(".panel.wl")
+        wl.locator("select.wllist").select_option("@holdings")
+        p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 3")
+        assert wl_rows(p) == ["QQQ", "SPY", "NVDA"]                               # biggest first
+        assert wl.locator("tr:first-child th").all_inner_texts() == \
+            ["Symbol", "Qty", "Avg cost", "Last", "Mkt value", "Unrl P/L", "Unrl P/L %", "Day P/L", "Chg %"]
+        assert wl.locator("button.wltab.on").inner_text() == "Holdings"
+        qqq = wl.locator("tr[data-symbol='QQQ'] td").all_inner_texts()
+        last = float(qqq[3])
+        assert qqq[1] == "100" and qqq[2] == "600.00"
+        assert qqq[4] == f"{100 * last:,.2f}"
+        assert qqq[5] == ("+" if last > 600 else "−") + f"{abs(100 * (last - 600)):,.2f}"
+        spy = wl.locator("tr[data-symbol='SPY'] td").all_inner_texts()
+        assert spy[1] == "-20" and spy[4].startswith("−")                        # a short: negative value
+        nvda = wl.locator("tr[data-symbol='NVDA'] td").all_inner_texts()
+        assert nvda[1] == "10" and nvda[3] == "–"                                 # no bars cached: quantity only
+        foot = wl.locator(".wlfoot").inner_text()
+        assert "Value" in foot and "Unrl" in foot and "1 other position" in foot and "Fetch 1 from TWS" in foot
+        wl.locator("tr[data-symbol='SPY']").click()                               # a row still drives the chart
+        wait_state(p, "a.cells[0].symbol === 'SPY'")
+        wl.locator("button.wlcolbtn").click()
+        assert wl.locator(".wlcols label:has-text('Cost basis')").count() == 1
+    finally:
+        store.DATA_DIR = old
+
+
 def test_a_watch_list_from_a_finviz_screen(tab, data):
     from app import list_sources, store
     old, store.DATA_DIR = store.DATA_DIR, data
