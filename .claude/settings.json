@@ -14,5 +14,8 @@
         "repo": "anthropics/claude-plugins-official"
       }
     }
+  },
+  "env": {
+    "ENABLE_CODE_SECURITY_REVIEW": "0"
   }
 }

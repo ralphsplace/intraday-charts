@@ -38,5 +38,6 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root, created when ter
 ### Plugins and skills
 
 `.claude/settings.json` enables, for everyone who opens this repo in Claude Code, from the official marketplace:
-superpowers, feature-dev, pr-review-toolkit, code-simplifier, security-guidance and mattpocock-skills.
+superpowers, feature-dev, pr-review-toolkit, code-simplifier, security-guidance and mattpocock-skills. security-guidance's Opus reviews (each turn's diff, and each commit) are
+off (`ENABLE_CODE_SECURITY_REVIEW=0` in the same file), so only its free pattern warnings run.
 `.claude/skills/` holds TradingView's Lightweight Charts skills (see `.claude/skills/NOTICE.md`).
