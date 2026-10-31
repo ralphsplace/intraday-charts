@@ -64,9 +64,9 @@ the cached 1-minute bars of the day on screen. In Replay they follow the cursor;
 
 ### Named watch lists
 
-Watch lists are named, and the names are unique across the whole app. The lists are kept on the NAS
-(`data/user/watchlists.json`, one `name: definition` entry each), so every dashboard, watch list panel, browser and
-device sees the same ones. **Load data…** reads and saves the same lists.
+Watch lists are named, and the names are unique across the whole app. They're defined in the application config
+(`data/user/config.json`, one `name: definition` entry each; see the [Config page](config.md)), so every dashboard,
+watch list panel, browser and device sees the same ones. **Load data…** reads and saves the same lists.
 
 - A new list is called **Watch list N**, N one more than the highest in use (Watch list 1, Watch list 2, …).
 - **Rename** a list by double-clicking its tab: Enter keeps the name, Esc cancels. A name already in use is
@@ -77,7 +77,8 @@ device sees the same ones. **Load data…** reads and saves the same lists.
   change.
 - A list's definition depends on its source: `{"source": "symbols", "symbols": [...]}`, `{"source": "finviz",
   "feed": {"address": ...}}` or `{"source": "holdings"}`, plus an id that never changes.
-- Delete a list under **Load data…** (Watchlists…, Delete). A tab showing a deleted list says so.
+- **Delete** a list from the watch list's menu (**Delete "…"…**, then **Delete** on the message), or on the
+  [Config page](config.md), which lists every watch list. A tab showing a deleted list says so.
 - Watch lists made before lists were named become named lists (Watch list N) the first time they're opened.
 
 **Edit** takes symbols separated by spaces, commas or lines, or the contents of an exported watch list file (a
@@ -100,7 +101,8 @@ Each tab shows one named watch list with its own columns, heat and sorting. Only
 ### Columns
 
 **Columns** in the watch list's header lists every column the tab can show, by section; tick the ones you want.
-**Defaults** puts the tab's default set back. Hover a column's name for what it is. Columns, heat and sorting are
+**Drag a column's header** onto another to move it there. **Defaults** puts the tab's default set back: each list
+type's default columns and their order are set on the [Config page](config.md). Hover a column's name for what it is. Columns, heat and sorting are
 kept per tab.
 
 - **Sorting.** Click a column's header: up (▴), down (▾), then the list's own order again. Graphical columns sort

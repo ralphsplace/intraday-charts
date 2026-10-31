@@ -107,16 +107,44 @@ COLUMNS = [
     col("pe", "P/E", "text", "finviz", "From FinViz", lists="finviz"),
 ]
 BY_ID = {c["id"]: c for c in COLUMNS}
-DEFAULTS = {
+DEFAULTS = {          # built in; the Config page can choose others (application config, "watch_columns")
     "quote": ["symbol", "last", "change", "pct", "volume", "high", "low"],
+    "finviz": ["symbol", "last", "change", "pct", "volume", "sector", "market_cap"],
     "holding": ["symbol", "qty", "avg_cost", "last", "market_value", "unrealized", "unrealized_pct", "day_pnl", "pct"],
 }
 STUDY_SPECS = {sid: spec for sid, _, spec in STUDIES}
 
 
+def lists_for(kind: str) -> tuple:
+    return ("all", kind) if kind != "quote" else ("all",)
+
+
+def check_columns(kind: str, ids) -> list[str]:
+    """A list kind's columns as chosen on the Config page: known ones it can show, Symbol first, no repeats."""
+    if kind not in DEFAULTS:
+        raise ValueError(f"Unknown list kind: {kind}")
+    ok = [c for c in dict.fromkeys(ids or []) if c in BY_ID and BY_ID[c]["lists"] in lists_for(kind) and c != "symbol"]
+    if not ok:
+        raise ValueError("Choose at least one column besides Symbol")
+    return ["symbol", *ok]
+
+
+def defaults() -> dict:
+    """Each list kind's default columns: the Config page's choice, else the built-in set."""
+    from . import app_config
+    mine = app_config.section("watch_columns")
+    out = {}
+    for kind, factory in DEFAULTS.items():
+        try:
+            out[kind] = check_columns(kind, mine[kind]) if kind in mine else factory
+        except ValueError:
+            out[kind] = factory
+    return out
+
+
 def catalog() -> dict:
-    """The registry, for the page."""
-    return {"columns": COLUMNS, "defaults": DEFAULTS}
+    """The registry, for the page: the columns, each list kind's defaults, and the built-in ones."""
+    return {"columns": COLUMNS, "defaults": defaults(), "factory": DEFAULTS}
 
 
 def groups_for(cols) -> set:

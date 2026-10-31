@@ -133,12 +133,31 @@ def apply_styles(spec: dict, params: dict, out: dict) -> None:
         style(out["box"], out["box"]["plot"])
 
 
+def user_defaults(type: str) -> dict:
+    """The defaults set for a study on the Config page (the application config), checked against its settings:
+    only known keys, each coerced and clamped like any setting."""
+    from .. import app_config                          # local: the config module doesn't depend on the studies
+    spec = REGISTRY.get(type)
+    mine = app_config.section("studies").get(type) if spec else None
+    if not isinstance(mine, dict) or not mine:
+        return {}
+    keys = {p["key"] for p in spec["params"]} & set(mine)
+    full = coerce(spec, mine)
+    return {k: full[k] for k in keys}
+
+
+def effective_params(type: str, raw: dict) -> dict:
+    """A study's settings: what the chart sent, then the Config page's defaults, then the built-in ones."""
+    spec = REGISTRY[type]
+    return coerce(spec, {**user_defaults(type), **(raw or {})})
+
+
 def run_study(ctx, type: str, raw: dict) -> dict:
     """Run one study on a DayContext (intraday) or a PeriodContext (daily, weekly, monthly)."""
     spec = REGISTRY.get(type)
     if not spec:
         return {"type": type, "ok": False, "error": f"Unknown study '{type}'"}
-    params = coerce(spec, raw)
+    params = effective_params(type, raw)
     if spec["intraday"] and getattr(ctx, "period", False):
         return {"type": type, "ok": True, "params": params, "label": spec["label"](params), "pane": spec["pane"],
                 "note": INTRADAY_NOTE}
@@ -154,9 +173,16 @@ def run_study(ctx, type: str, raw: dict) -> dict:
     return {"type": type, "ok": True, "params": params, "label": spec["label"](params), "pane": spec["pane"], **out}
 
 
-def catalog() -> list[dict]:
-    return [{k: v for k, v in s.items() if k in ("type", "name", "category", "pane", "params", "description")}
-            for s in REGISTRY.values()]
+def catalog(user: bool = True) -> list[dict]:
+    """Every study with its settings; each setting's default is the Config page's, when one is set (user=False:
+    the built-in defaults, with "factory" on each setting either way)."""
+    out = []
+    for s in REGISTRY.values():
+        mine = user_defaults(s["type"]) if user else {}
+        params = [{**p, "factory": p["default"], "default": mine.get(p["key"], p["default"])} for p in s["params"]]
+        out.append({**{k: v for k, v in s.items() if k in ("type", "name", "category", "pane", "description")},
+                    "params": params, "customized": sorted(mine)})
+    return out
 
 
 def ln(id, title, data, **kw):

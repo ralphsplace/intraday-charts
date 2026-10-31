@@ -452,3 +452,42 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .wlcols .wlheat { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); margin-left: -8px; }
 .panel.wl .wlcols .wlheat input { width: auto; margin: 0 2px 0 0; }
 .wlcols .wlcolreset { align-self: flex-end; }
+/* the Config page (js/config/main.js) */
+body.cfg-page { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+main.cfg { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 24px; max-width: 1100px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+.cfg-intro code, .cfg code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.cfg-tabs, .cfg-kinds { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 6px 0 12px; }
+.cfg-tabs button, .cfg-kinds button { border-radius: 6px 6px 0 0; border-bottom: none; background: transparent; color: var(--muted); }
+.cfg-tabs button.on, .cfg-kinds button.on { background: var(--panel); color: var(--text); border-color: var(--teal); }
+.cfg-sec h2 { font-size: 16px; margin: 6px 0 4px; }
+.cfg-sec h3 { font-size: 13px; margin: 8px 0 6px; color: var(--muted); font-weight: 500; }
+.cfg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cfg-table th, .cfg-table td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.cfg-table th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.cfg-table .cfg-name { font-weight: 600; }
+.cfg-table .cfg-what { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cfg-acts { text-align: right; white-space: nowrap; }
+.cfg-acts button { padding: 2px 9px; font-size: 12px; margin-left: 4px; }
+button.danger { border-color: #7a2e2e; color: #ffb4b4; }
+.cfg-input, .wltabs input.wltabname, .panel.wl .wltabs input.wltabname { background: var(--bg); color: var(--text); border: 1px solid var(--teal);
+  border-radius: 5px; padding: 2px 6px; font: inherit; font-size: 12px; caret-color: var(--text); }
+.cfg-cols { display: grid; grid-template-columns: minmax(240px, 1fr) 2fr; gap: 18px; }
+.cfg-chosen { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cfg-col { display: flex; align-items: center; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font-size: 13px; }
+.cfg-col-name { flex: 1; }
+.cfg-col button { padding: 0 6px; font-size: 11px; line-height: 18px; }
+.cfg-avail { display: flex; flex-wrap: wrap; gap: 5px; }
+.cfg-avail button { font-size: 12px; padding: 2px 8px; }
+.cfg-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.cfg-studies { display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start; }
+.cfg-slist input { width: 100%; box-sizing: border-box; margin-bottom: 6px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; color: var(--text); }
+.cfg-slist ul { list-style: none; margin: 0; padding: 0; max-height: 70vh; overflow-y: auto; }
+.cfg-slist li.cfg-cat { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 3px; }
+.cfg-slist button.cfg-study { width: 100%; text-align: left; border: none; background: transparent; padding: 3px 6px; font-size: 13px; border-radius: 5px; }
+.cfg-slist button.cfg-study:hover { background: #1a2028; }
+.cfg-slist button.cfg-study.on { background: #1f3b37; color: var(--text); }
+.cfg-sform { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.cfg-sform h3 { color: var(--text); font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.bad { color: var(--bear); }
+.wltable th.dropto { box-shadow: inset 2px 0 0 var(--teal); }
+.wltable th[draggable=true] { cursor: grab; }

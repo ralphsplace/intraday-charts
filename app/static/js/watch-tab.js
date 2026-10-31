@@ -54,7 +54,8 @@ export class WatchTab {
     const source = cfg.list === "@feed" ? "finviz" : cfg.list === "@holdings" ? "holdings" : "symbols";
     if (source === "finviz" && !cfg.feed?.address) return;
     const r = await lists.create(source, source === "symbols" ? { symbols: cfg.symbols || [] } : source === "finviz" ? { feed: cfg.feed } : {},
-                                 cfg.name && !app.saved.watchlists[cfg.name] ? cfg.name : undefined).catch(() => null);
+                                 cfg.name && cfg.name !== "Watch list" && !app.saved.watchlists[cfg.name] ? cfg.name : undefined)
+      .catch(() => null);                                  // "Watch list" was the old default: numbered instead
     if (r) { this.list = r.name; this.listId = r.item.id; this.resolve(); }
   }
 
@@ -83,6 +84,14 @@ export class WatchTab {
       if (typeof a[1] !== typeof b[1]) return typeof a[1] === "number" ? -1 : 1;
       return (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[2] - b[2]) * dir;
     }).map((x) => x[0]);
+  }
+
+  // a column dragged onto another: it takes that column's place (Symbol stays first)
+  moveColumn(from, to) {
+    const cols = this.shownColumns().filter((c) => c !== "symbol" && c !== from);
+    const at = to === "symbol" ? 0 : cols.indexOf(to) + (this.shownColumns().indexOf(from) < this.shownColumns().indexOf(to) ? 1 : 0);
+    cols.splice(Math.max(0, at), 0, from);
+    this.columns = cols;
   }
 
   // a click on a column's header: ascending, descending, then the list's own order

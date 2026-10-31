@@ -40,11 +40,13 @@ def test_a_rename_keeps_the_id_and_contents(cache):
     assert watchlists.all_lists()["Gainers"] == {"id": item["id"], "source": "symbols", "symbols": ["NVDA"]}
 
 
-def test_lists_saved_before_ids_and_load_data_saves(cache):
-    saved.put("watchlists", "Old", ["QQQ", "SPY"])
-    assert watchlists.all_lists()["Old"] == {"id": None, "source": "symbols", "symbols": ["QQQ", "SPY"]}
+def test_lists_saved_before_ids_move_into_the_config_with_ids(cache):
+    saved.put("watchlists", "Old", ["QQQ", "SPY"])                               # the file before the config existed
+    got = watchlists.all_lists()["Old"]
+    assert got["id"] and got["symbols"] == ["QQQ", "SPY"]                         # an id on the first read
+    assert json.loads((cache / "user" / "config.json").read_text())["watchlists"]["Old"]["id"] == got["id"]
     watchlists.rename("Old", "Older")
-    assert watchlists.all_lists()["Older"]["id"]                                  # given one when changed
+    assert watchlists.all_lists()["Older"]["id"] == got["id"] and "Old" not in watchlists.all_lists()   # a move
     _, item = watchlists.create("symbols", {"symbols": ["A"]}, name="Mine")
     watchlists.set_symbols("Mine", ["B", "C"])                                    # Load data's Save keeps the id
     assert watchlists.all_lists()["Mine"] == {"id": item["id"], "source": "symbols", "symbols": ["B", "C"]}
@@ -72,7 +74,7 @@ def test_endpoints(client, cache):
     assert client.post("/api/watchlists/nope/rename", json={"to": "x"}).status_code == 404
     # Load data still saves and reads plain symbol lists under the same names
     assert client.put("/api/saved/watchlists/Mine", json=["NVDA"]).status_code == 200
-    assert json.loads((cache / "user" / "watchlists.json").read_text())["Mine"]["symbols"] == ["NVDA"]
+    assert json.loads((cache / "user" / "config.json").read_text())["watchlists"]["Mine"]["symbols"] == ["NVDA"]
     assert client.put("/api/saved/watchlists/Mine", json={"x": 1}).status_code == 400
     assert "Mine" not in client.delete("/api/watchlists/Mine").json()["lists"]
 

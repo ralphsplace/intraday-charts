@@ -21,6 +21,7 @@ can also tick TWS's own *Read-Only API* setting. It can only be reached from you
 | [Studies](studies.md) | Overlays, volume, profiles, oscillators, market internals and level studies (prior day, S/R ladder, session levels, ATR levels, events). |
 | [Earnings view](earnings.md) | A stock's last 6 earnings reports drawn over each other, around the report day. |
 | [Expected move view](expected-move.md) | The options' expected move by a date for several stocks, with diagonal legs. |
+| [Config page](config.md) | The application config: named watch lists, each watch list type's columns, study defaults. |
 | [Option chain view](option-chain.md) | Build an option structure from the chain and evaluate it: risk graph, profit/loss grid, strike profile. |
 
 ## Setting up and running

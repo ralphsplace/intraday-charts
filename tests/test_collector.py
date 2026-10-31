@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 import fake_tws
 import fetch_ibkr
-from app import control, saved, sessions, store, watchlist
+from app import control, sessions, store, watchlist
 
 ET = "America/New_York"
 
@@ -175,8 +175,8 @@ def test_saved_views_layouts_and_watchlists(cache):
     assert c.put("/api/saved/nope/x", json=view).status_code == 404
     c.delete("/api/saved/views/Opening drive")
     assert c.get("/api/saved/views").json() == {}
-    zone = saved.all_items("watchlists")["Zone"]                    # a named watch list (app/watchlists.py)
-    assert list(saved.all_items("watchlists")) == ["Zone"] and zone["symbols"] == ["QQQ", "SPY"] and zone["source"] == "symbols"
+    lists = c.get("/api/saved/watchlists").json()                 # named watch lists, in the application config
+    assert list(lists) == ["Zone"] and lists["Zone"]["symbols"] == ["QQQ", "SPY"] and lists["Zone"]["source"] == "symbols"
 
 
 def test_watchlist_parsing():
