@@ -53,12 +53,8 @@ the cached 1-minute bars of the day on screen. In Replay they follow the cursor;
 
 - **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the charts of the
   watch list's [link colour](#symbol-links), or on the **active chart** when it isn't linked.
-- **Where a tab's symbols come from**, in the menu at its top left:
-  - **Own list:** **Edit** takes symbols separated by spaces, commas or lines, or a thinkorswim share link. A new
-    watch list starts with the symbols on screen.
-  - **A watch list saved under Load data…**
-  - **FinViz:** a FinViz screen or portfolio ([below](#a-watch-list-from-finviz)).
-  - **Holdings (IBKR):** your account's stock and ETF positions ([below](#holdings)).
+- **Each tab shows a named watch list** ([below](#named-watch-lists)): a list of symbols you typed or imported, a
+  FinViz screen or portfolio ([below](#a-watch-list-from-finviz)), or your account's holdings ([below](#holdings)).
 - Symbols not cached for that day say so; **Fetch from TWS** asks the collector for them (in Live it then
   streams them).
 - Market internals (TICK, ADD, VOLD and so on) show no % change and no volume, which mean nothing for them.
@@ -66,16 +62,40 @@ the cached 1-minute bars of the day on screen. In Replay they follow the cursor;
   (or premarket, before 09:30).
 - Its **≡** menu adds a chart or watch list next to it, or removes it.
 
+### Named watch lists
+
+Watch lists are named, and the names are unique across the whole app. The lists are kept on the NAS
+(`data/user/watchlists.json`, one `name: definition` entry each), so every dashboard, watch list panel, browser and
+device sees the same ones. **Load data…** reads and saves the same lists.
+
+- A new list is called **Watch list N**, N one more than the highest in use (Watch list 1, Watch list 2, …).
+- **Rename** a list by double-clicking its tab: Enter keeps the name, Esc cancels. A name already in use is
+  refused. Every tab that shows the list follows the new name, in any dashboard.
+- The menu at the watch list's top left switches the tab to another list, or makes a new one: **New watch list…**
+  (symbols you type), **New FinViz screen or portfolio…** or **New Holdings list (IBKR)**.
+- **Edit** changes the list itself: its symbols, or its FinViz address. Every tab showing it, anywhere, sees the
+  change.
+- A list's definition depends on its source: `{"source": "symbols", "symbols": [...]}`, `{"source": "finviz",
+  "feed": {"address": ...}}` or `{"source": "holdings"}`, plus an id that never changes.
+- Delete a list under **Load data…** (Watchlists…, Delete). A tab showing a deleted list says so.
+- Watch lists made before lists were named become named lists (Watch list N) the first time they're opened.
+
+**Edit** takes symbols separated by spaces, commas or lines, or the contents of an exported watch list file (a
+thinkorswim or broker CSV with a Symbol column, a FinViz export, a TWS export). Web addresses are never read as
+symbols. **thinkorswim share links (`tos.mx/!…`) can't be used**: the page behind one shows only the list's name,
+and the symbols are delivered only to thinkorswim itself. In thinkorswim, export the watch list to a file from its
+menu and paste the file's contents (or import it under **Load data…**).
+
 ### Tabs
 
-Each tab is a list of its own: its own source and its own columns. Only the tab on view is fetched.
+Each tab shows one named watch list with its own columns, heat and sorting. Only the tab on view is fetched.
 
-- **+** adds a tab, with its own list: type its symbols and press **Apply**.
-- Click a tab to show it. **Double-click** it to rename it (Enter keeps the name, Esc cancels); a tab without a
-  name of its own is named after what it shows ("Holdings", "FinViz", a saved list's name).
-- **×** on the tab on view closes it; **Undo** on the message that follows brings it back. The last tab stays.
-- Up to 12 tabs per watch list. The tabs, their names, the tab on view and each tab's columns are kept with the
-  dashboard and in saved layouts.
+- **+** adds a tab with a new, empty list (Watch list N): type its symbols and press **Apply**.
+- Click a tab to show it; double-click it to rename its list.
+- **×** on the tab on view closes the tab. The list itself is kept (pick it again from the menu); **Undo** on the
+  message that follows brings the tab back. The last tab stays.
+- Up to 12 tabs per watch list panel. The tabs, the tab on view and each tab's columns are kept with the dashboard
+  and in saved layouts.
 
 ### Columns
 
@@ -120,6 +140,8 @@ A tab of your IBKR account's **stock and ETF positions**, biggest first, with **
 Unrl P/L, Unrl P/L %, Day P/L, Chg %**. The footer adds them up (value, unrealized and day P/L) and says how old the
 positions are.
 
+- **Showing it.** In the watch list's menu pick **New Holdings list (IBKR)**: a named list (Watch list N) whose source
+  is your holdings. Rename it, e.g. "Holdings".
 - **Turning it on.** Set `HOLDINGS=on` in `.env` and restart: `docker compose --profile collector up -d`. The
   collector then reads the account's positions once a minute while it's in Live mode.
 - **Read-only, and positions only.** Orders, executions and account balances are never read, and nothing can be
@@ -137,7 +159,7 @@ A FinViz screen (e.g. top gainers with average volume over 2M) or one of your Fi
 
 1. Set `FINVIZ_TOKEN` in `.env` ([Configuration](configuration.md)) and restart:
    `docker compose --profile collector up -d`.
-2. In the watch list's menu pick **FinViz screen or portfolio…**.
+2. In the watch list's menu pick **New FinViz screen or portfolio…**. It becomes a named list (Watch list N; rename it).
 3. Paste the screen's or portfolio's address from your browser's address bar on finviz.com, e.g.
    `https://finviz.com/screener.ashx?v=111&f=sh_avgvol_o2000,ta_topgainers&o=-change`, and press **Apply**.
 

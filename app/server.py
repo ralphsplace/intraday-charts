@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
                positions, saved, security, sessions, store, structures, studies, study_values, templates, timeframes,
-               watch_fields, watchlist)
+               watch_fields, watchlist, watchlists)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -226,7 +226,67 @@ def saved_put(kind: str, name: str, data: Annotated[Any, Body()]):
         raise HTTPException(400, f"Names are 1 to {saved.NAME_MAX} characters, without / or \\")
     if len(json.dumps(data)) > 500_000:
         raise HTTPException(400, "too large")
+    if kind == "watchlists":                       # Load data's "Save as watchlist": keep the list's id
+        if not isinstance(data, list):
+            raise HTTPException(400, "A watchlist saved here is a list of symbols")
+        watchlists.set_symbols(name, data)
+        return saved.all_items(kind)
     return saved.put(kind, name, data)
+
+
+# ---------------------------------------------------------------- named watch lists (app/watchlists.py)
+class WatchListBody(BaseModel):
+    source: str = "symbols"
+    name: str | None = Field(None, max_length=saved.NAME_MAX)
+    symbols: list[str] | None = Field(None, max_length=watchlists.MAX_SYMBOLS)
+    feed: dict | None = None
+
+
+class RenameBody(BaseModel):
+    to: str = Field(max_length=200)
+
+
+@app.get("/api/watchlists")
+def watch_lists():
+    return watchlists.all_lists()
+
+
+@app.post("/api/watchlists")
+def watch_list_create(req: WatchListBody):
+    """A new named watch list: under the name given, or the next "Watch list N"."""
+    try:
+        name, item = watchlists.create(req.source, req.model_dump(exclude_none=True), req.name)
+    except ValueError as e:
+        raise HTTPException(409 if "already" in str(e) else 400, str(e)) from None
+    return {"name": name, "item": item, "lists": watchlists.all_lists()}
+
+
+@app.put("/api/watchlists/{name}")
+def watch_list_update(name: str, req: WatchListBody):
+    if name not in watchlists.all_lists():
+        raise HTTPException(404, f'No watch list called "{name}"')
+    try:
+        item = watchlists.update(name, req.source, req.model_dump(exclude_none=True))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    return {"name": name, "item": item, "lists": watchlists.all_lists()}
+
+
+@app.post("/api/watchlists/{name}/rename")
+def watch_list_rename(name: str, req: RenameBody):
+    try:
+        item = watchlists.rename(name, req.to)
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0])) from None
+    except ValueError as e:
+        raise HTTPException(409 if "already" in str(e) else 400, str(e)) from None
+    return {"name": req.to.strip(), "item": item, "lists": watchlists.all_lists()}
+
+
+@app.delete("/api/watchlists/{name}")
+def watch_list_delete(name: str):
+    watchlists.delete(name)
+    return {"lists": watchlists.all_lists()}
 
 
 @app.delete("/api/saved/{kind}/{name}")

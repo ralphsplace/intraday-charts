@@ -175,7 +175,8 @@ def test_saved_views_layouts_and_watchlists(cache):
     assert c.put("/api/saved/nope/x", json=view).status_code == 404
     c.delete("/api/saved/views/Opening drive")
     assert c.get("/api/saved/views").json() == {}
-    assert saved.all_items("watchlists") == {"Zone": ["QQQ", "SPY"]}
+    zone = saved.all_items("watchlists")["Zone"]                    # a named watch list (app/watchlists.py)
+    assert list(saved.all_items("watchlists")) == ["Zone"] and zone["symbols"] == ["QQQ", "SPY"] and zone["source"] == "symbols"
 
 
 def test_watchlist_parsing():

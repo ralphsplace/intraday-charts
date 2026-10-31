@@ -1,21 +1,24 @@
 /* A watch list cell in the grid: tabs of symbols with chosen columns, from the cached 1-minute bars of the day
    on screen, up to the Replay cursor. Clicking a row, or moving through the list with the arrow keys, shows that
    symbol on every chart of the watch list's link group (links.js), or on the active chart when it isn't linked.
-   Each tab (watch-tab.js) has its own source (own list, saved list, FinViz, the account's holdings) and columns
-   (columns.js); only the tab on view fetches. */
+   Each tab (watch-tab.js) shows one of the app's named watch lists (lists.js; its symbols typed, from FinViz, or
+   the account's holdings) with its own columns (columns.js); only the tab on view fetches. */
 import { refreshAll, requestData } from "./data.js";
 import { COLUMNS, DEFAULTS, SECTIONS, available, renderCell, sectionOf } from "./columns.js";
 import { setActive, toggleMaximize } from "./grid.js";
 import { groupOf, linkControl, members, publish } from "./links.js";
-import { toastAction } from "./notify.js";
+import * as lists from "./lists.js";
+import { toast, toastAction } from "./notify.js";
 import { openCellMenu } from "./saved.js";
 import { app, save } from "./state.js";
-import { api, btn, el, inUse, uid } from "./util.js";
-import { FEED, HOLDINGS, MAX_SYMBOLS, WatchTab, legacyTab, newTabConfig } from "./watch-tab.js";
+import { api, btn, el, inUse, keepScroll, uid } from "./util.js";
+import { MAX_SYMBOLS, WatchTab, legacyTab, tabConfig } from "./watch-tab.js";
 
 export { MAX_SYMBOLS };
 export const MAX_TABS = 12;
 const DEMO_RE = /-DEMO$/;
+// the list menu's entries besides the named lists
+const NEW_SYMBOLS = "@new", NEW_FINVIZ = "@new-finviz", NEW_HOLDINGS = "@new-holdings";
 
 export class WatchList {
   constructor(cfg, index) {
@@ -28,6 +31,16 @@ export class WatchList {
     this.selected = null;
     this.buildDom();
     this.tab().start();
+    this.migrate();
+  }
+
+  // tabs saved before watch lists were named and app-wide get a named list each (once)
+  async migrate() {
+    const old = this.tabs.filter((t) => t.legacy);
+    if (!old.length) return;
+    for (const t of old) await t.migrate();
+    if (this.dead) return;
+    save(); this.render(); this.tab().start(); this.refresh();
   }
 
   makeTab(cfg) {
@@ -53,16 +66,10 @@ export class WatchList {
     const head = el("div", "phead");
     head.appendChild(el("b", "wltitle", "Watch list"));
     this.listSel = el("select", "wllist"); this.listSel.setAttribute("aria-label", "List");
-    this.listSel.title = "This tab's symbols: its own list, a watch list saved under Load data…, a FinViz screen or portfolio, or your holdings";
-    this.listSel.onchange = () => {
-      const t = this.tab(), v = this.listSel.value;
-      if (v === FEED && !t.feed.address) { this.listSel.value = t.list; this.edit(FEED); return; }
-      t.list = v; t.rows = []; t.held = null;
-      save(); this.render();
-      if (v === FEED) t.start(); else t.stop();
-      this.refresh();
-    };
-    const editB = btn("Edit", () => this.edit(this.tab().list === FEED ? FEED : ""), "Edit this tab's symbols", "wledit");
+    this.listSel.title = "The watch list this tab shows (app-wide, kept on the NAS), or a new one";
+    this.listSel.onchange = () => this.pickList(this.listSel.value);
+    this.editB = btn("Edit", () => this.edit(this.tab().source() === "finviz" ? "finviz" : "symbols"), "Edit this watch list", "wledit");
+    const editB = this.editB;
     const colB = btn("Columns", () => this.toggleColumns(), "Choose this tab's columns", "wlcolbtn");
     const linkB = linkControl(this, () => this.render());
     const menuB = btn("≡", (e) => openCellMenu(e.currentTarget, this), "Watch list menu", "viewsbtn");
@@ -133,10 +140,31 @@ export class WatchList {
     this.refresh();
   }
 
-  addTab() {
-    this.tabs.push(this.makeTab(newTabConfig()));
+  // a new tab with a new, empty "Watch list N" (app-wide), its editor open to type the symbols
+  async addTab() {
+    let r;
+    try { r = await lists.create("symbols", { symbols: [] }); } catch (e) { toast(e.message, true); return; }
+    this.tabs.push(this.makeTab(tabConfig(r.name, r.item.id)));
     this.showTab(this.tabs.length - 1);
-    this.edit("");                                                  // its own list: type the symbols
+    this.edit("symbols");
+  }
+
+  // the list menu: show another named list in this tab, or make a new one
+  async pickList(v) {
+    const t = this.tab();
+    this.listSel.blur();
+    if (v === NEW_SYMBOLS || v === NEW_HOLDINGS) {
+      let r;
+      try { r = await lists.create(v === NEW_HOLDINGS ? "holdings" : "symbols", v === NEW_HOLDINGS ? {} : { symbols: [] }); }
+      catch (e) { toast(e.message, true); this.render(); return; }
+      v = r.name;
+    }
+    if (v === NEW_FINVIZ) { this.render(); this.edit("finviz", true); return; }
+    t.stop();
+    const [name, item] = lists.find(null, v);
+    t.list = name; t.listId = item?.id || null; t.rows = []; t.held = null; t.resolve();
+    save(); this.render(); t.start(); this.refresh();
+    if (item?.source === "symbols" && !item.symbols.length) this.edit("symbols");
   }
 
   closeTab(i) {
@@ -145,7 +173,7 @@ export class WatchList {
     this.tabs.splice(i, 1);
     this.at = Math.min(this.at, this.tabs.length - 1);
     save(); this.render(); this.tab().start(); this.refresh();
-    toastAction(`Tab "${before.tabs[i].name || this.labelOf(before.tabs[i])}" closed.`, "Undo", () => {
+    toastAction(`Tab "${before.tabs[i].list}" closed (the watch list itself is kept).`, "Undo", () => {
       if (this.dead) return;
       this.tabs.forEach((t) => t.stop());
       this.tabs = before.tabs.map((t) => this.makeTab(t));
@@ -154,19 +182,26 @@ export class WatchList {
     });
   }
 
-  labelOf(cfg) { return new WatchTab(cfg, () => {}).label(); }
-
   rename(i, b) {
     const t = this.tabs[i];
     const input = el("input", "wltabname");
-    Object.assign(input, { value: t.label(), maxLength: 24, spellcheck: false });
-    input.setAttribute("aria-label", "Tab name");
+    Object.assign(input, { value: t.label(), maxLength: 60, spellcheck: false });
+    input.setAttribute("aria-label", "Watch list name");
     let done = false;
-    const finish = (keep) => {
+    const finish = async (keep) => {
       if (done) return;
       done = true;
-      if (keep) { const v = input.value.trim(); t.name = v === t.label() && !t.name ? "" : v; save(); }
-      input.remove(); this.renderTabs();
+      const v = input.value.trim();
+      if (keep && v && v !== t.list && t.item && lists.names().includes(v)) {
+        toast(`There is already a watch list called "${v}": names are unique across the app.`, true);
+      } else if (keep && v && v !== t.list && t.item) {
+        try {
+          await lists.rename(t.list, v);                         // app-wide: every tab showing it follows
+          for (const c of app.cells) for (const x of c.tabs || []) if (x.listId === t.listId) x.resolve();
+          save();
+        } catch (e) { toast(e.message, true); }
+      }
+      input.remove(); this.renderTabs(); this.render();
     };
     input.onkeydown = (e) => { if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); };
     input.onblur = () => finish(true);
@@ -223,18 +258,21 @@ export class WatchList {
 
   // ---------------------------------------------------------------- the table
   // the menus, tabs and table from what's known now (no fetch)
-  render() {
-    if (this.dead) return;
+  render() { if (!this.dead) keepScroll(this.body, () => this.renderNow()); }
+
+  renderNow() {
     const t = this.tab();
+    t.resolve();
     this.renderTabs();
+    this.editB.disabled = !t.item || t.source() === "holdings";
     if (!inUse(this.listSel)) {
       this.listSel.innerHTML = "";
       const add = (v, txt) => { const o = el("option", null, txt); o.value = v; this.listSel.appendChild(o); };
-      add("", "Own list");
-      for (const n of Object.keys(app.saved.watchlists || {}).sort()) add(n, n);
-      if (t.list && t.list !== FEED && t.list !== HOLDINGS && !app.saved.watchlists?.[t.list]) add(t.list, `${t.list} (deleted)`);
-      add(FEED, t.feed.address ? "FinViz" : "FinViz screen or portfolio…");
-      add(HOLDINGS, "Holdings (IBKR)");
+      for (const n of lists.names()) add(n, n);
+      if (!t.item) add(t.list, `${t.list} (deleted)`);
+      add(NEW_SYMBOLS, "New watch list…");
+      add(NEW_FINVIZ, "New FinViz screen or portfolio…");
+      add(NEW_HOLDINGS, "New Holdings list (IBKR)");
       this.listSel.value = t.list;
     }
     const charts = this.charts();
@@ -331,44 +369,57 @@ export class WatchList {
   linksChanged() { this.render(); }
   activeChanged() { this.render(); }
 
-  // ---------------------------------------------------------------- editing a tab's symbols
-  edit(mode) {
-    this.editor.hidden = !this.editor.hidden && this.editMode === mode;     // the same button again closes it
-    this.editMode = mode;
+  // ---------------------------------------------------------------- editing a watch list
+  // mode "symbols" or "finviz"; fresh: a new FinViz list is being made (the tab's list stays as it is)
+  edit(mode, fresh = false) {
+    this.editor.hidden = !this.editor.hidden && this.editMode === mode && !fresh;   // the same button again closes it
+    this.editMode = mode; this.fresh = fresh;
     if (this.editor.hidden) return;
     this.colBox.hidden = true;
     const t = this.tab();
-    if (mode === FEED) {
+    if (mode === "finviz") {
       this.text.setAttribute("aria-label", "FinViz address");
       this.text.placeholder = "The address of a FinViz screen or portfolio, e.g. https://finviz.com/screener.ashx?v=111&f=sh_avgvol_o2000,ta_topgainers";
-      this.text.value = t.feed.address || "";
+      this.text.value = fresh ? "" : t.feed.address || "";
       this.editMsg.textContent = "Copy it from your browser's address bar on finviz.com. Needs FinViz Elite (FINVIZ_TOKEN in .env).";
     } else {
       this.text.setAttribute("aria-label", "Symbols");
-      this.text.placeholder = "Symbols separated by spaces, commas or lines (a thinkorswim share link works too)";
-      this.text.value = this.shown().join(" ");
-      this.editMsg.textContent = t.list ? `Editing a copy: "${t.label()}" stays as it is.` : "";
+      this.text.placeholder = "Symbols separated by spaces, commas or lines, or the contents of an exported watch list file";
+      this.text.value = this.tab().listed().join(" ");
+      this.editMsg.textContent = `Changes "${t.label()}" everywhere it's shown.`;
     }
     this.text.focus();
   }
 
   async applyEdit() {
     const t = this.tab();
-    if (this.editMode === FEED) {
-      const before = t.list;
-      t.list = FEED;                                      // so the new symbols' rows are asked for as they arrive
-      const err = await t.feed.set(this.text.value);
-      if (err) { t.list = before; this.editMsg.textContent = err; return; }
+    if (this.editMode === "finviz") {
+      const probe = new WatchTab({}, () => {}).feed;                  // checks the address and asks the collector
+      const err = await probe.set(this.text.value);
+      if (err) { this.editMsg.textContent = err; return; }
+      try {
+        if (this.fresh) {
+          const r = await lists.create("finviz", { feed: probe.config() });
+          t.stop(); t.list = r.name; t.listId = r.item.id;
+        } else {
+          await lists.update(t.list, "finviz", { feed: probe.config() });
+        }
+      } catch (e) { this.editMsg.textContent = e.message; return; }
       this.editor.hidden = true;
-      save(); this.render(); this.refresh();
+      probe.stop();
+      t.resolve(); t.feed.symbols = probe.symbols; t.feed.fields = probe.fields; t.feed.view = probe.view;
+      if (probe.view?.requested) t.feed.wait(probe.view);
+      save(); this.render(); t.start(); this.refresh();
       return;
     }
     let r;
     try { r = await api("/api/symbols/parse", { text: this.text.value }); } catch (e) { this.editMsg.textContent = e.message; return; }
-    t.symbols = r.symbols.slice(0, MAX_SYMBOLS);
-    t.list = ""; t.stop();
-    this.editMsg.textContent = r.skipped?.length ? `Skipped: ${r.skipped.join(" ")}` : "";
-    if (!r.skipped?.length) this.editor.hidden = true;
+    const skipped = r.skipped?.length ? `Skipped: ${r.skipped.join(" ")}` : "";
+    if (r.note && !r.symbols.length) { this.editMsg.textContent = r.note; return; }        // e.g. a thinkorswim link
+    try { await lists.update(t.list, "symbols", { symbols: r.symbols.slice(0, 500) }); } catch (e) { this.editMsg.textContent = e.message; return; }
+    for (const c of app.cells) for (const x of c.tabs || []) if (x.listId === t.listId) x.resolve();
+    this.editMsg.textContent = [skipped, r.note || ""].filter(Boolean).join(" ");
+    if (!skipped && !r.note) this.editor.hidden = true;
     save(); this.render();
     await this.refresh();
     refreshAll();

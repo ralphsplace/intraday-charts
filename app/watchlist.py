@@ -13,6 +13,11 @@ import re
 from .control import clean_symbol
 
 _TOKEN = re.compile(r"[A-Za-z$/.][A-Za-z0-9./_-]*")
+_URL = re.compile(r"(?i)\b(?:https?://|www\.)\S+|\btos\.mx/\S*")
+TOS_LINK = re.compile(r"(?i)\btos\.mx/")
+TOS_NOTE = ("thinkorswim share links (tos.mx) can't be read: the page behind them shows only the list's name, and the "
+            "symbols reach thinkorswim alone. In thinkorswim, export the watch list to a file from its menu, then "
+            "paste the file's contents here (or use Import file under Load data).")
 
 
 def _add(sym: str, out: list, skipped: list) -> None:
@@ -31,6 +36,8 @@ def parse_symbols(text: str) -> dict:
     text = (text or "").replace("﻿", "")
     out: list[str] = []
     skipped: list[str] = []
+    note = TOS_NOTE if TOS_LINK.search(text) else ""
+    text = _URL.sub(" ", text)                       # web addresses are never symbols ("HTTP")
     lines = [ln for ln in text.splitlines() if ln.strip()]
 
     # TWS export: DES,<symbol>,<secType>,<exchange>...
@@ -41,7 +48,7 @@ def parse_symbols(text: str) -> dict:
                 _add(f[1], out, skipped)
             elif len(f) > 1:
                 skipped.append(f[1].strip())
-        return {"symbols": out, "skipped": skipped}
+        return {"symbols": out, "skipped": skipped, **({"note": note} if note else {})}
 
     # CSV with a header row naming the symbol column (it may follow a few preamble lines)
     for i, ln in enumerate(lines[:20]):
@@ -51,9 +58,9 @@ def parse_symbols(text: str) -> dict:
             for row in csv.reader(io.StringIO("\n".join(lines[i + 1:]))):
                 if len(row) > col:
                     _add(row[col], out, skipped)
-            return {"symbols": out, "skipped": skipped}
+            return {"symbols": out, "skipped": skipped, **({"note": note} if note else {})}
 
     # anything else: a list of words
     for tok in _TOKEN.findall(text):
         _add(tok, out, skipped)
-    return {"symbols": out, "skipped": skipped}
+    return {"symbols": out, "skipped": skipped, **({"note": note} if note else {})}

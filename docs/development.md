@@ -102,6 +102,7 @@ app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event m
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
 app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
+app/watchlists.py       named watch lists, app-wide on the NAS: default names, unique names, renames keeping the id
 app/watch_fields.py     the watch list's columns (one registry) and their values per symbol, only the groups asked for
 app/study_values.py     a ticker's study value (a line or level at the cursor) by name, e.g. VWAP or SMA 50
 app/positions.py        the Holdings list: positions summed over accounts, value and P/L at the price on screen (no TWS)
@@ -133,7 +134,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
   watchlist.js          the watch list cell: tabs, the table, the column chooser, picking a row
-  watch-tab.js          one tab of a watch list: its source (own, saved, FinViz, holdings), columns and rows
+  watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
+  lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
   links.js              symbol links: colour groups of cells that show the same symbol

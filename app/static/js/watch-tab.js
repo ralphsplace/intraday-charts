@@ -1,58 +1,74 @@
-/* One tab of a watch list: where its symbols come from, its columns, and its rows. A watch list holds any
-   number of tabs (watchlist.js); only the one on view fetches.
+/* One tab of a watch list panel: which named watch list it shows (lists.js), its columns, heat and sorting, and
+   its rows. A panel holds any number of tabs (watchlist.js); only the one on view fetches.
 
-   Sources (the list menu's values):
-     ""            its own list of symbols
-     <name>        a watch list saved under Load data…
-     FEED          a FinViz screen or portfolio (feed.js)
-     HOLDINGS      the account's stock and ETF positions (app/positions.py; HOLDINGS=on in .env)
-   Rows come from /api/quotes, or /api/positions for Holdings (the quote columns plus the position's). */
+   The list itself is app-wide and kept on the NAS; the tab refers to it by id (and name), so renaming the list
+   anywhere renames the tab. A list's source decides where its symbols come from:
+     symbols     typed or imported symbols
+     finviz      a FinViz screen or portfolio (feed.js)
+     holdings    the account's stock and ETF positions (app/positions.py; HOLDINGS=on in .env)
+   Rows come from /api/quotes, or /api/positions for holdings (the quote columns plus the position's). */
 import { ago } from "./data.js";
 import { columnsFor, sortValue } from "./columns.js";
 import { Feed } from "./feed.js";
+import * as lists from "./lists.js";
 import { app } from "./state.js";
-import { api, btn, el, uid } from "./util.js";
+import { api, el, uid } from "./util.js";
 
-export const FEED = "@feed";
-export const HOLDINGS = "@holdings";
 export const MAX_SYMBOLS = 100;
 
 export class WatchTab {
   // cfg: a tab's saved settings; changed(): its symbols or status changed (the watch list redraws)
   constructor(cfg, changed) {
     this.id = cfg.id || uid();
-    this.name = (cfg.name || "").slice(0, 24);
-    this.symbols = Array.isArray(cfg.symbols) ? cfg.symbols.slice(0, MAX_SYMBOLS) : [];
-    this.list = cfg.list || "";
+    this.listId = cfg.listId || null;
+    this.list = cfg.list || "";                                          // the list's name when last seen
     this.columns = Array.isArray(cfg.columns) ? cfg.columns : null;      // null: the default set
     this.heat = Array.isArray(cfg.heat) ? cfg.heat : [];                  // columns shaded by value
     this.sort = cfg.sort && typeof cfg.sort.id === "string" ? { id: cfg.sort.id, dir: cfg.sort.dir === -1 ? -1 : 1 } : null;
-    this.feed = new Feed(cfg.feed, changed);
+    this.feed = new Feed(null, changed);
     this.changed = changed;
     this.rows = []; this.held = null; this.seq = 0;
+    // tabs saved before lists were named and app-wide: their own symbols, a FinViz screen or the holdings
+    if (!cfg.listId && (["", "@feed", "@holdings"].includes(this.list) || cfg.symbols?.length)) this.legacy = cfg;
+    this.resolve();
   }
 
   config() {
-    return { id: this.id, name: this.name, list: this.list, symbols: this.symbols, columns: this.columns, heat: this.heat,
-             sort: this.sort, feed: this.feed.config() };
+    return { id: this.id, listId: this.listId, list: this.list, columns: this.columns, heat: this.heat, sort: this.sort };
   }
 
-  kind() { return this.list === HOLDINGS ? "holding" : this.list === FEED ? "finviz" : "quote"; }
+  // the named list this tab shows (found by id first: it may have been renamed elsewhere); null when deleted
+  resolve() {
+    const [name, item] = lists.find(this.listId, this.list);
+    this.item = item;
+    if (name) { this.list = name; this.listId = item.id || this.listId; }
+    if (item?.source === "finviz" && item.feed?.address !== this.feed.address) this.feed.configure(item.feed);
+    return item;
+  }
+
+  // a tab saved before named lists: becomes a named list of its own ("Watch list N"), once
+  async migrate() {
+    const cfg = this.legacy;
+    if (!cfg) return;
+    delete this.legacy;
+    const source = cfg.list === "@feed" ? "finviz" : cfg.list === "@holdings" ? "holdings" : "symbols";
+    if (source === "finviz" && !cfg.feed?.address) return;
+    const r = await lists.create(source, source === "symbols" ? { symbols: cfg.symbols || [] } : source === "finviz" ? { feed: cfg.feed } : {},
+                                 cfg.name && !app.saved.watchlists[cfg.name] ? cfg.name : undefined).catch(() => null);
+    if (r) { this.list = r.name; this.listId = r.item.id; this.resolve(); }
+  }
+
+  source() { return this.item?.source || "symbols"; }
+  kind() { return this.source() === "holdings" ? "holding" : this.source() === "finviz" ? "finviz" : "quote"; }
   shownColumns() { return columnsFor(this.kind(), this.columns); }
-
-  // the tab's name: its own, or what it shows
-  label() {
-    if (this.name) return this.name;
-    if (this.list === HOLDINGS) return "Holdings";
-    if (this.list === FEED) return "FinViz";
-    return this.list || "Watch list";
-  }
+  label() { return this.list || "Watch list"; }
 
   // the list's symbols in its own order
   listed() {
-    if (this.list === FEED) return this.feed.symbols.slice(0, MAX_SYMBOLS);
-    if (this.list === HOLDINGS) return (this.held?.rows || []).map((r) => r.symbol);
-    return this.list ? (app.saved.watchlists[this.list] || []) : this.symbols;
+    if (!this.item) return [];
+    if (this.source() === "finviz") return this.feed.symbols.slice(0, MAX_SYMBOLS);
+    if (this.source() === "holdings") return (this.held?.rows || []).map((r) => r.symbol);
+    return (this.item.symbols || []).slice(0, MAX_SYMBOLS);
   }
 
   // the symbols as shown: sorted by the chosen column (rows without a value last), or in the list's order
@@ -76,7 +92,7 @@ export class WatchTab {
     else this.sort = null;
   }
 
-  start() { if (this.list === FEED) this.feed.load(); }
+  start() { if (this.source() === "finviz") this.feed.load(); }
   stop() { this.feed.stop(); }
 
   // the rows for the day on screen (up to the Replay cursor); false when a newer fetch overtook this one
@@ -85,26 +101,28 @@ export class WatchTab {
     if (!app.day) { this.rows = []; return true; }
     const cursor = app.live || app.cursor == null ? "" : `&cursor=${app.cursor}`;
     const cols = `&cols=${this.shownColumns().join(",")}`;
-    if (this.list === HOLDINGS) {
+    if (this.item && this.source() === "holdings") {
       const r = await api(`/api/positions?day=${app.day}${cursor}${cols}`);
       if (mine !== this.seq) return false;
       this.held = r; this.rows = r.rows || [];
       return true;
     }
-    if (this.list === FEED) this.feed.load();                // throttled: only when the list is due
+    if (this.source() === "finviz") this.feed.load();      // throttled: only when the list is due
     const list = this.listed();
     if (!list.length) { this.rows = []; return true; }
     const r = await api(`/api/quotes?symbols=${encodeURIComponent(list.join(","))}&day=${app.day}${cursor}${cols}`);
     if (mine !== this.seq) return false;
-    const extra = this.list === FEED ? this.feed.fields : {};                // FinViz's own columns
+    const extra = this.source() === "finviz" ? this.feed.fields : {};      // FinViz's own columns
     this.rows = r.items.map((x) => ({ ...(extra[x.symbol] || {}), ...x }));
     return true;
   }
 
   // the footer's line about the source: FinViz's status, or the holdings' totals and age
   status() {
-    if (this.list === FEED) return this.feed.status(MAX_SYMBOLS);
-    if (this.list !== HOLDINGS || !this.held) return null;
+    if (this.legacy) return null;                         // becoming a named list
+    if (!this.item) return el("span", "wlfeed bad", `The watch list "${this.list}" was deleted: pick another in the menu.`);
+    if (this.source() === "finviz") return this.feed.status(MAX_SYMBOLS);
+    if (this.source() !== "holdings" || !this.held) return null;
     const box = el("span", "wlfeed");
     const h = this.held;
     const say = (t, cls) => box.appendChild(el("span", cls || null, t));
@@ -127,13 +145,11 @@ export class WatchTab {
 
   // nothing to show yet: what to say
   emptyText() {
-    if (this.list === FEED || this.list === HOLDINGS) return "";
+    if (!this.item || this.source() !== "symbols") return "";
     return "No symbols: press Edit.";
   }
 }
 
-// the "+" tab button's new tab, and a tab saved before tabs existed (a watch list's own settings)
-export const newTabConfig = () => ({ id: uid(), name: "", list: "", symbols: [], columns: null, feed: null });
+// a tab showing the named list `name` (with its id), and a panel saved before tabs existed (its own settings)
+export const tabConfig = (name, listId) => ({ id: uid(), list: name, listId, columns: null });
 export const legacyTab = (cfg) => ({ id: uid(), name: "", list: cfg.list || "", symbols: cfg.symbols || [], columns: null, feed: cfg.feed || null });
-
-export const tabButton = (label, onClick, title) => btn(label, onClick, title, "wltab");

@@ -1,4 +1,5 @@
 /* The Load data dialog: symbols and day to fetch, watchlists, and the collector's status. */
+import { names, normal, symbolsOf } from "../lists.js";
 import { ago, fillDays, fillSymbolList, refreshAll, refreshData, startPolling } from "../data.js";
 import { openModal } from "../dialogs/modal.js";
 import { setMode, showCursor } from "../replay.js";
@@ -22,14 +23,17 @@ export function openData(note) {
 export function fillWatchlists() {
   const sel = $("wlSel"), cur = sel.value;
   sel.innerHTML = '<option value="">Watchlists…</option>';
-  Object.keys(app.saved.watchlists).sort().forEach((n) => { const o = el("option", null, n); o.value = n; sel.appendChild(o); });
+  // the watch lists of symbols (FinViz and Holdings lists have no symbols of their own to fetch)
+  names().filter((n) => normal(app.saved.watchlists[n]).source === "symbols")
+    .forEach((n) => { const o = el("option", null, n); o.value = n; sel.appendChild(o); });
   sel.value = app.saved.watchlists[cur] ? cur : "";
   $("wlDelete").disabled = !sel.value;
 }
 
 export async function parseSymbols(text) {
   const r = await api("/api/symbols/parse", { text });
-  $("dataMsg").textContent = r.skipped.length ? `Skipped (not stocks or ETFs): ${r.skipped.slice(0, 12).join(" ")}` : "";
+  $("dataMsg").textContent = [r.skipped.length ? `Skipped (not stocks or ETFs): ${r.skipped.slice(0, 12).join(" ")}` : "", r.note || ""]
+    .filter(Boolean).join(" ");
   return r.symbols;
 }
 
@@ -78,7 +82,7 @@ export function init() {
   $("openData").onclick = () => openData();
   $("wlSel").onchange = () => {
     const list = app.saved.watchlists[$("wlSel").value];
-    if (list) $("dataSyms").value = list.join(" ");
+    if (list) $("dataSyms").value = symbolsOf(list).join(" ");
     $("wlDelete").disabled = !list;
   };
   $("wlSave").onclick = async () => {

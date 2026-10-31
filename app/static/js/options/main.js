@@ -2,7 +2,10 @@
    snapshots when they're missing or stale (or on Refresh), builds a structure from clicks or a template, and
    evaluates it. Read-only: nothing here places or prepares orders. */
 import { OPTIONS_KEY } from "../keys.js";
-import { $, api, cleanSymbol, el, inUse, load, setValue, store, submitted, trackEdits } from "../util.js";
+import { $, api, cleanSymbol, el, inUse, keepScroll, load, setValue, store, submitted, trackEdits } from "../util.js";
+
+// the page's scrolling column (the toolbar and expiry strip stay above it)
+const SCROLLER = () => document.querySelector("main.oc");
 import { renderChain, renderStrip } from "./chain.js";
 import { renderGraph, renderGrid, renderStats, stopText } from "./evaluation.js";
 import { levelsFor, showOnChart } from "./levels.js";
@@ -75,7 +78,9 @@ async function loadChain(refresh = false) {
   await evaluate();
 }
 
-function render() {
+function render() { keepScroll(SCROLLER(), renderNow); }
+
+function renderNow() {
   setValue($("ocSym"), st.symbol);
   $("demoBanner").hidden = !isDemo() && !view?.synthetic;
   document.title = `${st.symbol || "Option chain"} · Option chain`;
@@ -155,7 +160,7 @@ async function evaluate() {
   } catch (e) { if (mine === evalSeq) message("Error: " + e.message); return; }
   if (mine !== evalSeq) return;
   ev = r;
-  renderLegs($("ocLegs"), st.legs, ev, setLegs);
+  keepScroll(SCROLLER(), () => renderLegs($("ocLegs"), st.legs, ev, setLegs));
   if (r.status !== "ok") { show(false); return; }
   show(true);
   const at = $("ocAt");
@@ -164,9 +169,11 @@ async function evaluate() {
     for (const t of r.times) { const o = el("option", null, t.label); o.value = t.id; o.selected = t.id === r.at; at.appendChild(o); }
   }
   $("ocAtLabel").textContent = `At ${r.at_label}`;
-  renderStats($("ocStats"), r);
-  renderGraph($("ocGraph"), r, r.price, view.move);
-  renderGrid($("ocGrid"), r, r.price, st.legs);
+  keepScroll(SCROLLER(), () => {
+    renderStats($("ocStats"), r);
+    renderGraph($("ocGraph"), r, r.price, view.move);
+    renderGrid($("ocGrid"), r, r.price, st.legs);
+  });
   $("ocStopText").textContent = stopText(r);
 }
 
@@ -205,8 +212,8 @@ $("ocRefresh").onclick = () => { waitingSince = 0; loadChain(true); };
 $("ocBack").onchange = () => { st.back = $("ocBack").value; save(); loadChain(); };
 $("ocTemplate").onchange = () => { st.template = $("ocTemplate").value; save(); };
 $("ocFill").onclick = () => fill($("ocTemplate").value);
-$("ocProfileAll").onclick = () => { st.profile = "all"; save(); drawProfile(); };
-$("ocProfileNear").onclick = () => { st.profile = "near"; save(); drawProfile(); };
+$("ocProfileAll").onclick = () => { st.profile = "all"; save(); keepScroll(SCROLLER(), drawProfile); };
+$("ocProfileNear").onclick = () => { st.profile = "near"; save(); keepScroll(SCROLLER(), drawProfile); };
 $("ocReverse").onclick = () => setLegs(st.legs.map((l) => ({ ...l, qty: -l.qty })));
 $("ocClear").onclick = () => setLegs([]);
 for (const s of IV_SHIFTS) { const o = el("option", null, s ? `${s > 0 ? "+" : "−"}${Math.abs(s)} pts` : "0 pts"); o.value = s; $("ocIv").appendChild(o); }
@@ -248,7 +255,10 @@ loadChain();
 let resizing = null;     // the risk graph is drawn to its panel's width: redraw it when the window changes size
 window.addEventListener("resize", () => {
   clearTimeout(resizing);
-  resizing = setTimeout(() => { drawProfile(); if (ev?.status === "ok" && view) renderGraph($("ocGraph"), ev, ev.price, view.move); }, 150);
+  resizing = setTimeout(() => keepScroll(SCROLLER(), () => {
+    drawProfile();
+    if (ev?.status === "ok" && view) renderGraph($("ocGraph"), ev, ev.price, view.move);
+  }), 150);
 });
 
 window.__options = { get state() { return st; }, get view() { return view; }, get ev() { return ev; } };   // for the browser tests

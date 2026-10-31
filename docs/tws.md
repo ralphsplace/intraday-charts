@@ -116,6 +116,9 @@ The collector's log line says why:
 
 ## Watchlists, and thinkorswim share links
 
+These are the app's [named watch lists](layouts.md#named-watch-lists): the same lists the watch list panels show.
+
+
 In **Load data…**:
 
 - **Save as watchlist** keeps the symbols in the box under a name. The **Watchlists…** list loads
