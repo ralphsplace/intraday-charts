@@ -102,6 +102,7 @@ app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event m
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
 app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
+app/app_config.py       the application config (data/user/config.json): sections read fresh, changed under a lock
 app/watchlists.py       named watch lists, app-wide on the NAS: default names, unique names, renames keeping the id
 app/watch_fields.py     the watch list's columns (one registry) and their values per symbol, only the groups asked for
 app/study_values.py     a ticker's study value (a line or level at the cursor) by name, e.g. VWAP or SMA 50
@@ -135,6 +136,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
   watchlist.js          the watch list cell: tabs, the table, the column chooser, picking a row
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
+  settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
+  config/               the Config page: watch lists, watch list columns, study defaults
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
@@ -246,4 +249,17 @@ plugins from the official marketplace for this repo (code review, simplification
 workflows, Matt Pocock's engineering skills), and `.claude/skills/` holds TradingView's Lightweight Charts skills.
 `docs/agents/` tells the engineering skills where issues live (GitHub Issues), which triage labels to use and
 where domain docs go; it isn't part of the published guide.
+
+## Lightweight Charts plugins, and the agent skills
+
+TradingView's two official agent skills for Lightweight Charts™ are in `.claude/skills/` (Apache 2.0, see
+`.claude/skills/NOTICE.md`): `lightweight-charts` (the v5 API, scales, panes, markers, foot-guns) and
+`lightweight-charts-plugin-authoring` (custom series, series and pane primitives, the toolkit, the official plugins).
+Claude Code loads them when it works in this repository.
+
+The app already draws several things as plugins (series primitives in `app/static/js/primitives.js`): the volume
+profile, extended-hours shading, zones and trend lines. Lightweight Charts 5.2 is bundled as a single file with no
+build step, so new plugins are written the same way: small ES modules against the bundled library, following the
+skill's rules (bitmap coordinates for lines, draw the visible range only, `requestUpdate()` after changes, undo
+everything in `detached()`).
 

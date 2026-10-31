@@ -26,6 +26,7 @@ filled from Trader Workstation (TWS): type a symbol into a chart, or pick symbol
 | [Studies](docs/studies.md) | Every study, the support / resistance ladder |
 | [Earnings view](docs/earnings.md) | A stock's last 6 earnings reports, drawn over each other |
 | [Expected move view](docs/expected-move.md) | The options' expected move by a date, with diagonal legs |
+| [Config page](docs/config.md) | Named watch lists, default columns, study defaults (the application config) |
 | [Option chain view](docs/option-chain.md) | Build and evaluate option structures; the strike profile |
 | [Connecting to TWS](docs/tws.md) | TWS settings, the collector, market internals, watchlists |
 | [Configuration](docs/configuration.md) | `.env`, `config.json`, `data/events.json` |

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Config</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="cfg-page">
+<header class="toolbar">
+  <div class="group"><span id="dashNav" class="dashnav"></span></div>
+  <span id="cfgStatus" class="muted small" role="status"></span>
+</header>
+<main class="cfg">
+  <p class="muted small cfg-intro">The application config: kept on the NAS in <code id="cfgPath">data/user/config.json</code>, so every
+    dashboard, browser and device uses the same settings. Changes are saved as you make them.</p>
+  <nav class="cfg-tabs" role="tablist" aria-label="Config sections">
+    <button type="button" role="tab" data-sec="lists">Watch lists</button>
+    <button type="button" role="tab" data-sec="columns">Watch list columns</button>
+    <button type="button" role="tab" data-sec="studies">Study defaults</button>
+  </nav>
+
+  <section id="sec-lists" class="cfg-sec" hidden>
+    <h2>Watch lists</h2>
+    <p class="muted small">Every named watch list, as the watch list panels and Load data show them. Names are unique;
+      renaming keeps the list (every tab showing it follows), deleting removes it everywhere.</p>
+    <table id="cfgLists" class="cfg-table"></table>
+  </section>
+
+  <section id="sec-columns" class="cfg-sec" hidden>
+    <h2>Watch list columns</h2>
+    <p class="muted small">The columns a new tab starts with, and their order, for each type of watch list. A tab can
+      still choose its own (Columns in the watch list).</p>
+    <div class="cfg-kinds" id="cfgKinds" role="tablist" aria-label="Watch list type"></div>
+    <div class="cfg-cols">
+      <div><h3>Shown, in order</h3><ol id="cfgChosen" class="cfg-chosen"></ol></div>
+      <div><h3>Available</h3><div id="cfgAvail" class="cfg-avail"></div></div>
+    </div>
+    <div class="cfg-row"><button id="cfgColsReset" type="button">Built-in defaults</button>
+      <span id="cfgColsMsg" class="muted small" role="status"></span></div>
+  </section>
+
+  <section id="sec-studies" class="cfg-sec" hidden>
+    <h2>Study defaults</h2>
+    <p class="muted small">The settings and colours a study starts with when it's added to a chart, and what its
+      <b>Defaults</b> button puts back. Studies already on charts keep their own settings.</p>
+    <div class="cfg-studies">
+      <div class="cfg-slist"><input id="cfgFind" type="search" placeholder="Find a study" aria-label="Find a study">
+        <ul id="cfgStudyList"></ul></div>
+      <div class="cfg-sform">
+        <h3 id="cfgStudyName"></h3>
+        <p id="cfgStudyDesc" class="muted small"></p>
+        <form id="cfgStudyForm" class="settings" autocomplete="off"></form>
+        <div class="cfg-row">
+          <button id="cfgStudySave" type="button" class="primary">Save as defaults</button>
+          <button id="cfgStudyReset" type="button">Built-in defaults</button>
+          <span id="cfgStudyMsg" class="muted small" role="status"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/config/main.js"></script>
+</body>
+</html>
