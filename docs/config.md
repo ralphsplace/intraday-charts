@@ -1,0 +1,56 @@
+# Config page
+
+`http://<your-nas>:8050/config` (also **Config** in the drop-down at the top left of every page).
+
+**What it's for:** the settings that belong to the whole app rather than to one chart or dashboard. They are kept
+in the **application config**, one file on the NAS (`data/user/config.json`), so every dashboard, browser and device
+uses the same ones. Changes are saved as you make them.
+
+## Watch lists
+
+Every [named watch list](layouts.md#named-watch-lists), with its source (symbols, FinViz or Holdings) and what's in
+it.
+
+- **Rename:** type the new name and press Enter (Esc cancels). Names are unique; a name in use is refused. The list
+  keeps its id, so every tab showing it, in any dashboard, follows the new name.
+- **Delete:** click twice (the button asks "Delete? Yes"). The list is removed everywhere; tabs that showed it say
+  so.
+
+## Watch list columns
+
+The columns a new tab starts with, and their order, for each type of watch list: **Symbols**, **FinViz** and
+**Holdings**.
+
+- **+ a column** under *Available* adds it at the end; **▲ / ▼** move it; **×** removes it. Symbol always comes first.
+- **Built-in defaults** puts the type's original columns back.
+- A tab can still choose its own (**Columns** in the watch list, and dragging its headers).
+
+## Study defaults
+
+The settings and colours each study starts with when it's added to a chart, and what the **Defaults** button in a
+study's settings puts back.
+
+1. Pick a study on the left (**Find a study** filters the list). Studies with your own defaults are marked **•**.
+2. Change its inputs, colours, line types and thicknesses, and press **Save as defaults**. Only the settings that
+   differ from the built-in ones are kept.
+3. **Built-in defaults** removes your defaults for that study.
+
+Studies already on charts keep their own settings: the defaults apply to studies added afterwards. Values that
+aren't allowed (a length out of range, say) are brought within range, as in a study's own settings.
+
+## The file
+
+`data/user/config.json` has one section per part of this page:
+
+```json
+{
+ "watchlists": {"Core": {"id": "29905c4e259c", "source": "symbols", "symbols": ["QQQ", "SPY"]},
+                "Holdings": {"id": "cbdf586dbe13", "source": "holdings"}},
+ "watch_columns": {"quote": ["symbol", "last", "change", "pct", "gap_pct"]},
+ "studies": {"sma": {"length": 21, "sma_color": "#ff9800"}}
+}
+```
+
+Editing it by hand works too (the page and the charts read it again when it changes). Unknown studies, settings or
+columns are ignored. Watch lists saved before the application config existed (`data/user/watchlists.json`) are
+moved in the first time anything changes.

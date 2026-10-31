@@ -26,4 +26,5 @@ const take = (r) => { app.saved.watchlists = r.lists; return r; };
 export const create = (source, data = {}, name) => api("/api/watchlists", { source, ...data, ...(name ? { name } : {}) }).then(take);
 export const update = (name, source, data = {}) => api(`/api/watchlists/${encodeURIComponent(name)}`, { source, ...data }, "PUT").then(take);
 export const rename = (name, to) => api(`/api/watchlists/${encodeURIComponent(name)}/rename`, { to }).then(take);
+export const remove = (name) => api(`/api/watchlists/${encodeURIComponent(name)}`, null, "DELETE").then(take);
 export const refresh = () => api("/api/watchlists").then((all) => { app.saved.watchlists = all; return all; });

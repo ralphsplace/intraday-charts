@@ -18,7 +18,7 @@ import uuid
 from . import saved, templates
 
 TYPES = {"charts": "Charts"}
-RESERVED = {"dashboards", "earnings", "expected-move", "options", "api", "static", "favicon.ico"}   # other pages' addresses
+RESERVED = {"dashboards", "earnings", "expected-move", "options", "config", "api", "static", "favicon.ico"}   # other pages' addresses
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,39}$")
 NAME_RULE = "1 to 40 letters, digits, - _ or . (it becomes the page address), starting with a letter or digit"
 KIND = "dashboards"

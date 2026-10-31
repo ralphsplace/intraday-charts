@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
-               positions, saved, security, sessions, store, structures, studies, study_values, templates, timeframes,
+               app_config, positions, saved, security, sessions, store, structures, studies, study_values, templates, timeframes,
                watch_fields, watchlist, watchlists)
 
 ROOT = Path(__file__).resolve().parent
@@ -215,6 +215,8 @@ def list_source(req: ListSourceRequest):
 def saved_list(kind: str):
     if kind not in saved.KINDS:
         raise HTTPException(404, "unknown kind")
+    if kind == "watchlists":                       # kept in the application config (app/watchlists.py)
+        return watchlists.all_lists()
     return saved.all_items(kind)
 
 
@@ -230,7 +232,7 @@ def saved_put(kind: str, name: str, data: Annotated[Any, Body()]):
         if not isinstance(data, list):
             raise HTTPException(400, "A watchlist saved here is a list of symbols")
         watchlists.set_symbols(name, data)
-        return saved.all_items(kind)
+        return watchlists.all_lists()
     return saved.put(kind, name, data)
 
 
@@ -293,7 +295,61 @@ def watch_list_delete(name: str):
 def saved_delete(kind: str, name: str):
     if kind not in saved.KINDS:
         raise HTTPException(404, "unknown kind")
+    if kind == "watchlists":
+        watchlists.delete(name)
+        return watchlists.all_lists()
     return saved.delete(kind, name)
+
+
+# ---------------------------------------------------------------- the application config (the Config page)
+@app.get("/api/config")
+def app_config_view():
+    """Everything the Config page edits: study defaults (with the built-in ones), each watch list kind's default
+    columns, and the named watch lists."""
+    return {"studies": studies.catalog(), "watch_columns": watch_fields.catalog(), "watchlists": watchlists.all_lists(),
+            "path": "data/user/config.json"}
+
+
+@app.put("/api/config/studies/{type}")
+def config_study_defaults(type: str, params: Annotated[dict, Body()]):
+    """New defaults for a study: kept only where they differ from the built-in ones."""
+    spec = studies.base.REGISTRY.get(type)
+    if not spec:
+        raise HTTPException(404, f"Unknown study '{type}'")
+    full = studies.base.coerce(spec, params)
+    mine = {p["key"]: full[p["key"]] for p in spec["params"] if p["key"] in params and full[p["key"]] != p["default"]}
+    with app_config.editing() as d:
+        st = d.setdefault("studies", {})
+        if mine:
+            st[type] = mine
+        else:
+            st.pop(type, None)
+    return next(s for s in studies.catalog() if s["type"] == type)
+
+
+@app.delete("/api/config/studies/{type}")
+def config_study_reset(type: str):
+    with app_config.editing() as d:
+        d.setdefault("studies", {}).pop(type, None)
+    return {"ok": True}
+
+
+@app.put("/api/config/watch-columns/{kind}")
+def config_watch_columns(kind: str, ids: Annotated[list[str], Body()]):
+    try:
+        cols = watch_fields.check_columns(kind, ids)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    with app_config.editing() as d:
+        d.setdefault("watch_columns", {})[kind] = cols
+    return watch_fields.catalog()
+
+
+@app.delete("/api/config/watch-columns/{kind}")
+def config_watch_columns_reset(kind: str):
+    with app_config.editing() as d:
+        d.setdefault("watch_columns", {}).pop(kind, None)
+    return watch_fields.catalog()
 
 
 @app.get("/api/studies")
@@ -635,6 +691,11 @@ def options_evaluate(req: StructureRequest):
 @app.get("/options")
 def options_page():
     return _page("options.html")
+
+
+@app.get("/config")
+def config_page():
+    return _page("config.html")
 
 
 @app.get("/")

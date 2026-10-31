@@ -7,6 +7,8 @@
    {"date": "2026-10-21", "time": "14:00", "label": "Fed speaker", "kind": "scheduled"}]
   ```
   `kind` is `scheduled` or `headline`. Times are US/Eastern, 24-hour.
+- **`data/user/config.json`**: the application config, edited on the [Config page](config.md): the named watch lists,
+  each watch list type's default columns, and the studies' default settings and colours.
 - **`config.json`**:
   - the default symbol
   - optionally `"default_layout"`: the studies a new chart starts with (none by default), e.g.
