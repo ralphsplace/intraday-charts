@@ -360,6 +360,10 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .menu .mgrid button { font-size: 12px; padding: 4px 6px; }
 .menu .mgrid button[data-action="remove"] { color: #ffb4b2; }
 .menu .mgrid button:disabled { opacity: .45; cursor: not-allowed; }
+#problems { position: fixed; left: 14px; bottom: 54px; display: flex; flex-direction: column; gap: 4px; z-index: 60;
+  max-width: min(520px, 60vw); }
+#problems .problem { background: #3a1616; border: 1px solid var(--bear); color: #ffd6d6; padding: 6px 10px;
+  border-radius: 6px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.5); }
 .toast .toastbtn { margin-left: 10px; padding: 1px 10px; font-size: 12px; }
 
 /* ---------------------------------------------------------------- watch list cell */

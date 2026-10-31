@@ -15,6 +15,28 @@ export async function api(path, body, method) {
   return r.json();
 }
 
+// ---------------------------------------------------------------- requests the page can do without
+// A request whose failure the page survives, carrying on with `fallback` (a value, or a function of the error), but
+// that the user should know failed: a note in the corner of any page, one per kind of request (`what`), gone once
+// that request works again. For polls, an unreachable server shows one note, not one per tick.
+const problems = new Map();
+function showProblems() {
+  let box = $("problems");
+  if (!box && !problems.size) return;
+  if (!box) { box = el("div"); box.id = "problems"; box.setAttribute("role", "status"); document.body.appendChild(box); }
+  box.replaceChildren(...[...problems].map(([what, why]) => el("div", "problem", `${what}: ${why}`)));
+  box.hidden = !problems.size;
+}
+export function orElse(promise, fallback, what) {
+  return promise.then(
+    (v) => { if (problems.delete(what)) showProblems(); return v; },
+    (e) => {
+      console.warn(`${what}:`, e);
+      if (problems.get(what) !== e.message) { problems.set(what, e.message); showProblems(); }
+      return typeof fallback === "function" ? fallback(e) : fallback;
+    });
+}
+
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const clone = (x) => JSON.parse(JSON.stringify(x));

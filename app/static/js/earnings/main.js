@@ -1,7 +1,7 @@
 /* Starts the earnings page (/earnings?symbol=NVDA): asks the server for the view, and when the daily prices or
    earnings dates aren't cached yet, asks the TWS collector for them and waits. */
 import { EARNINGS_DAYS_KEY, EARNINGS_MODE_KEY, EARNINGS_SYMBOL_KEY } from "../keys.js";
-import { $, api, btn, cleanSymbol as cleanStock, load, setValue, store, submitted, trackEdits } from "../util.js";
+import { $, api, btn, cleanSymbol as cleanStock, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 import { EarningsChart } from "./chart.js";
 import { fmtDate, renderLegend } from "./legend.js";
 import { DEFAULT_MODE, MODES } from "./modes.js";
@@ -69,7 +69,7 @@ function draw() {
 }
 
 async function waitingText(v) {
-  const st = await api("/api/collector").catch(() => null);
+  const st = await orElse(api("/api/collector"), null, "Collector status");
   const what = v.missing.join(" and ");
   if (!st || !st.running) return `No ${what} for ${v.symbol} yet. The request is saved and runs when the TWS collector starts (user guide: Connecting to TWS).`;
   if (!st.connected) return `Waiting for TWS. ${st.message || ""}`;
@@ -105,7 +105,7 @@ async function show(sym) {
   $("status").textContent = "";
   if (v.status === "missing") {
     if (isDemo(sym)) { message(`No synthetic data for ${sym} in this data folder.`); return; }
-    if (!asked.has(sym)) { asked.add(sym); await api("/api/earnings/request", { symbol: sym }).catch(() => {}); }
+    if (!asked.has(sym)) { asked.add(sym); await orElse(api("/api/earnings/request", { symbol: sym }), null, `Asking for ${sym}'s earnings`); }
     message(await waitingText(v));
     poll = setTimeout(() => show(sym), 3000);
     return;
