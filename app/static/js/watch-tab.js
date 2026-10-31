@@ -8,7 +8,7 @@
      HOLDINGS      the account's stock and ETF positions (app/positions.py; HOLDINGS=on in .env)
    Rows come from /api/quotes, or /api/positions for Holdings (the quote columns plus the position's). */
 import { ago } from "./data.js";
-import { columnsFor } from "./columns.js";
+import { columnsFor, sortValue } from "./columns.js";
 import { Feed } from "./feed.js";
 import { app } from "./state.js";
 import { api, btn, el, uid } from "./util.js";
@@ -25,16 +25,19 @@ export class WatchTab {
     this.symbols = Array.isArray(cfg.symbols) ? cfg.symbols.slice(0, MAX_SYMBOLS) : [];
     this.list = cfg.list || "";
     this.columns = Array.isArray(cfg.columns) ? cfg.columns : null;      // null: the default set
+    this.heat = Array.isArray(cfg.heat) ? cfg.heat : [];                  // columns shaded by value
+    this.sort = cfg.sort && typeof cfg.sort.id === "string" ? { id: cfg.sort.id, dir: cfg.sort.dir === -1 ? -1 : 1 } : null;
     this.feed = new Feed(cfg.feed, changed);
     this.changed = changed;
     this.rows = []; this.held = null; this.seq = 0;
   }
 
   config() {
-    return { id: this.id, name: this.name, list: this.list, symbols: this.symbols, columns: this.columns, feed: this.feed.config() };
+    return { id: this.id, name: this.name, list: this.list, symbols: this.symbols, columns: this.columns, heat: this.heat,
+             sort: this.sort, feed: this.feed.config() };
   }
 
-  kind() { return this.list === HOLDINGS ? "holding" : "quote"; }
+  kind() { return this.list === HOLDINGS ? "holding" : this.list === FEED ? "finviz" : "quote"; }
   shownColumns() { return columnsFor(this.kind(), this.columns); }
 
   // the tab's name: its own, or what it shows
@@ -45,10 +48,32 @@ export class WatchTab {
     return this.list || "Watch list";
   }
 
-  shown() {
+  // the list's symbols in its own order
+  listed() {
     if (this.list === FEED) return this.feed.symbols.slice(0, MAX_SYMBOLS);
     if (this.list === HOLDINGS) return (this.held?.rows || []).map((r) => r.symbol);
     return this.list ? (app.saved.watchlists[this.list] || []) : this.symbols;
+  }
+
+  // the symbols as shown: sorted by the chosen column (rows without a value last), or in the list's order
+  shown() {
+    const list = this.listed();
+    if (!this.sort || !this.shownColumns().includes(this.sort.id)) return list;
+    const byS = Object.fromEntries(this.rows.map((r) => [r.symbol, r]));
+    const { id, dir } = this.sort;
+    const key = (s) => sortValue(id, byS[s] || { symbol: s });
+    return list.map((s, i) => [s, key(s), i]).sort((a, b) => {
+      if (a[1] == null || b[1] == null) return (a[1] == null) - (b[1] == null) || a[2] - b[2];
+      if (typeof a[1] !== typeof b[1]) return typeof a[1] === "number" ? -1 : 1;
+      return (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : a[2] - b[2]) * dir;
+    }).map((x) => x[0]);
+  }
+
+  // a click on a column's header: ascending, descending, then the list's own order
+  toggleSort(id) {
+    if (!this.sort || this.sort.id !== id) this.sort = { id, dir: 1 };
+    else if (this.sort.dir === 1) this.sort = { id, dir: -1 };
+    else this.sort = null;
   }
 
   start() { if (this.list === FEED) this.feed.load(); }
@@ -59,18 +84,20 @@ export class WatchTab {
     const mine = ++this.seq;
     if (!app.day) { this.rows = []; return true; }
     const cursor = app.live || app.cursor == null ? "" : `&cursor=${app.cursor}`;
+    const cols = `&cols=${this.shownColumns().join(",")}`;
     if (this.list === HOLDINGS) {
-      const r = await api(`/api/positions?day=${app.day}${cursor}`);
+      const r = await api(`/api/positions?day=${app.day}${cursor}${cols}`);
       if (mine !== this.seq) return false;
       this.held = r; this.rows = r.rows || [];
       return true;
     }
     if (this.list === FEED) this.feed.load();                // throttled: only when the list is due
-    const list = this.shown();
+    const list = this.listed();
     if (!list.length) { this.rows = []; return true; }
-    const r = await api(`/api/quotes?symbols=${encodeURIComponent(list.join(","))}&day=${app.day}${cursor}`);
+    const r = await api(`/api/quotes?symbols=${encodeURIComponent(list.join(","))}&day=${app.day}${cursor}${cols}`);
     if (mine !== this.seq) return false;
-    this.rows = r.items;
+    const extra = this.list === FEED ? this.feed.fields : {};                // FinViz's own columns
+    this.rows = r.items.map((x) => ({ ...(extra[x.symbol] || {}), ...x }));
     return true;
   }
 

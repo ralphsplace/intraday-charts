@@ -145,5 +145,6 @@ def view(ref: dict) -> dict:
         return {**out, "status": "missing", "symbols": []}
     age = time.time() - d["fetched"] if d.get("fetched") else None
     return {**out, "status": d.get("status", "error"), "symbols": d.get("symbols", [])[:MAX_SYMBOLS],
+            "fields": d.get("fields") or {},
             "total": d.get("total"), "message": d.get("message"), "fetched": d.get("fetched"),
             "age": round(age) if age is not None else None, "stale": age is None or age > STALE_SECONDS}

@@ -13,7 +13,7 @@ import os
 import time
 from pathlib import Path
 
-from . import quotes, store
+from . import store, watch_fields
 from .control import clean_symbol
 
 SWITCH = "HOLDINGS"
@@ -74,7 +74,7 @@ def _r(x):
     return round(x, 2) if x is not None else None
 
 
-def view(day: str, cursor: int | None = None) -> dict:
+def view(day: str, cursor: int | None = None, cols=()) -> dict:
     """The Holdings list: one row per holding (the watch list's quote columns plus quantity, average cost, cost
     basis, market value, unrealized and day P/L at the price on screen), and the totals."""
     if not turned_on():
@@ -88,7 +88,7 @@ def view(day: str, cursor: int | None = None) -> dict:
     rows, tot = [], {"market_value": 0.0, "cost": 0.0, "unrealized": 0.0, "day_pnl": 0.0}
     for sym in sorted(held, key=lambda s: -abs(held[s]["cost"])):          # biggest positions first
         h = held[sym]
-        q = quotes.row(sym, day, cursor)
+        q = watch_fields.row(sym, day, cursor, watch_fields.groups_for(cols))
         r = {**q, "qty": h["qty"], "avg_cost": _r(h["avg_cost"]), "cost": _r(h["cost"]), "accounts": h["accounts"]}
         if q.get("status") == "ok":
             mv = h["qty"] * q["last"]
@@ -99,6 +99,11 @@ def view(day: str, cursor: int | None = None) -> dict:
             for k in tot:
                 tot[k] += r.get(k) or 0.0
         rows.append(r)
+    gross = sum(abs(r.get("market_value") or 0.0) for r in rows)
+    for r in rows:
+        if r.get("market_value") is not None and gross:
+            r["weight_pct"] = _r(abs(r["market_value"]) / gross * 100)
+        r["unrealized_bar"] = r.get("unrealized")
     age = time.time() - data["fetched"] if data.get("fetched") else None
     return {"status": "ok", "rows": rows, "totals": {k: _r(v) for k, v in tot.items()}, "others": others,
             "accounts": data.get("accounts", []), "fetched": data.get("fetched"),

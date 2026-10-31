@@ -1,6 +1,7 @@
 """The two pages (a chart dashboard and /dashboards), driven in Chromium against the real server on SYNTHETIC bars.
 Every test also fails on any JavaScript error (see the `tab` fixture)."""
 import json
+import re
 import time
 
 
@@ -1198,6 +1199,11 @@ def test_a_watch_list_saved_linked_to_one_chart_gets_a_colour_group(tab):
     wait_state(p, "a.cells[0].symbol === 'QQQ'")
 
 
+def col_box(wl, label):
+    """A column's checkbox in the watch list's column chooser, by its exact label."""
+    return wl.locator("label.wlcol").filter(has_text=re.compile(rf"^\s*{re.escape(label)}$")).locator("input")
+
+
 def wl_rows(p):
     return p.locator(".panel.wl tr.wlr").evaluate_all("(rs) => rs.map((r) => r.dataset.symbol)")
 
@@ -1226,8 +1232,8 @@ def test_watch_list_tabs_and_columns(tab):
     p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
     # columns: per tab, from the registry; Defaults puts them back
     wl.locator("button.wlcolbtn").click()
-    wl.locator(".wlcols label:has-text('Volume') input").uncheck()
-    wl.locator(".wlcols label:has-text('High') input").uncheck()
+    col_box(wl, "Volume").uncheck()
+    col_box(wl, "High").uncheck()
     assert wl.locator("tr:first-child th").all_inner_texts() == ["Symbol", "Last", "Chg", "Chg %", "Low"]
     assert wl.locator(".wlcols label:has-text('Qty')").count() == 0          # position columns: Holdings only
     # kept with the dashboard: tabs, names, the tab on view and its columns
@@ -1251,6 +1257,56 @@ def test_watch_list_tabs_and_columns(tab):
     p.locator("#toasts .toastbtn").last.click()
     p.wait_for_function("document.querySelectorAll('.panel.wl button.wltab').length === 2")
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
+
+
+def test_watch_list_columns_graphics_sorting_and_heat(tab):
+    p = tab.goto("/Internals", 3000)
+    layout_action(p, 1, "watchlist-right")
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr td').length > 20")
+    wl.locator("button.wlcolbtn").click()
+    sections = wl.locator(".wlcolsec > b").all_inner_texts()
+    assert sections == ["Price and volume", "The day so far", "Daily history", "Earnings and options", "Study values"]
+    assert wl.locator(".wlcols label.wlcol").filter(has_text="Qty").count() == 0           # Holdings only
+    for label in ("Gap %", "Day range", "Today", "Rel vol", "52w range", "vs VWAP", "ATR zone", "SMA 50 (5m)"):
+        col_box(wl, label).check()
+    wl.locator(".wlcols input[aria-label='Shade Chg % by value']").check()
+    wl.locator("button.wlcolbtn").click()
+    p.wait_for_function("""() => {                       // the fetch with every chosen column (each tick fetches)
+      const r = document.querySelector('.panel.wl tr[data-symbol=QQQ]');
+      return r && r.querySelector('svg[aria-label*="52-week range"]') && r.querySelector('svg[aria-label*="today"]')
+        && [...r.querySelectorAll('td.state')].length === 2 && /\\d/.test(r.lastElementChild.textContent);
+    }""")
+    qqq = wl.locator("tr[data-symbol='QQQ']")
+    assert qqq.locator("svg[aria-label*=\"today's range\"]").count() == 1                    # day-range bar
+    assert qqq.locator("svg[aria-label*='52-week range']").count() == 1
+    assert qqq.locator("svg polyline").count() >= 1                                          # sparkline
+    assert re.match(r"^\d+\.\d\d×$", qqq.locator("svg text").first.text_content())          # rel vol data bar
+    states = qqq.locator("td.state").all_inner_texts()
+    assert any("VWAP" in x for x in states) and not any(w in " ".join(states).lower() for w in ("buy", "sell"))
+    assert "background" in (qqq.locator("td.wlchg").nth(1).get_attribute("style") or "")      # heat on Chg %
+    tick = wl.locator("tr[data-symbol='TICK-NYSE'] td").all_inner_texts()
+    assert tick[headers(wl).index("Gap %")] == "–"                                           # no gap for an internal
+    # sorting: by Chg % up, down, then the list's own order
+    own = wl_rows(p)
+    th = wl.locator("th").filter(has_text=re.compile(r"^Chg %"))
+    th.click()
+    pct = [float(x.replace("−", "-").rstrip("%")) for x in wl.locator("tr.wlr").evaluate_all(
+        f"(rs) => rs.map((r) => r.children[{headers(wl).index('Chg %')}].textContent)") if x != "–"]
+    assert pct == sorted(pct) and "▴" in th.inner_text()
+    th.click()
+    assert wl_rows(p) != own and "▾" in th.inner_text()
+    th.click()
+    assert wl_rows(p) == own
+    th.click()
+    p = tab.goto("/Internals", 3000)                                          # kept: columns, heat and sort
+    wl = p.locator(".panel.wl")
+    p.wait_for_function("document.querySelector('.panel.wl tr[data-symbol=QQQ] svg')")
+    assert "Day range" in headers(wl) and "▴" in wl.locator("th.on").inner_text()
+
+
+def headers(wl):
+    return [re.sub(r" [▴▾]$", "", x) for x in wl.locator("tr:first-child th").all_inner_texts()]
 
 
 def test_a_holdings_tab_shows_positions_with_cost_value_and_pnl(tab, data):

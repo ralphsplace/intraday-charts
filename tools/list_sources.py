@@ -10,6 +10,8 @@ address is rebuilt from the checked reference; the token is never logged or writ
 """
 from __future__ import annotations
 
+import csv
+import io
 import sys
 import time
 import urllib.error
@@ -20,6 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app import list_sources, watchlist  # noqa: E402
 
 MIN_INTERVAL = 1.0           # seconds between requests to FinViz
+# FinViz export columns kept for the watch list's FinViz columns (app/watch_fields.py), as FinViz writes them
+FIELDS = {"Company": "company", "Sector": "sector", "Industry": "industry", "Market Cap": "market_cap", "P/E": "pe"}
 
 
 class FinVizExport:
@@ -63,9 +67,19 @@ class FinVizExport:
         if "ticker" not in first.lower():
             return {"status": "error", "message": "FinViz's answer has no Ticker column"}
         got = watchlist.parse_symbols(body)
-        syms = got["symbols"]
-        return {"status": "ok", "symbols": syms[:list_sources.MAX_SYMBOLS], "total": len(syms),
-                "skipped": got["skipped"][:50]}
+        syms = got["symbols"][:list_sources.MAX_SYMBOLS]
+        return {"status": "ok", "symbols": syms, "total": len(got["symbols"]), "skipped": got["skipped"][:50],
+                "fields": fields(body, set(syms))}
+
+
+def fields(body: str, symbols: set) -> dict:
+    """The kept export columns per symbol, as text (FinViz's own formatting)."""
+    out = {}
+    for row in csv.DictReader(io.StringIO(body.lstrip("\ufeff"))):
+        sym = (row.get("Ticker") or "").strip().upper()
+        if sym in symbols:
+            out[sym] = {k: str(row[c]).strip()[:80] for c, k in FIELDS.items() if row.get(c) not in (None, "", "-")}
+    return out
 
 
 def make_fetchers(finviz_token: str | None) -> dict:

@@ -79,20 +79,40 @@ Each tab is a list of its own: its own source and its own columns. Only the tab 
 
 ### Columns
 
-**Columns** in the watch list's header lists the columns the tab can show; tick the ones you want. **Defaults**
-puts the tab's default set back. Hover a column's name for what it is.
+**Columns** in the watch list's header lists every column the tab can show, by section; tick the ones you want.
+**Defaults** puts the tab's default set back. Hover a column's name for what it is. Columns, heat and sorting are
+kept per tab.
 
-| Column | What it is | Lists |
-|---|---|---|
-| Last, High, Low | the day's last price, high and low (regular hours) | all |
-| Chg, Chg % | change from the prior day's close | all |
-| Volume | the day's volume (regular hours; premarket before 09:30) | all |
-| Qty | shares held, over all accounts (negative: short) | Holdings |
-| Avg cost | average cost per share, as IBKR reports it | Holdings |
-| Cost basis | quantity × average cost | Holdings |
-| Mkt value | quantity × the price on screen | Holdings |
-| Unrl P/L, Unrl P/L % | market value − cost basis, and as a % of the cost basis | Holdings |
-| Day P/L | quantity × change from the prior close | Holdings |
+- **Sorting.** Click a column's header: up (▴), down (▾), then the list's own order again. Graphical columns sort
+  by what they show (the day-range bar by where the price sits in the range, the sparkline by the day's change).
+- **Heat.** Columns marked **heat** in the chooser can shade their cells: deeper green above 0 and deeper red below
+  (around 1× for ratios), full colour at ±4% (or 3×). Off until you tick it.
+- **Replay.** Every value is worked out up to the cursor, like the charts.
+- **Market internals** (TICK, ADD, VOLD) show only their own prices and sparkline; gap, VWAP, ATR and study
+  columns mean nothing for them and stay empty. Indexes such as VIX trade no volume, so they have no VWAP or
+  relative volume.
+
+| Section | Columns |
+|---|---|
+| Price and volume | Last, Chg, Chg %, Volume, High, Low, Prev close, Time (of the last bar) |
+| The day so far | Open, Gap %, Chg open, Chg open %, VWAP, vs VWAP %, **Day range** (bar), **Today** (sparkline), **Rel vol** (bar), **vs VWAP** (state), **Initial balance** (state) |
+| Daily history | Range/ATR (bar), ATR, 52w high, 52w low, From 52w high %, **52w range** (bar), Avg vol (20d), Prior high, Prior low, SMA 50 (d), SMA 200 (d), **ATR zone** (state) |
+| Earnings and options | Earnings (the next report in the market calendar, or the last one found on SEC EDGAR), Exp. move % (when the options are cached) |
+| Study values | SMA 20 / 50 / 200 and EMA 9 / 21 on 5-minute bars, each with its "vs … %" distance |
+| Holdings | Qty, Avg cost, Cost basis, Mkt value, Weight % (bar), Unrl P/L, **Unrl P/L bar**, Unrl P/L %, Day P/L |
+| FinViz | Company, Sector, Industry, Mkt cap, P/E, as FinViz exports them |
+
+**The graphical columns:**
+
+- **Day range:** a track from the day's low to its high (widened to the prior close when it's outside), the last
+  price as a dot, and ticks for the open (grey), the prior close (amber) and VWAP (teal).
+- **52w range:** the same against the 52-week low and high; the grey band is today's range.
+- **Today:** the day's prices as a small line, green above the prior close and red below it, the prior close
+  dotted, extended hours dimmed.
+- **Rel vol, Range/ATR, Weight %:** a bar behind the number (rel vol full at 3×, range/ATR at 1.5×).
+- **Unrl P/L bar:** gains to the right in green, losses to the left in red, scaled to the largest in the list.
+- **States** (vs VWAP, Initial balance, ATR zone) describe the day so far with a neutral dot: teal above, amber
+  below, grey otherwise. They are never buy or sell signals.
 
 ### Holdings
 

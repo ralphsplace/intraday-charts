@@ -1,4 +1,5 @@
 /* Starts the chart page: loads the catalogue and data, restores this dashboard's window, wires the modules. */
+import { setColumns } from "./columns.js";
 import { fillDays, fillSymbolList, refreshAll } from "./data.js";
 import { openData } from "./dialogs/load-data.js";
 import { buildGrid, showLayout } from "./grid.js";
@@ -23,8 +24,9 @@ window.__chartApp = app;   // for debugging from the browser console (and the br
 window.__priceTypes = PT;
 
 (async () => {
-  const [cat, meta, st, wl] = await Promise.all([api("/api/studies"), api("/api/meta"), api("/api/collector").catch(() => null),
-                                                 api("/api/saved/watchlists").catch(() => ({}))]);
+  const [cat, meta, st, wl, cols] = await Promise.all([api("/api/studies"), api("/api/meta"), api("/api/collector").catch(() => null),
+                                                       api("/api/saved/watchlists").catch(() => ({})), api("/api/watch/columns")]);
+  setColumns(cols);
   app.catalog = cat.studies; app.defaults = cat.default_layout; app.meta = meta;
   app.collector = st; app.saved.watchlists = wl;
   fillSymbolList();

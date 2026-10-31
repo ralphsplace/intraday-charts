@@ -102,6 +102,8 @@ app/expected_move.py    expected-move view: expiries, straddle, 1σ/2σ, event m
 app/static/expected-move.html  the expected-move page (/expected-move); its scripts in js/expected-move/
 app/option_chain.py     option-chain view: the cached chain, the expiry strip, legs priced from it (no network)
 app/quotes.py           watch list rows: last, change, volume, high and low from cached bars (no network)
+app/watch_fields.py     the watch list's columns (one registry) and their values per symbol, only the groups asked for
+app/study_values.py     a ticker's study value (a line or level at the cursor) by name, e.g. VWAP or SMA 50
 app/positions.py        the Holdings list: positions summed over accounts, value and P/L at the price on screen (no TWS)
 app/list_sources.py     watch lists from outside sources (FinViz): addresses checked, fetched lists stored (no network)
 app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
@@ -132,7 +134,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
   watchlist.js          the watch list cell: tabs, the table, the column chooser, picking a row
   watch-tab.js          one tab of a watch list: its source (own, saved, FinViz, holdings), columns and rows
-  columns.js            the columns a watch list can show (one registry), and how each is written
+  columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
   links.js              symbol links: colour groups of cells that show the same symbol
   layouts.js            the window layouts, as rows of charts (e.g. 2 over 4, or any top/bottom count)
@@ -214,3 +216,24 @@ sh tests/docker_smoke.sh                  # the container's protections (needs D
 - **Dependencies** are pinned in `requirements.txt` (generated from `requirements.in`, see its header).
 - All test data is invented. Synthetic symbols end in `-DEMO`, and the browser tests' copies live only
   in a temporary folder.
+
+## Study values
+
+`app/study_values.py` answers "where is this ticker's VWAP, 50-period SMA or +1 ATR level now?" for code
+outside the charts. It runs the same study code as the charts, on the same cached bars, up to the same cursor,
+so a value always matches the line on a chart with the same settings. The watch list's study columns use it, and
+so can later features that need a study's price.
+
+```python
+from app import study_values
+study_values.value("QQQ", "2026-10-30", {"type": "sma", "params": {"length": 50}, "output": "sma", "tf": 5})
+# {"value": 691.45, "note": ""}
+```
+
+Over HTTP: `GET /api/study-value?symbol=QQQ&day=2026-10-30&type=vwap` or
+`...&type=sma&params={"length":50}&tf=5&output=sma`. `output` is a line's id or a level's plot id or label
+(e.g. `atr_up` for +1 ATR in `saty_atr`). Values are cached until the day's bars change.
+
+To add a watch list column, add an entry to `COLUMNS` in `app/watch_fields.py` (and, for a new kind of value, a
+group function there and a renderer in `app/static/js/columns.js`); a study column is one line in `STUDIES`.
+
