@@ -15,7 +15,7 @@ export class Feed {
     this.address = cfg?.address || "";
     this.label = cfg?.label || "";
     this.changed = changed;
-    this.symbols = []; this.view = null; this.error = ""; this.waiting = false; this.noAnswer = false;
+    this.symbols = []; this.fields = {}; this.view = null; this.error = ""; this.waiting = false; this.noAnswer = false;
     this.checked = 0; this.timer = null;
   }
 
@@ -53,7 +53,7 @@ export class Feed {
   take(v) {
     this.view = v; this.error = "";
     this.address = v.address; this.label = v.label;
-    if (v.status === "ok") this.symbols = v.symbols;      // on an error, the last symbols stay
+    if (v.status === "ok") { this.symbols = v.symbols; this.fields = v.fields || {}; }      // on an error, the last ones stay
     this.changed();
   }
 

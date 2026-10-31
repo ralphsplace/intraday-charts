@@ -18,7 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
-               positions, quotes, saved, security, sessions, store, structures, studies, templates, timeframes, watchlist)
+               positions, saved, security, sessions, store, structures, studies, study_values, templates, timeframes,
+               watch_fields, watchlist)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -139,20 +140,46 @@ MAX_QUOTE_SYMBOLS = 100
 
 
 @app.get("/api/quotes")
-def quote_rows(symbols: str, day: str, cursor: int | None = Query(None, ge=0, le=24 * 60)):
-    """Watch list rows from the cached 1-minute bars of `day` (up to the Replay cursor, when given)."""
+def quote_rows(symbols: str, day: str, cursor: int | None = Query(None, ge=0, le=24 * 60), cols: str = ""):
+    """Watch list rows from the cached 1-minute bars of `day` (up to the Replay cursor, when given), with the
+    values of the columns asked for (app/watch_fields.py)."""
     parts = [x for x in re.split(r"[\s,;]+", symbols or "") if x]
     if len(parts) > MAX_QUOTE_SYMBOLS:
         raise HTTPException(400, f"At most {MAX_QUOTE_SYMBOLS} symbols")
     syms = list(dict.fromkeys(_one_symbol(x, demo_ok=True) for x in parts))
-    return {"day": _date(day), "items": quotes.rows(syms, day, cursor)}
+    return {"day": _date(day), "items": watch_fields.rows(syms, day, cursor, _cols(cols))}
+
+
+def _cols(cols: str) -> list[str]:
+    return [c for c in (cols or "").split(",")[:80] if c in watch_fields.BY_ID]
+
+
+@app.get("/api/watch/columns")
+def watch_columns():
+    """The columns a watch list can show (app/watch_fields.py), and each list kind's default set."""
+    return watch_fields.catalog()
+
+
+@app.get("/api/study-value")
+def study_value(symbol: str, day: str, type: str, output: str = "", tf: int = 1, params: str = "{}",
+                cursor: int | None = Query(None, ge=0, le=24 * 60)):
+    """One study's line or level at the cursor (app/study_values.py), e.g. type=vwap&output=vwap, or
+    type=sma&params={"length":50}&tf=5&output=sma."""
+    try:
+        p = json.loads(params or "{}")
+        if not isinstance(p, dict):
+            raise ValueError("params must be an object")
+        return {"symbol": _one_symbol(symbol, demo_ok=True), "day": _date(day),
+                **study_values.value(symbol, day, {"type": type, "params": p, "output": output or type, "tf": tf}, cursor)}
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
 
 
 @app.get("/api/positions")
-def position_rows(day: str, cursor: int | None = Query(None, ge=0, le=24 * 60)):
+def position_rows(day: str, cursor: int | None = Query(None, ge=0, le=24 * 60), cols: str = ""):
     """The watch list's Holdings list: the account's stock and ETF positions (read by the collector when
     HOLDINGS=on) with market value and P/L at the price of `day` (up to the Replay cursor, when given)."""
-    return {"day": _date(day), **positions.view(day, cursor)}
+    return {"day": _date(day), **positions.view(day, cursor, _cols(cols))}
 
 
 @app.post("/api/symbols/parse")

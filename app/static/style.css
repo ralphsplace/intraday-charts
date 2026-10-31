@@ -415,3 +415,40 @@ button.oc-x { padding: 0 8px; color: var(--muted); }
 .wltable th { white-space: nowrap; }
 .panel.wl .wlcols .wlcol input { width: auto; margin: 0 2px 0 0; }
 .panel.wl .wltabs input.wltabname { width: 120px; }
+/* watch list columns (columns.js): sorting, text, states, and the graphical kinds */
+.wltable th.wlsort { cursor: pointer; user-select: none; }
+.wltable th.wlsort:hover { color: var(--text); }
+.wltable th.wlsort.on { color: var(--teal); }
+.wltable td.wltext { text-align: left; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.wltable td.soon { color: var(--amber); }
+.wltable td.state { font-size: 11.5px; }
+.wltable td.state::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px;
+  vertical-align: 1px; background: var(--gray); }
+.wltable td.state.hi::before { background: var(--teal); }
+.wltable td.state.lo { color: var(--text); }
+.wltable td.state.lo::before { background: var(--amber); }
+.wltable td svg { display: inline-block; vertical-align: middle; }
+.rb-track { fill: var(--line); }
+.rb-band { fill: var(--muted); opacity: .45; }
+.rb-last { fill: var(--text); }
+.rb-open { fill: var(--muted); }
+.rb-pc { fill: var(--amber); }
+.rb-vwap { fill: var(--teal); }
+.sp-base { stroke: var(--muted); stroke-dasharray: 2 2; stroke-width: 1; }
+.sp-up, .sp-down, .sp-ext { fill: none; stroke-width: 1.3; }
+.sp-up { stroke: var(--bull); }
+.sp-down { stroke: var(--bear); }
+.sp-ext { stroke: var(--muted); opacity: .6; }
+.db-bar { fill: var(--teal); opacity: .35; }
+.db-text { fill: var(--text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pb-mid { stroke: var(--line); }
+.pb-up { fill: var(--bull); }
+.pb-down { fill: var(--bear); }
+/* the column chooser's sections and heat toggles */
+.wlcols { flex-direction: column; align-items: stretch; max-height: 45%; overflow-y: auto; flex: none; }
+.wlcolsec { display: flex; gap: 8px; align-items: baseline; }
+.wlcolsec > b { flex: 0 0 140px; color: var(--muted); font-weight: 500; }
+.wlcolrow { display: flex; flex-wrap: wrap; gap: 3px 12px; }
+.wlcols .wlheat { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--muted); margin-left: -8px; }
+.panel.wl .wlcols .wlheat input { width: auto; margin: 0 2px 0 0; }
+.wlcols .wlcolreset { align-self: flex-end; }

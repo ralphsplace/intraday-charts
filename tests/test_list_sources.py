@@ -77,7 +77,9 @@ def test_finviz_export_reads_the_ticker_column():
     ans = Answer(CSV.encode())
     f = fetchers.FinVizExport("TOKEN", fetch=ans)
     res = f.load(list_sources.normalize("finviz", SCREEN))
-    assert res == {"status": "ok", "symbols": ["NVDA", "AMD"], "total": 2, "skipped": ["BRK-B"]}
+    assert res == {"status": "ok", "symbols": ["NVDA", "AMD"], "total": 2, "skipped": ["BRK-B"],
+                   "fields": {"NVDA": {"company": "NVIDIA Corp", "sector": "Technology"},
+                              "AMD": {"company": "Advanced Micro Devices", "sector": "Technology"}}}
     assert ans.urls == ["https://elite.finviz.com/export.ashx?v=111&f=sh_avgvol_o2000,ta_topgainers&o=-change&auth=TOKEN"]
     f.load(list_sources.normalize("finviz", "https://finviz.com/portfolio.ashx?v=1&pid=42"))
     assert ans.urls[-1] == "https://elite.finviz.com/portfolio_export.ashx?pid=42&auth=TOKEN"

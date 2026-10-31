@@ -4,7 +4,7 @@
    Each tab (watch-tab.js) has its own source (own list, saved list, FinViz, the account's holdings) and columns
    (columns.js); only the tab on view fetches. */
 import { refreshAll, requestData } from "./data.js";
-import { COLUMNS, DEFAULTS, available, cellText } from "./columns.js";
+import { COLUMNS, DEFAULTS, SECTIONS, available, renderCell, sectionOf } from "./columns.js";
 import { setActive, toggleMaximize } from "./grid.js";
 import { groupOf, linkControl, members, publish } from "./links.js";
 import { toastAction } from "./notify.js";
@@ -181,18 +181,40 @@ export class WatchList {
     this.editor.hidden = true;
     const t = this.tab(), shown = t.shownColumns();
     this.colBox.innerHTML = "";
+    const boxes = {};                                    // one row per section, in the sections' order
+    for (const [, name] of SECTIONS) if (!boxes[name]) boxes[name] = null;
     for (const id of available(t.kind()).filter((c) => c !== "symbol")) {
+      const c = COLUMNS[id], section = sectionOf(c);
+      if (!boxes[section]) {
+        const sec = el("div", "wlcolsec");
+        sec.appendChild(el("b", null, section));
+        boxes[section] = el("div", "wlcolrow");
+        sec.appendChild(boxes[section]);
+        sec.dataset.order = String(SECTIONS.findIndex(([, n]) => n === section));
+        const after = [...this.colBox.children].find((x) => +x.dataset.order > +sec.dataset.order);
+        this.colBox.insertBefore(sec, after || null);
+      }
+      const box = boxes[section];
       const l = el("label", "wlcol");
       const cb = el("input"); cb.type = "checkbox"; cb.checked = shown.includes(id); cb.value = id;
       cb.onchange = () => {
-        const now = t.shownColumns().filter((c) => c !== "symbol");
-        const next = cb.checked ? available(t.kind()).filter((c) => c === id || now.includes(c)) : now.filter((c) => c !== id);
+        const now = t.shownColumns().filter((x) => x !== "symbol");
+        const next = cb.checked ? available(t.kind()).filter((x) => x === id || now.includes(x)) : now.filter((x) => x !== id);
         t.columns = next.length ? next : null;
-        save(); this.render();
+        save(); this.render(); this.refresh();                        // new columns may need values the rows lack
       };
-      l.append(cb, document.createTextNode(" " + COLUMNS[id].label));
-      if (COLUMNS[id].tip) l.title = COLUMNS[id].tip;
-      this.colBox.appendChild(l);
+      l.append(cb, document.createTextNode(" " + c.label));
+      if (c.tip) l.title = c.tip;
+      box.appendChild(l);
+      if (c.heat) {
+        const h = el("label", "wlheat");
+        const hb = el("input"); hb.type = "checkbox"; hb.checked = t.heat.includes(id);
+        hb.setAttribute("aria-label", `Shade ${c.label} by value`);
+        hb.onchange = () => { t.heat = hb.checked ? [...t.heat, id] : t.heat.filter((x) => x !== id); save(); this.render(); };
+        h.append(hb, document.createTextNode("heat"));
+        h.title = `Shade ${c.label}'s cells by value: deeper green or red the further from ${c.kind === "ratio" ? "1×" : "0"}`;
+        box.appendChild(h);
+      }
     }
     const reset = btn("Defaults", () => { t.columns = null; save(); this.colBox.hidden = true; this.toggleColumns(); this.render(); },
                       `Show the default columns: ${DEFAULTS[t.kind()].map((c) => COLUMNS[c].label).join(", ")}`, "wlcolreset");
@@ -222,8 +244,18 @@ export class WatchList {
     const tb = this.table;
     tb.innerHTML = "";
     const h = el("tr");
-    for (const id of cols) { const th = el("th", null, COLUMNS[id].label); if (COLUMNS[id].tip) th.title = COLUMNS[id].tip; h.appendChild(th); }
+    for (const id of cols) {
+      const c = COLUMNS[id] || { label: id };
+      const on = t.sort?.id === id;
+      const th = el("th", "wlsort" + (on ? " on" : ""), c.label + (on ? (t.sort.dir === 1 ? " \u25b4" : " \u25be") : ""));
+      th.title = (c.tip ? c.tip + ". " : "") + "Click to sort: up, down, then the list's own order";
+      th.setAttribute("aria-sort", on ? (t.sort.dir === 1 ? "ascending" : "descending") : "none");
+      th.onclick = () => { t.toggleSort(id); save(); this.render(); };
+      h.appendChild(th);
+    }
     tb.appendChild(h);
+    const colMax = {};
+    for (const id of cols) colMax[id] = Math.max(0, ...t.rows.map((r) => (typeof r[id] === "number" ? Math.abs(r[id]) : 0)));
     const byS = Object.fromEntries(t.rows.map((r) => [r.symbol, r]));
     for (const sym of this.shown()) {
       const r = byS[sym] || { symbol: sym };
@@ -233,10 +265,18 @@ export class WatchList {
       tr.onclick = () => this.pick(sym);
       tr.append(el("td", "wlsym", sym));
       const quoteCols = cols.filter((id) => id !== "symbol");
+      const own = (id) => COLUMNS[id]?.lists === "holding" || COLUMNS[id]?.lists === "finviz";     // not from the bars
       if (r.status === "ok" || (t.kind() === "holding" && r.qty != null)) {
         for (const id of quoteCols) {
-          const [txt, dir] = r.status === "ok" || COLUMNS[id].has === "holding" ? cellText(id, r) : ["–", ""];
-          tr.appendChild(el("td", dir ? `wlchg ${dir}` : null, txt));
+          const td = el("td");
+          if (r.status !== "ok" && !own(id)) { td.textContent = "–"; tr.appendChild(td); continue; }
+          const v = renderCell(id, r, { colMax, heat: t.heat.includes(id) });
+          if (v.node) td.appendChild(v.node); else td.textContent = v.text ?? "–";
+          if (v.cls) td.className = v.cls.split(" ").some((x) => x === "up" || x === "down") ? `wlchg ${v.cls}` : v.cls;
+          if (v.style) td.style.cssText = v.style;
+          if (v.title) td.title = v.title;
+          if (COLUMNS[id]?.kind === "text" || COLUMNS[id]?.kind === "state" || COLUMNS[id]?.kind === "date") td.classList.add("wltext");
+          tr.appendChild(td);
         }
       } else {
         const td = el("td", "muted", r.status === "missing" ? "not cached for this day" : r.status === "none yet" ? "no bars yet" : "");
