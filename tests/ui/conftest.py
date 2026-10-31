@@ -63,6 +63,7 @@ def server(ui_data):
     port = _free_port()
     env = {**os.environ, "DATA_DIR": str(ui_data), "PYTHONPATH": str(ROOT)}
     env.pop("SEC_CONTACT", None)                               # earnings lookups off: the page says so
+    env["FINVIZ"] = "on"                                       # FinViz watch lists on (no token here: nothing is fetched)
     proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.server:app", "--port", str(port), "--log-level", "warning"],
                             cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     base = f"http://127.0.0.1:{port}"
@@ -82,8 +83,8 @@ def server(ui_data):
 
 @pytest.fixture
 def data(ui_data):
-    """Each test starts with no dashboards file, saved items or fetch requests."""
-    for sub in ("user", "control"):
+    """Each test starts with no dashboards file, saved items, fetch requests or fetched watch lists."""
+    for sub in ("user", "control", "lists"):
         shutil.rmtree(ui_data / sub, ignore_errors=True)
     return ui_data
 

@@ -17,6 +17,8 @@ Each chart has its own:
   - minutes: Today, 2, 3 or 5 days, with dotted day separators
   - 1d / 1w / 1M: 3 or 6 months, 1, 2, 5 or 10 years. They start at 6 months (1d), 2 years (1w) and
     10 years (1M), and each keeps its own choice.
+- **Link colour**, the small square after the symbol: charts and watch lists of the same colour show the same
+  symbol ([Symbol links](layouts.md#symbol-links)).
 - **Price type**, in the menu after the range (below).
 - **Studies:** none by default ([Studies](studies.md)).
 

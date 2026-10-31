@@ -34,7 +34,7 @@ export async function applyLayout(d) {
 export function applyView(panel, d, keepSymbol) {
   const i = app.cells.indexOf(panel);
   if (i < 0) return;
-  app.configs[i] = { id: panel.id, symbol: keepSymbol ? panel.symbol : (d.symbol || panel.symbol), tf: d.tf || 3, days: d.days || 1,
+  app.configs[i] = { id: panel.id, link: panel.link, symbol: keepSymbol ? panel.symbol : (d.symbol || panel.symbol), tf: d.tf || 3, days: d.days || 1,
                      spans: d.spans, price: d.price, style: d.style, studies: normStudies(clone(d.studies || [])) };
   buildGrid(); save();
   if (app.live) requestData([app.configs[i].symbol]);

@@ -9,16 +9,17 @@ import { applyLayout, closeMenu, layoutSnapshot } from "./saved.js";
 import { app, isWatchlist, newConfig, save } from "./state.js";
 import { btn, clone, el, uid } from "./util.js";
 
-// a new watch list starts with the symbols on screen, linked to the active chart
+// a new watch list starts with the symbols on screen, unlinked: it drives the active chart (links.js)
 export function newWatchlistConfig() {
-  return { kind: "watchlist", id: uid(), symbols: [...new Set(app.panels.map((p) => p.symbol))], list: "", link: "active" };
+  return { kind: "watchlist", id: uid(), symbols: [...new Set(app.panels.map((p) => p.symbol))], list: "", link: "" };
 }
 
 // a new chart is a copy of the chart it was added from (same duration, range, price type and studies)
+// a copy starts unlinked, so typing its new symbol doesn't change the chart it was copied from
 function copyOf(cell) {
   if (isWatchlist(cell.config())) return { ...newConfig(), id: uid() };
   const c = clone(cell.config());
-  return { ...c, id: uid(), studies: (c.studies || []).map((s) => ({ ...s, uid: uid() })) };
+  return { ...c, id: uid(), link: "", studies: (c.studies || []).map((s) => ({ ...s, uid: uid() })) };
 }
 
 function apply(r) {

@@ -17,8 +17,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import (control, dashboards, earnings, engine, envcheck, expected_move, option_chain, periods, quotes, saved,
-               security, sessions, store, structures, studies, templates, timeframes, watchlist)
+from . import (control, dashboards, earnings, engine, envcheck, expected_move, list_sources, option_chain, periods,
+               quotes, saved, security, sessions, store, structures, studies, templates, timeframes, watchlist)
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT.parent / "config.json"
@@ -151,6 +151,30 @@ def quote_rows(symbols: str, day: str, cursor: int | None = Query(None, ge=0, le
 @app.post("/api/symbols/parse")
 def parse_symbols(req: SymbolsText):
     return watchlist.parse_symbols(req.text[:200_000])
+
+
+class ListSourceRequest(BaseModel):
+    source: str = Field(max_length=20)
+    address: str = Field(max_length=4000)
+    refresh: bool = False          # fetch again now
+    ask: bool = True               # ask the collector when missing or stale (False: just read, while waiting)
+
+
+@app.post("/api/lists/source")
+def list_source(req: ListSourceRequest):
+    """A watch list from an outside source (a FinViz screen or portfolio): the symbols fetched for it, and a
+    request to the collector when there are none yet, they're older than the source's limit, or on refresh."""
+    try:
+        ref = list_sources.normalize(req.source, req.address)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+    v = list_sources.view(ref)
+    if not v["on"]:
+        return {**v, "status": "off" if v["status"] == "missing" else v["status"], "requested": False}
+    asked = req.refresh or (req.ask and (v["status"] in ("missing", "off") or bool(v.get("stale"))))
+    if asked:
+        control.submit_list(ref)
+    return {**v, "requested": bool(asked)}
 
 
 @app.get("/api/saved/{kind}")

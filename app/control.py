@@ -95,6 +95,13 @@ def submit(symbols: list[str], day: str | None = None, live: bool = False, stop_
     return req
 
 
+def submit_list(ref: dict) -> dict:
+    """A request to the collector to fetch a watch list from an outside source (app/list_sources.py)."""
+    req = {"id": f"{int(time.time() * 1000)}-{uuid.uuid4().hex[:6]}", "symbols": [], "list": ref, "created": time.time()}
+    write_json(requests_dir() / f"{req['id']}.json", req)
+    return req
+
+
 def pending_requests() -> list[dict]:
     d = requests_dir()
     if not d.exists():

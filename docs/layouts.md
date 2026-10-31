@@ -1,6 +1,7 @@
 # Layouts and the watch list
 
-A window is a grid of **cells**, laid out in rows. A cell is a [chart](charts.md) or a watch list.
+A window is a grid of **cells**, laid out in rows. A cell is a [chart](charts.md) or a watch list. Cells can be
+[linked by colour](#symbol-links) so they show the same symbol.
 
 ## Choosing a layout
 
@@ -50,16 +51,59 @@ Examples, starting from **2 over 4**:
 A list of symbols with fixed columns: **Last, Chg, Chg %, Volume, High, Low**, from the cached 1-minute bars
 of the day on screen. In Replay they follow the cursor; in Live they update every 5 seconds.
 
-- **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the linked chart:
-  the **Active chart** by default, or a chosen one in **Chart**.
-- **Own list** or a watch list saved under **Load data…**. **Edit** takes symbols separated by spaces, commas
-  or lines, or a thinkorswim share link. A new watch list starts with the symbols on screen.
+- **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the charts of the
+  watch list's [link colour](#symbol-links), or on the **active chart** when it isn't linked.
+- **Where its symbols come from**, in the menu at its top left:
+  - **Own list:** **Edit** takes symbols separated by spaces, commas or lines, or a thinkorswim share link. A new
+    watch list starts with the symbols on screen.
+  - **A watch list saved under Load data…**
+  - **FinViz:** a FinViz screen or portfolio ([below](#a-watch-list-from-finviz)).
 - Symbols not cached for that day say so; **Fetch from TWS** asks the collector for them (in Live it then
   streams them).
 - Market internals (TICK, ADD, VOLD and so on) show no % change and no volume, which mean nothing for them.
 - **Chg** and **Chg %** are from the prior day's close; **Volume**, **High** and **Low** are for regular hours
   (or premarket, before 09:30).
 - Its **≡** menu adds a chart or watch list next to it, or removes it.
+
+### A watch list from FinViz
+
+A FinViz screen (e.g. top gainers with average volume over 2M) or one of your FinViz portfolios, kept up to date.
+
+1. Set `FINVIZ_TOKEN` in `.env` ([Configuration](configuration.md)) and restart:
+   `docker compose --profile collector up -d`.
+2. In the watch list's menu pick **FinViz screen or portfolio…**.
+3. Paste the screen's or portfolio's address from your browser's address bar on finviz.com, e.g.
+   `https://finviz.com/screener.ashx?v=111&f=sh_avgvol_o2000,ta_topgainers&o=-change`, and press **Apply**.
+
+- The collector fetches the list from FinViz's export and the watch list fills in a few seconds later. It's
+  fetched again when it's more than 15 minutes old and on screen, or straight away with **Refresh list**.
+- The list's name below it opens it on finviz.com.
+- Up to 100 symbols are shown (the footer says when FinViz sent more), in FinViz's order: sort the screen on
+  finviz.com (e.g. by change) to choose which.
+- The prices are still the dashboard's own, from the cached bars; **Fetch from TWS** gets the symbols not
+  cached yet.
+- Symbols IBKR writes differently, such as share classes (`BRK-B`), are left out.
+
+Needs a **FinViz Elite** subscription: free accounts can't export. Only the address's screen settings (`v`, `f`,
+`o`, `s`, `t`) or portfolio number (`pid`) are kept, and only finviz.com addresses are accepted. An `auth=` in a
+pasted address is dropped; the token stays in `.env` and is sent only to finviz.com.
+
+## Symbol links
+
+Link cells by colour, as in TWS and thinkorswim: charts and watch lists of the same colour show the same symbol.
+
+- The small square in each chart's and watch list's header picks its colour: red, green, blue, yellow, purple,
+  orange, or **Not linked** (dashed). Hover it to see how many others share the colour.
+- **Typing a symbol** into a linked chart changes every chart of that colour.
+- **Clicking a row** of a linked watch list changes every chart of its colour, and other watch lists of that
+  colour mark the row.
+- A window can have several colours at once, each with any number of cells. For example, red for a 1-minute and
+  a 5-minute chart driven by a watch list of top gainers, and blue for SPY and QQQ charts driven by another.
+- A watch list that isn't linked drives the active chart (click a chart to make it active).
+- **+ Chart left / right / Row below** copies a chart without its colour, so typing the new chart's symbol
+  doesn't change the one it was copied from.
+- Colours are kept with the dashboard and in saved layouts. A watch list saved by an earlier version, linked to
+  one chosen chart, gets a colour shared with that chart.
 
 ## If a dashboard comes back as one chart
 

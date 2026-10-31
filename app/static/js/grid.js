@@ -3,6 +3,7 @@ import { fillDays } from "./data.js";
 import { setTools } from "./drawings.js";
 import { Panel } from "./panel.js";
 import { LAYOUTS, layoutLabel, shape } from "./layouts.js";
+import { migrateLinks, paintAll } from "./links.js";
 import { app, isWatchlist, newConfig, save } from "./state.js";
 import { WatchList } from "./watchlist.js";
 import { $, el } from "./util.js";
@@ -12,6 +13,7 @@ export function setActive(p) {
   if (app.active === p) return;
   app.active = p;
   app.panels.forEach((x) => x.root.classList.toggle("active", x === p));
+  for (const c of app.cells) if (!c.link) c.activeChanged?.();   // unlinked watch lists follow the active chart
 }
 
 export function buildGrid() {
@@ -19,6 +21,7 @@ export function buildGrid() {
   app.cells = []; app.panels = [];
   const sh = shape(app.layout), n = sh.count;
   while (app.configs.length < n) app.configs.push(newConfig());
+  migrateLinks(app.configs);
   const grid = $("grid");
   grid.querySelectorAll(".splitter, .gridrow").forEach((e) => e.remove());
   app.maximized = null;
@@ -32,6 +35,7 @@ export function buildGrid() {
     app.cells.push(p);
     if (p instanceof Panel) { p.fillSymbols(); app.panels.push(p); }
   }
+  paintAll();
   applyGridSizes();
   setActive(app.panels[0]);
   updateBanner();

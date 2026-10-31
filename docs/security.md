@@ -41,6 +41,9 @@ checks that it runs in a secure environment:
   Two things can go online, both reading public data only:
 
   - the collector, for the earnings page, looks up earnings dates on SEC EDGAR, and only when `SEC_CONTACT` is set
+  - the collector, for FinViz watch lists, fetches your FinViz screens and portfolios, and only when
+    `FINVIZ_TOKEN` is set. It accepts only finviz.com screen and portfolio addresses, rebuilt from their checked
+    settings, and the token stays in the collector (the web server is only told that it's set).
   - `tools/market_events.py --gdelt`, when you run it
   The environment check on the Dashboards page says which are on.
 

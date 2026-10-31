@@ -13,6 +13,10 @@
     `[{"type": "vwap", "params": {}}]`
 - **`.env`**: the TWS address and port, symbols, backfill length, live write interval, and the web port. `WEB_WORKERS` (default 2) sets
   how many processes serve charts; raise it on a NAS with more cores if big grids replay slowly.
+- **`FINVIZ_TOKEN` in `.env`**: your FinViz Elite API token (the `auth=` value in FinViz's export links, or under
+  your FinViz account's settings), for [watch lists from FinViz](layouts.md#a-watch-list-from-finviz). Only the
+  collector gets it, and sends it only to finviz.com. Empty: FinViz watch lists are off. If the collector runs on
+  the Windows PC instead (`tools/run_collector_windows.bat`), set it in that file too.
 - **Security settings in `.env`** (see [Purpose and security model](security.md)):
 
   | Setting | Default | What it does |

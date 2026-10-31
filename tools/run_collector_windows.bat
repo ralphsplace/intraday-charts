@@ -8,6 +8,8 @@ set DATA_DIR=\\NAS\docker\intraday-charts\data
 set SYMBOLS=QQQ SPY
 REM market indexes fetched with every request (add TICK-NDX if you have Nasdaq index data)
 set COMPANIONS=TICK-NYSE TRIN-NYSE
+REM FinViz watch lists: your FinViz Elite API token (and FINVIZ_TOKEN in the NAS's .env, so the page knows)
+set FINVIZ_TOKEN=
 
 py -m pip install --quiet -r "%~dp0..\requirements.txt"
 py "%~dp0fetch_ibkr.py" --symbols %SYMBOLS% --days 30 --live --host 127.0.0.1 --port 7496 --data-dir "%DATA_DIR%"
