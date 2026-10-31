@@ -284,7 +284,7 @@ export class WatchList {
       this.listSel.innerHTML = "";
       const add = (v, txt) => { const o = el("option", null, txt); o.value = v; this.listSel.appendChild(o); };
       for (const n of lists.names()) add(n, n);
-      if (!t.item) add(t.list, `${t.list} (deleted)`);
+      if (!t.item) add(t.list, app.listsUnknown ? t.list : `${t.list} (deleted)`);
       add(NEW_SYMBOLS, "New watch list…");
       add(NEW_FINVIZ, "New FinViz screen or portfolio…");
       add(NEW_HOLDINGS, "New Holdings list (IBKR)");

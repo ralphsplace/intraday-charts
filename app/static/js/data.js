@@ -3,7 +3,7 @@ import { symbolsOf } from "./lists.js";
 import { renderCollector } from "./dialogs/load-data.js";
 import { toast } from "./notify.js";
 import { app, cachedSymbols, hasBars } from "./state.js";
-import { $, api, el, inUse } from "./util.js";
+import { $, api, el, inUse, orElse } from "./util.js";
 
 // the Day list: days cached for any chart's symbol, plus days asked for that are still being fetched
 export function fillDays() {
@@ -96,7 +96,7 @@ export async function poll() {
 
 // re-read what is cached and what the collector is doing; refresh charts whose bars just arrived
 export async function refreshData() {
-  const [meta, st] = await Promise.all([api("/api/meta").catch(() => null), api("/api/collector").catch(() => null)]);
+  const [meta, st] = await Promise.all([orElse(api("/api/meta"), null, "Trading days"), orElse(api("/api/collector"), null, "Collector status")]);
   if (meta) { app.meta = meta; fillSymbolList(); }
   if (st) app.collector = st;
   for (const d of [...app.extraDays]) if (app.panels.every((p) => hasBars(p.symbol, d))) app.extraDays.delete(d);

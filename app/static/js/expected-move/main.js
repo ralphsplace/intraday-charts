@@ -1,7 +1,7 @@
 /* Starts the expected-move page (/expected-move?symbols=AMZN,LLY&date=2026-10-30): shows what's cached, asks the
    TWS collector for fresh option quotes when they're missing or stale (or on Refresh), and waits for them. */
 import { EXPECTED_MOVE_KEY } from "../keys.js";
-import { $, api, keepScroll, load, setValue, store, submitted, trackEdits } from "../util.js";
+import { $, api, keepScroll, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 import { renderCards, renderSummary } from "./render.js";
 
 const POLL_MS = 3000, GIVE_UP_MS = 3 * 60 * 1000;
@@ -47,7 +47,7 @@ async function show(symbols, date, refresh = false) {
   message(null);
   const stale = v.items.filter((it) => !isDemo(it.symbol) && (it.status === "missing" || (it.age != null && it.age > v.stale_seconds)));
   if (refresh || (stale.length && !waitingSince)) await fetchQuotes(refresh ? symbols : stale.map((it) => it.symbol), date);
-  collector = await api("/api/collector").catch(() => null);
+  collector = await orElse(api("/api/collector"), null, "Collector status");
   if (mine !== asking) return;
   keepScroll(null, () => {                         // a refresh doesn't move the page
     renderSummary($("emSummary"), v.items, waiting);

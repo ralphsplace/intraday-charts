@@ -6,7 +6,7 @@ import { buildGrid, placeSplitters } from "./grid.js";
 import { MODE_KEY } from "./keys.js";
 import { toast } from "./notify.js";
 import { LIVE_REFRESH_MS, app, save } from "./state.js";
-import { $, api, fmtMin } from "./util.js";
+import { $, api, fmtMin, orElse } from "./util.js";
 
 export function stopPlay() { app.playing = false; $("play").textContent = "Play"; }
 export function maxMinute() { return Math.max(...app.panels.map((p) => p.view?.last_minute || 0), 241); }
@@ -70,12 +70,12 @@ export async function setMode(live) {
     await refreshAll(); showCursor();
     let ticks = 0, misses = 0;
     liveTimer = setInterval(async () => {
-      app.collector = await api("/api/collector").catch(() => app.collector);
+      app.collector = await orElse(api("/api/collector"), app.collector, "Collector status");
       const why = liveProblem(app.collector);
       misses = why ? misses + 1 : 0;
       if (misses >= LIVE_MISSES) return dropLive(why);
       if (++ticks % 12 === 0) {           // about once a minute, pick up a new trading day
-        app.meta = await api("/api/meta").catch(() => app.meta);
+        app.meta = await orElse(api("/api/meta"), app.meta, "Trading days");
         const latest = app.day; fillDays();
         if (app.day !== latest) app.panels.forEach((p) => { p.fitted = false; });
       }
