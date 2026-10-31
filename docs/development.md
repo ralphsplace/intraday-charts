@@ -239,3 +239,11 @@ Over HTTP: `GET /api/study-value?symbol=QQQ&day=2026-10-30&type=vwap` or
 To add a watch list column, add an entry to `COLUMNS` in `app/watch_fields.py` (and, for a new kind of value, a
 group function there and a renderer in `app/static/js/columns.js`); a study column is one line in `STUDIES`.
 
+## Working with Claude Code
+
+`CLAUDE.md` at the repo root holds the project's commands and standing rules. `.claude/settings.json` enables
+plugins from the official marketplace for this repo (code review, simplification, security review, feature
+workflows, Matt Pocock's engineering skills), and `.claude/skills/` holds TradingView's Lightweight Charts skills.
+`docs/agents/` tells the engineering skills where issues live (GitHub Issues), which triage labels to use and
+where domain docs go; it isn't part of the published guide.
+

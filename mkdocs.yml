@@ -50,3 +50,7 @@ nav:
 validation:
   links:
     anchors: warn
+
+# notes for coding agents (CLAUDE.md, Agent skills): kept in the repo, not published
+exclude_docs: |
+  agents/
