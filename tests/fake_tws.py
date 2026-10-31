@@ -276,6 +276,11 @@ class FakeIB:
         self.requests.append(("tickers", len(contracts), None, False))
         return out
 
+    def reqPositions(self):
+        """Invented positions, when a test sets them (ib_async Position-like objects)."""
+        self.position_reads = getattr(self, "position_reads", 0) + 1
+        return list(getattr(self, "positions", []))
+
     def cancelMktData(self, contract):
         self.tickers = [t for t in self.tickers if t.contract is not contract]
 

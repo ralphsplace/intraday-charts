@@ -48,22 +48,68 @@ Examples, starting from **2 over 4**:
 
 ## The watch list
 
-A list of symbols with fixed columns: **Last, Chg, Chg %, Volume, High, Low**, from the cached 1-minute bars
-of the day on screen. In Replay they follow the cursor; in Live they update every 5 seconds.
+Lists of symbols in **tabs**, with the columns you choose: by default **Last, Chg, Chg %, Volume, High, Low**, from
+the cached 1-minute bars of the day on screen. In Replay they follow the cursor; in Live they update every 5 seconds.
 
 - **Click a row**, or move through the list with the **↑ / ↓** keys, to show that symbol on the charts of the
   watch list's [link colour](#symbol-links), or on the **active chart** when it isn't linked.
-- **Where its symbols come from**, in the menu at its top left:
+- **Where a tab's symbols come from**, in the menu at its top left:
   - **Own list:** **Edit** takes symbols separated by spaces, commas or lines, or a thinkorswim share link. A new
     watch list starts with the symbols on screen.
   - **A watch list saved under Load data…**
   - **FinViz:** a FinViz screen or portfolio ([below](#a-watch-list-from-finviz)).
+  - **Holdings (IBKR):** your account's stock and ETF positions ([below](#holdings)).
 - Symbols not cached for that day say so; **Fetch from TWS** asks the collector for them (in Live it then
   streams them).
 - Market internals (TICK, ADD, VOLD and so on) show no % change and no volume, which mean nothing for them.
 - **Chg** and **Chg %** are from the prior day's close; **Volume**, **High** and **Low** are for regular hours
   (or premarket, before 09:30).
 - Its **≡** menu adds a chart or watch list next to it, or removes it.
+
+### Tabs
+
+Each tab is a list of its own: its own source and its own columns. Only the tab on view is fetched.
+
+- **+** adds a tab, with its own list: type its symbols and press **Apply**.
+- Click a tab to show it. **Double-click** it to rename it (Enter keeps the name, Esc cancels); a tab without a
+  name of its own is named after what it shows ("Holdings", "FinViz", a saved list's name).
+- **×** on the tab on view closes it; **Undo** on the message that follows brings it back. The last tab stays.
+- Up to 12 tabs per watch list. The tabs, their names, the tab on view and each tab's columns are kept with the
+  dashboard and in saved layouts.
+
+### Columns
+
+**Columns** in the watch list's header lists the columns the tab can show; tick the ones you want. **Defaults**
+puts the tab's default set back. Hover a column's name for what it is.
+
+| Column | What it is | Lists |
+|---|---|---|
+| Last, High, Low | the day's last price, high and low (regular hours) | all |
+| Chg, Chg % | change from the prior day's close | all |
+| Volume | the day's volume (regular hours; premarket before 09:30) | all |
+| Qty | shares held, over all accounts (negative: short) | Holdings |
+| Avg cost | average cost per share, as IBKR reports it | Holdings |
+| Cost basis | quantity × average cost | Holdings |
+| Mkt value | quantity × the price on screen | Holdings |
+| Unrl P/L, Unrl P/L % | market value − cost basis, and as a % of the cost basis | Holdings |
+| Day P/L | quantity × change from the prior close | Holdings |
+
+### Holdings
+
+A tab of your IBKR account's **stock and ETF positions**, biggest first, with **Qty, Avg cost, Last, Mkt value,
+Unrl P/L, Unrl P/L %, Day P/L, Chg %**. The footer adds them up (value, unrealized and day P/L) and says how old the
+positions are.
+
+- **Turning it on.** Set `HOLDINGS=on` in `.env` and restart: `docker compose --profile collector up -d`. The
+  collector then reads the account's positions once a minute while it's in Live mode.
+- **Read-only, and positions only.** Orders, executions and account balances are never read, and nothing can be
+  traded. Account numbers are kept masked (…1234). Off (the default), the account isn't read at all.
+- **Values are at the price on screen**, from the cached bars: live in Live, the cursor's price in Replay. The
+  positions themselves are always today's.
+- Positions in several accounts are added up, with the average cost weighted by shares.
+- Options, futures and other positions aren't listed: the footer counts them. Neither are share classes IBKR
+  writes with a space (`BRK B`).
+- Symbols without bars for the day show their quantity and cost; **Fetch from TWS** gets the bars.
 
 ### A watch list from FinViz
 

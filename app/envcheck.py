@@ -14,7 +14,7 @@ import socket
 import stat
 from pathlib import Path
 
-from . import control, security, store
+from . import control, positions, security, store
 
 ROOT = Path(__file__).resolve().parent.parent
 # names of TWS API calls that place, change or cancel orders; none may appear in this project's code
@@ -101,7 +101,10 @@ def run(settings: security.Settings | None = None) -> list[dict]:
     hits = order_calls()
     out.append(_check("Read-only trading data", "fail" if hits else "ok",
                       "Order calls found in the code: " + ", ".join(hits) if hits else
-                      "No code that places, changes or cancels orders; every TWS connection is opened read-only."))
+                      "No code that places, changes or cancels orders; every TWS connection is opened read-only. "
+                      + ("The collector reads the account's positions for the Holdings list (HOLDINGS=on): never orders "
+                         "or executions." if positions.turned_on() else
+                         "The account's positions, orders and executions are never read (Holdings list off).")))
 
     col = control.read_status()
     host = col.get("host")

@@ -23,3 +23,5 @@
   match to real headlines hasn't been checked against a live TWS yet.
 - **FinViz watch lists.** Tested against FinViz's export format, not yet against a live FinViz Elite account.
   Share classes FinViz writes with a dash (`BRK-B`) are left out.
+- **Holdings.** Tested against the stand-in for TWS, not yet against a live account. Values are in the
+  position's own currency, unconverted.

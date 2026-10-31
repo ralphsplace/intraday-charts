@@ -13,6 +13,8 @@ It works through a queue of fetches. The queue is filled from six places:
   - each morning in live mode: the daily history of the streamed symbols
 Watch lists from FinViz (when FINVIZ_TOKEN is set) are fetched straight away, outside the queue
 (tools/list_sources.py; the other internet request, to finviz.com only).
+With HOLDINGS=on it also reads the account's positions once a minute in live mode, for the watch list's Holdings
+list (tools/positions.py): positions only, never orders or executions.
 In live mode it also records the NYSE advance-decline and up/down volume (ADD-NYSE, VOLD-NYSE) from live quotes,
 since IBKR has no history for them (tools/recorder.py; RECORD in .env).
 
@@ -45,10 +47,12 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import control, earnings, envcheck, expected_move, list_sources, option_chain, sessions, store  # noqa: E402
+from app import (control, earnings, envcheck, expected_move, list_sources, option_chain, positions,  # noqa: E402
+                 sessions, store)
 from option_quotes import OptionQuotes  # noqa: E402
 from earnings_sources import make_source  # noqa: E402
 from list_sources import make_fetchers  # noqa: E402
+from positions import PositionsReader  # noqa: E402
 from recorder import Recorder  # noqa: E402
 
 ET = "America/New_York"
@@ -269,6 +273,8 @@ class Collector:
         self.earnings_source = make_source(getattr(args, "sec_contact", None), store.DATA_DIR / "earnings")
         self.list_fetchers = make_fetchers(os.environ.get("FINVIZ_TOKEN"))   # watch lists from FinViz (.env)
         self.option_quotes = OptionQuotes(ib, **({"option": option} if option else {}))   # tests pass a fake option
+        # the account's positions, for the watch list's Holdings list: only with HOLDINGS=on, only in live mode
+        self.positions = PositionsReader(ib, clock) if args.live and positions.turned_on() else None
         self.recorder = Recorder(ib, getattr(args, "record", []), self.contract, args.write_every, clock) if args.live else None
         err = getattr(ib, "errorEvent", None)
         if err is not None:
@@ -486,6 +492,8 @@ class Collector:
         self.stream.sync(now, self.live_contracts())
         if self.recorder:
             self.recorder.sync(now)
+        if self.positions:
+            self.positions.sync()
         if self.tasks and self.pacer.ready():
             self.run_task(self.tasks.popleft())
         self.write_status()
