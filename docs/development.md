@@ -93,7 +93,7 @@ app/api/                the endpoints, one module per area of the app, each with
   config.py             the Config page: study defaults, each list kind's default columns
   dashboards.py         create, rename, change, delete, default dashboard
   earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
-  paper.py              paper accounts and their history (more paper trading as it lands)
+  paper.py              paper accounts, their history, and Replay practice sessions
   pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
@@ -102,6 +102,7 @@ app/saved.py            saved chart views, layouts and option structures (data/u
 app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
 app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
 app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
+app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
@@ -138,6 +139,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   outputs/              one module per kind of study output (lines, levels, profile, box, event lines, ...)
   legends.js            the legend on each pane, with Settings / Hide / Remove
                         (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
+  paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)

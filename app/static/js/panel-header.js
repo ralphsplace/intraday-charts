@@ -61,7 +61,7 @@ export class PanelHeader {
     const brand = el("a", "brand", "RP");                 // the project's repository, in a new tab
     Object.assign(brand, { href: REPO, target: "_blank", rel: "noopener", title: "intraday-charts on GitHub" });
     wrap.append(this.chartEl, this.overlay, this.legends, this.msg, brand);
-    root.append(head, wrap);
+    root.append(head, this.buildPaper(), wrap);
   }
 
   // the range menu's choices for the current duration
