@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from . import envcheck, jsonfile, security
+from . import envcheck, jsonfile, security, upgrade
 from .api import charts, config, dashboards, earnings, expected_move, options, pages, saved, watch
 from .api.common import ROOT
 from .api.pages import STATIC_VERSION, Revalidated  # noqa: F401  (STATIC_VERSION: read by the tests)
@@ -21,13 +21,15 @@ log = logging.getLogger("intraday-charts")
 
 @asynccontextmanager
 async def lifespan(_app):
-    """Check the environment before serving; a failed check stops the server (see app/envcheck.py)."""
+    """Check the environment before serving (a failed check stops the server; app/envcheck.py), then bring what
+    older versions saved up to date (app/upgrade.py)."""
     checks = envcheck.run()
     for c in checks:
         log.warning("environment check: %-24s %-4s %s", c["name"], c["status"], c["detail"])
     bad = envcheck.failures(checks)
     if bad:
         raise RuntimeError("Not starting: " + " ".join(f"{c['name']}: {c['detail']}" for c in bad))
+    upgrade.run()                                               # what older versions saved, to today's shapes
     yield
 
 

@@ -1,4 +1,4 @@
-"""Named things the user saves from the chart page: chart views, window layouts and watchlists.
+"""Named things the user saves from the chart page: chart views, window layouts and option structures.
 
 Kept on the server (in <data>/user/<kind>.json) so every browser and device that opens the dashboard
 sees the same list.
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import jsonfile, store
 
-KINDS = ("views", "layouts", "watchlists", "structures")
+KINDS = ("views", "layouts", "structures")
 NAME_MAX = 60
 _NAME_RE = re.compile(rf"^[^\x00-\x1f/\\]{{1,{NAME_MAX}}}$")
 

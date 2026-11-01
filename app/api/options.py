@@ -10,6 +10,7 @@ from .common import DEMO_RE, one_symbol, valid_expiry
 
 router = APIRouter()
 
+
 class ChainRequest(BaseModel):
     symbol: str
     expiries: list[str] = Field(default_factory=list, max_length=option_chain.MAX_EXPIRIES)

@@ -12,6 +12,7 @@ from .common import DEMO_RE, one_symbol, valid_date
 
 router = APIRouter()
 
+
 MAX_EM_SYMBOLS = 20
 
 

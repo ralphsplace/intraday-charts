@@ -97,7 +97,8 @@ app/api/                the endpoints, one module per area of the app, each with
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
 app/sessions.py         US trading days and holidays
-app/saved.py            saved chart views, layouts, watchlists and option structures (data/user/)
+app/saved.py            saved chart views, layouts and option structures (data/user/)
+app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks

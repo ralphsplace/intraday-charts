@@ -22,7 +22,7 @@ export class Panel {
     this.link = cfg.link || "";                           // symbol-link group (links.js)
     this.symbol = cfg.symbol; this.tf = findTf(cfg.tf) ? cfg.tf : 3; this.days = cfg.days || 1;
     this.spans = { ...(cfg.spans || {}) };               // months shown, per daily / weekly / monthly duration
-    this.price = PT.normalize(cfg.price, cfg.style);     // {type, params}; "style" is how older versions saved it
+    this.price = PT.normalize(cfg.price);                // {type, params}
     this.studies = normStudies(cfg.studies);
     this.view = null; this.fitted = false; this.rendered = {}; this.layoutSig = ""; this.levelPrices = [];
     this.times = []; this.tool = null; this.pending = null;

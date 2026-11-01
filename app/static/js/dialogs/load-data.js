@@ -1,5 +1,5 @@
 /* The Load data dialog: symbols and day to fetch, watchlists, and the collector's status. */
-import { names, normal, symbolsOf } from "../lists.js";
+import * as lists from "../lists.js";
 import { fillDays, fillSymbolList, refreshAll, refreshData, startPolling } from "../data.js";
 import { ago } from "../format.js";
 import { openModal } from "../dialogs/modal.js";
@@ -25,7 +25,7 @@ export function fillWatchlists() {
   const sel = $("wlSel"), cur = sel.value;
   sel.innerHTML = '<option value="">Watchlists…</option>';
   // the watch lists of symbols (FinViz and Holdings lists have no symbols of their own to fetch)
-  names().filter((n) => normal(app.saved.watchlists[n]).source === "symbols")
+  lists.names().filter((n) => lists.normal(app.saved.watchlists[n]).source === "symbols")
     .forEach((n) => { const o = el("option", null, n); o.value = n; sel.appendChild(o); });
   sel.value = app.saved.watchlists[cur] ? cur : "";
   $("wlDelete").disabled = !sel.value;
@@ -83,7 +83,7 @@ export function init() {
   $("openData").onclick = () => openData();
   $("wlSel").onchange = () => {
     const list = app.saved.watchlists[$("wlSel").value];
-    if (list) $("dataSyms").value = symbolsOf(list).join(" ");
+    if (list) $("dataSyms").value = lists.symbolsOf(list).join(" ");
     $("wlDelete").disabled = !list;
   };
   $("wlSave").onclick = async () => {
@@ -92,7 +92,8 @@ export function init() {
     const syms = await parseSymbols($("dataSyms").value);
     if (!syms.length) { $("dataMsg").textContent = "No symbols to save."; return; }
     try {
-      app.saved.watchlists = await api(`/api/saved/watchlists/${encodeURIComponent(name)}`, syms, "PUT");
+      if (app.saved.watchlists[name]) await lists.update(name, "symbols", { symbols: syms });   // keeps its id
+      else await lists.create("symbols", { symbols: syms }, name);
       $("wlName").value = ""; fillWatchlists(); $("wlSel").value = name; $("wlDelete").disabled = false;
       fillSymbolList();
       $("dataMsg").textContent = `Saved watchlist "${name}" (${syms.length} symbols).`;
@@ -101,7 +102,7 @@ export function init() {
   $("wlDelete").onclick = async () => {
     const name = $("wlSel").value;
     if (!name) return;
-    app.saved.watchlists = await api(`/api/saved/watchlists/${encodeURIComponent(name)}`, null, "DELETE");
+    try { await lists.remove(name); } catch (e) { $("dataMsg").textContent = e.message; return; }
     fillWatchlists(); fillSymbolList();
     $("dataMsg").textContent = `Deleted watchlist "${name}".`;
   };

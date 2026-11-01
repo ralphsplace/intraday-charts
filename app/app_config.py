@@ -26,13 +26,8 @@ def path() -> Path:
     return store.DATA_DIR / "user" / "config.json"
 
 
-def _legacy_watchlists() -> dict:
-    """Watch lists kept in their own file before the application config existed (Load data's saves)."""
-    return jsonfile.read(store.DATA_DIR / "user" / "watchlists.json")
-
-
 def read() -> dict:
-    """The whole config (a copy), with watch lists from the older file if the config has none yet."""
+    """The whole config (a copy)."""
     p = path()
     try:
         key = (str(p), p.stat().st_mtime_ns)
@@ -40,10 +35,7 @@ def read() -> dict:
         key = (str(p), None)
     if _cache.get("key") != key:
         _cache.update(key=key, data=jsonfile.read(p))
-    d = copy.deepcopy(_cache["data"])
-    if "watchlists" not in d:
-        d["watchlists"] = _legacy_watchlists()
-    return d
+    return copy.deepcopy(_cache["data"])
 
 
 def section(name: str) -> dict:
@@ -57,8 +49,6 @@ def section(name: str) -> dict:
 def editing():
     """The config to change in place, written back atomically when the block ends without an error."""
     with jsonfile.editing(path()) as d:
-        if "watchlists" not in d:
-            d["watchlists"] = _legacy_watchlists()            # moved in on the first change
         yield d
 
 

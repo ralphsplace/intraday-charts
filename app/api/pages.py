@@ -17,6 +17,7 @@ from .common import ROOT
 
 router = APIRouter()
 
+
 def _static_version() -> str:
     """A fingerprint of the page files: it changes with every update that changes any of them."""
     h = hashlib.sha256()
