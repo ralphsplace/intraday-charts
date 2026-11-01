@@ -1,6 +1,7 @@
 /* Starts the chart page: loads the catalogue and data, restores this dashboard's window, wires the modules. */
 import { setColumns } from "./columns.js";
 import { fillDays, fillSymbolList, refreshAll } from "./data.js";
+import { expose } from "./debug.js";
 import { openData } from "./dialogs/load-data.js";
 import { buildGrid, showLayout } from "./grid.js";
 import { isLayout } from "./layouts.js";
@@ -20,8 +21,8 @@ import * as drawTools from "./drawtools.js";
 
 for (const m of [grid, modal, studiesDlg, settingsDlg, replay, loadData, saved, drawTools]) m.init();
 
-window.__chartApp = app;   // for debugging from the browser console (and the browser tests)
-window.__priceTypes = PT;
+expose("chart", app);        // for the browser tests and the browser console (debug.js)
+expose("priceTypes", PT);
 
 (async () => {
   const [cat, meta, st, wl, cols] = await Promise.all([api("/api/studies"), api("/api/meta"), orElse(api("/api/collector"), null, "Collector status"),

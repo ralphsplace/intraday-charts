@@ -12,12 +12,12 @@ WIDE = 1840   # Ralph's screen: the chart page's top bar fits one line there wit
 
 
 def app_state(page, expr):
-    return page.evaluate(f"(() => {{ const a = window.__chartApp; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const a = window.__intraday.chart; return {expr}; }})()")
 
 
 def wait_state(page, expr, timeout=15000):
     """Wait until the expression is true (slower machines, e.g. GitHub's runners, need more than a fixed pause)."""
-    page.wait_for_function(f"(() => {{ const a = window.__chartApp; return {expr}; }})()", timeout=timeout)
+    page.wait_for_function(f"(() => {{ const a = window.__intraday.chart; return {expr}; }})()", timeout=timeout)
 
 
 # ---------------------------------------------------------------- chart grid (QQQs)
@@ -87,14 +87,14 @@ def test_price_type_settings(tab):
     assert {"up_color", "down_color", "color_by", "up_fill", "down_fill", "outline_width", "wick_width", "body_pct"} <= set(keys)
     # hollow candles are a setting of Candles, not a separate type
     apply_price_settings(p, {"up_fill": False, "color_by": "Previous close", "wick_width": 2, "up_color": "#112233"})
-    assert app_state(p, "a.panels[0].price") == {"type": "candles", "params": {**app_state(p, "window.__priceTypes.defaults('candles')"),
+    assert app_state(p, "a.panels[0].price") == {"type": "candles", "params": {**app_state(p, "window.__intraday.priceTypes.defaults('candles')"),
                                                  "up_fill": False, "color_by": "Previous close", "wick_width": 2, "up_color": "#112233"}}
     assert app_state(p, PRICE_SERIES + ".length") == 1
     open_price_settings(p)
     p.locator("#settingsDefaults").click()
     p.locator("#settingsApply").click()
     p.wait_for_timeout(300)
-    assert app_state(p, "a.panels[0].price.params") == app_state(p, "window.__priceTypes.defaults('candles')")
+    assert app_state(p, "a.panels[0].price.params") == app_state(p, "window.__intraday.priceTypes.defaults('candles')")
     # every type's settings open and apply cleanly
     for t in ("heikin", "bars", "line", "area", "current"):
         p.select_option(".pstyle", t)
@@ -221,19 +221,19 @@ def test_daily_candles_follow_replay_and_mark_intraday_studies(tab):
     daily.locator("select.tf").select_option("1d")
     p.wait_for_timeout(1500)
     # today's candle is built from the minutes up to the replay cursor
-    p.evaluate("(() => { const a = window.__chartApp; a.cursor = 10 * 60 + 30; })()")
-    p.evaluate("window.__chartApp.panels.forEach((x) => x.refresh())")
+    p.evaluate("(() => { const a = window.__intraday.chart; a.cursor = 10 * 60 + 30; })()")
+    p.evaluate("window.__intraday.chart.panels.forEach((x) => x.refresh())")
     p.wait_for_timeout(1500)
     early = app_state(p, "a.panels[1].view.bars.at(-1)")
-    p.evaluate("(() => { const a = window.__chartApp; a.cursor = 15 * 60 + 59; })()")
-    p.evaluate("window.__chartApp.panels.forEach((x) => x.refresh())")
+    p.evaluate("(() => { const a = window.__intraday.chart; a.cursor = 15 * 60 + 59; })()")
+    p.evaluate("window.__intraday.chart.panels.forEach((x) => x.refresh())")
     p.wait_for_timeout(1500)
     late = app_state(p, "a.panels[1].view.bars.at(-1)")
     assert early["day"] == late["day"] and early["open"] == late["open"]
     assert early["high"] <= late["high"] and early["low"] >= late["low"] and not early["complete"]
     # studies: an EMA draws; VWAP needs minutes, so it says so instead
     p.locator(".panel").nth(1).click(position={"x": 200, "y": 200})
-    p.evaluate("""(() => { const pnl = window.__chartApp.panels[1]; pnl.addStudy("ema"); pnl.addStudy("vwap"); })()""")
+    p.evaluate("""(() => { const pnl = window.__intraday.chart.panels[1]; pnl.addStudy("ema"); pnl.addStudy("vwap"); })()""")
     p.wait_for_timeout(1500)
     res = app_state(p, "Object.values(a.panels[1].view.studies).map((r) => [r.type, r.ok, r.note || null, (r.lines || []).length])")
     assert ["ema", True, None, 1] in res and ["vwap", True, "intraday charts only (1m to 15m)", 0] in res
@@ -262,7 +262,7 @@ def test_session_structure_studies(tab):
     assert s["anchor"] == "Chosen time" and s["at"].endswith(" 10:30")
     assert app_state(p, "a.panels[0].tool") is None                       # one click, then the tool is off
     for type in ("initial_balance", "rvol", "tpo", "volume_profile", "cvd_estimate"):
-        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+        p.evaluate(f"window.__intraday.chart.panels[0].addStudy('{type}')")
     wait_state(p, "Object.keys(a.panels[0].view.studies).length === 6")
     res = app_state(p, "Object.values(a.panels[0].view.studies).map((r) => [r.type, r.ok, r.error || null])")
     assert all(ok for _, ok, _ in res), res
@@ -295,7 +295,7 @@ def test_context_studies_ask_for_the_symbols_they_read(tab):
     asked = []
     p.on("request", lambda r: asked.append(json.loads(r.post_data)) if r.url.endswith("/api/fetch") else None)
     for type in ("relative_strength", "heavyweights", "range_meter"):
-        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+        p.evaluate(f"window.__intraday.chart.panels[0].addStudy('{type}')")
     wait_state(p, "Object.keys(a.panels[0].view.studies).length === 3")
     p.wait_for_timeout(800)
     syms = {s for a in asked for s in a["symbols"]}
@@ -535,7 +535,7 @@ def test_a_new_tab_starts_in_replay(tab, browser, server, data):
     other = browser.new_page()
     other.goto(server + "/QQQs")
     other.wait_for_timeout(2000)
-    assert other.evaluate("window.__chartApp.live") is False and "active" in (other.get_attribute("#modeReplay", "class") or "")
+    assert other.evaluate("window.__intraday.chart.live") is False and "active" in (other.get_attribute("#modeReplay", "class") or "")
     other.close()
 
 
@@ -699,7 +699,7 @@ def test_screenshot_layout_renders(tab):
 
 # ---------------------------------------------------------------- earnings page
 def earn_state(page, expr):
-    return page.evaluate(f"(() => {{ const e = window.__earnings; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const e = window.__intraday.earnings; return {expr}; }})()")
 
 
 def test_earnings_page_overlays_six_quarters(tab):
@@ -845,11 +845,11 @@ def test_expected_move_page_form_and_memory(tab):
 
 # ---------------------------------------------------------------- option-chain page
 def oc(page, expr):
-    return page.evaluate(f"(() => {{ const o = window.__options; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const o = window.__intraday.options; return {expr}; }})()")
 
 
 def wait_oc(page, expr, timeout=15000):
-    page.wait_for_function(f"(() => {{ const o = window.__options; return {expr}; }})()", timeout=timeout)
+    page.wait_for_function(f"(() => {{ const o = window.__intraday.options; return {expr}; }})()", timeout=timeout)
 
 
 def test_option_chain_page_builds_and_evaluates_a_template(tab):
@@ -1063,7 +1063,7 @@ def test_splitters_follow_the_grid_when_the_top_bar_grows(tab):
     move with the charts, or it sits on the bottom charts' headers and takes their clicks."""
     p = tab.goto("/Internals", 3000)
     gap = "(() => { const s = document.querySelector('.splitter.row').getBoundingClientRect(); "\
-          "const top = window.__chartApp.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
+          "const top = window.__intraday.chart.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
     assert p.evaluate(gap) < 4
     p.add_style_tag(content="header.toolbar { padding-bottom: 40px; }")
     p.wait_for_timeout(500)
@@ -1076,7 +1076,7 @@ def test_add_spy_far_left_turns_two_over_four_into_two_over_five(tab):
     p = tab.goto("/Internals", 3000)
     assert app_state(p, "a.layout") == "2/4"
     layout_action(p, 2, "chart-left")                                       # left of VOLD-NYSE: the bottom row's far left
-    assert p.evaluate("document.activeElement === window.__chartApp.cells[2].symIn")    # type the symbol straight away
+    assert p.evaluate("document.activeElement === window.__intraday.chart.cells[2].symIn")    # type the symbol straight away
     p.keyboard.type("SPY")
     p.keyboard.press("Enter")
     wait_state(p, "a.cells[2].symbol === 'SPY' && a.cells[2].view")
