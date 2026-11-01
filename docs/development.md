@@ -93,6 +93,7 @@ app/api/                the endpoints, one module per area of the app, each with
   config.py             the Config page: study defaults, each list kind's default columns
   dashboards.py         create, rename, change, delete, default dashboard
   earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
+  paper.py              paper accounts and their history (more paper trading as it lands)
   pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
@@ -100,6 +101,8 @@ app/sessions.py         US trading days and holidays
 app/saved.py            saved chart views, layouts and option structures (data/user/)
 app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
 app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
+app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
+app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks

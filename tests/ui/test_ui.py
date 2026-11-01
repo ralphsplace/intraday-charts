@@ -1661,3 +1661,36 @@ def test_a_refresh_keeps_the_legend_watch_list_and_chain_on_screen(tab, data):
     p.click("#ocStrip .oc-chip[data-expiry='20261030']")
     wait_oc(p, "o.state.expiry === '20261030'")
     assert p.evaluate("window._row.isConnected")
+
+
+def test_the_config_page_makes_and_sets_up_paper_accounts(tab, data):
+    p = tab.goto("/config", 1500)
+    p.click(".cfg-tabs button[data-sec=paper]")
+    assert "No paper accounts yet" in p.inner_text("#cfgPaper")
+    # the defaults for new accounts: $30,000, long only
+    p.fill("#cfgPaperForm [data-key=start_cash]", "30000")
+    p.uncheck("#cfgPaperForm [data-key=shorting]")
+    p.click("#cfgPaperSave")
+    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent.startsWith('Saved the defaults')")
+    p.click("#cfgPaperNew")
+    p.wait_for_selector("#cfgPaper tr[data-name='Paper 1']")
+    row = p.locator("#cfgPaper tr[data-name='Paper 1']")
+    assert "$30,000" in row.inner_text() and "long only" in row.inner_text()
+    assert p.locator("#cfgPaperFor").input_value() == "Paper 1"                # the new account's settings on view
+    # one account's own settings
+    p.fill("#cfgPaperForm [data-key=slippage]", "0.03")
+    p.click("#cfgPaperSave")
+    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent === 'Saved \"Paper 1\".'")
+    acct = json.loads((data / "user" / "config.json").read_text())["paper_accounts"]["Paper 1"]
+    assert acct["settings"]["slippage"] == 0.03 and acct["settings"]["shorting"] is False and acct["start_cash"] == 30000
+    # rename, then delete with two clicks
+    row.locator("button.cfg-rename").click()
+    p.fill("#cfgPaper input.cfg-input", "Morning practice")
+    p.press("#cfgPaper input.cfg-input", "Enter")
+    p.wait_for_selector("#cfgPaper tr[data-name='Morning practice']")
+    row = p.locator("#cfgPaper tr[data-name='Morning practice']")
+    row.locator("button.danger").click()
+    assert row.locator("button.danger").inner_text() == "Delete? Yes"
+    row.locator("button.danger").click()
+    p.wait_for_function("document.querySelector('#cfgPaper').innerText.includes('No paper accounts yet')")
+    p.screenshot(path="/tmp/cfg-paper.png", full_page=True)
