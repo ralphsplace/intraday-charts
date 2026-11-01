@@ -5,7 +5,7 @@ import { requestData } from "./data.js";
 import { COLUMNS, renderCell } from "./columns.js";
 import { groupOf } from "./links.js";
 import { app, save } from "./state.js";
-import { btn, el, keepScroll } from "./util.js";
+import { btn, el, keepScroll, morph } from "./util.js";
 
 const DEMO_RE = /-DEMO$/;
 
@@ -23,8 +23,7 @@ export class WatchListTable {
     if (charts.length) this.selected = charts[0].symbol;
     const target = this.link ? `the ${groupOf(this.link).name.toLowerCase()} linked charts` : "the active chart";
     const cols = t.shownColumns();
-    const tb = this.table;
-    tb.innerHTML = "";
+    const tb = el("table");                                // drawn fresh, moved onto the live table (morph)
     const h = el("tr");
     for (const id of cols) {
       const c = COLUMNS[id] || { label: id };
@@ -38,10 +37,11 @@ export class WatchListTable {
         th.title += ". Drag to move the column";
         th.ondragstart = (e) => { e.dataTransfer.setData("text/x-wlcol", id); e.dataTransfer.effectAllowed = "move"; };
       }
-      th.ondragover = (e) => { if (e.dataTransfer.types.includes("text/x-wlcol")) { e.preventDefault(); th.classList.add("dropto"); } };
-      th.ondragleave = () => th.classList.remove("dropto");
+      th.dataset.key = id;
+      th.ondragover = (e) => { if (e.dataTransfer.types.includes("text/x-wlcol")) { e.preventDefault(); e.currentTarget.classList.add("dropto"); } };
+      th.ondragleave = (e) => e.currentTarget.classList.remove("dropto");
       th.ondrop = (e) => {
-        e.preventDefault(); th.classList.remove("dropto");
+        e.preventDefault(); e.currentTarget.classList.remove("dropto");
         const from = e.dataTransfer.getData("text/x-wlcol");
         if (from && from !== id) { t.moveColumn(from, id); save(); this.render(); }
       };
@@ -54,7 +54,7 @@ export class WatchListTable {
     for (const sym of this.shown()) {
       const r = byS[sym] || { symbol: sym };
       const tr = el("tr", "wlr" + (sym === this.selected ? " sel" : ""));
-      tr.dataset.symbol = sym;
+      tr.dataset.symbol = sym; tr.dataset.key = sym;
       tr.title = `Show ${sym} on ${target}`;
       tr.onclick = () => this.pick(sym);
       tr.append(el("td", "wlsym", sym));
@@ -79,6 +79,7 @@ export class WatchListTable {
       }
       tb.appendChild(tr);
     }
+    morph(this.table, tb);
     this.renderFoot();
   }
 
