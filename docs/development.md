@@ -142,7 +142,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   legends.js            the legend on each pane, with Settings / Hide / Remove
                         (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
   paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
-  paper/                the Paper page: main.js (sections), trades.js, rules.js (the rule form), backtests.js, equity.js
+  paper/                the Paper page: main.js (sections), trades.js, backtests.js, equity.js
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)
@@ -162,7 +162,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
   config/               the Config page: dashboards and the environment check, watch lists, watch list
-                        columns, study defaults, paper accounts
+                        columns, study defaults, paper accounts, rules.js (the rule form), backtests.js
+                        (backtest defaults)
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status

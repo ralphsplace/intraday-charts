@@ -58,6 +58,18 @@ never talk to TWS or your IBKR account.
 
 Each account's history is in `data/user/paper/<id>.json`.
 
+## Paper rules
+
+The rules backtests run: entry conditions, the order, the exits and the hours, saved by name. What each part means:
+[Paper trading, Rules](paper.md#rules).
+
+## Backtests
+
+What the Run form on the Paper trading page starts with: the symbol, whose cash and costs (an account, or the
+defaults for new accounts), how many random-entry runs to measure the rule against (0 to 20), and whether days
+without cached bars are skipped or stop the run. **Built-in defaults** puts back QQQ, the new-account defaults, 5
+runs and stop.
+
 ## The file
 
 `data/user/config.json` has one section per part of this page:
@@ -71,7 +83,9 @@ Each account's history is in `data/user/paper/<id>.json`.
  "paper_accounts": {"Morning practice": {"id": "4be1c0d2a9f3", "start_cash": 25000.0, "created": 1793539200,
                     "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
                                  "slippage": 0.01, "shorting": true}}},
- "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}}}
+ "paper_rules": {"VWAP cross": {"id": "9a1f3c7e2b40", "rule": {"tf": 3, "qty": 50, "long": ["..."], "exits": {"stop": 0.5}}}},
+ "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}},
+           "backtest": {"symbol": "QQQ", "account": "Morning practice", "baseline_runs": 5, "missing": "skip"}}
 }
 ```
 

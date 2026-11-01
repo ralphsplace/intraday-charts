@@ -21,6 +21,8 @@
     <button type="button" role="tab" data-sec="columns">Watch list columns</button>
     <button type="button" role="tab" data-sec="studies">Study defaults</button>
     <button type="button" role="tab" data-sec="paper">Paper accounts</button>
+    <button type="button" role="tab" data-sec="rules">Paper rules</button>
+    <button type="button" role="tab" data-sec="backtests">Backtests</button>
   </nav>
 
   <section id="sec-dashboards" class="cfg-sec manage" hidden>
@@ -116,6 +118,35 @@
       <button id="cfgPaperSave" type="button" class="primary">Save</button>
       <button id="cfgPaperReset" type="button">Built-in defaults</button>
     </div>
+  </section>
+
+  <section id="sec-rules" class="cfg-sec" hidden>
+    <h2>Paper rules</h2>
+    <p class="muted small">When to enter and leave a trade, built from prices and study lines, read at each bar's close.
+      A study whose past values change as new bars arrive is refused, as a rule would otherwise look ahead. Rules are run
+      on the <a href="/paper">Paper trading</a> page (Backtests).</p>
+    <div class="cfg-row"><label for="ppRule">Rule</label> <select id="ppRule"></select>
+      <button id="ppRuleRename" type="button">Rename</button> <button id="ppRuleDelete" type="button" class="danger">Delete</button></div>
+    <form id="ppRuleForm" class="pp-rule" autocomplete="off"></form>
+    <div class="cfg-row"><button id="ppRuleSave" type="button" class="primary">Save rule</button>
+      <span id="ppRuleMsg" class="muted small" role="status"></span></div>
+  </section>
+
+  <section id="sec-backtests" class="cfg-sec" hidden>
+    <h2>Backtests</h2>
+    <p class="muted small">What the Run form on the <a href="/paper">Paper trading</a> page starts with. Each run can
+      still change them.</p>
+    <form id="cfgBt" class="pp-run" autocomplete="off">
+      <label>Symbol <input id="cfgBtSymbol" maxlength="12" spellcheck="false"></label>
+      <label>Cash and costs of <select id="cfgBtAccount"></select></label>
+      <label>Random runs <input id="cfgBtBase" type="number" min="0" max="20"></label>
+      <label class="papercheck"><input id="cfgBtSkip" type="checkbox"> Skip days without cached bars</label>
+    </form>
+    <p class="muted small">Random runs: how many times the same exits are tried on random entries, as the baseline the
+      rule is measured against (0 for none). Without "Skip", a day without cached bars stops the run.</p>
+    <div class="cfg-row"><button id="cfgBtSave" type="button" class="primary">Save</button>
+      <button id="cfgBtReset" type="button">Built-in defaults</button>
+      <span id="cfgBtMsg" class="muted small" role="status"></span></div>
   </section>
 </main>
 <script src="/static/dash.js"></script>

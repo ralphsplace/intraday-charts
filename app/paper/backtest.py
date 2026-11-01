@@ -13,10 +13,33 @@ import datetime
 import random
 import statistics
 
-from .. import sessions, store
+from .. import app_config, sessions, store
 from . import engine, practice, rules
 
 MAX_DAYS = 260
+BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "stop"}
+
+
+def defaults() -> dict:
+    """What a new backtest starts with (Config, Backtests): the built-in ones with the Config page's on top."""
+    return {**BUILT_IN_DEFAULTS, **(app_config.section("paper").get("backtest") or {})}
+
+
+def check_defaults(d: dict) -> dict:
+    """Backtest defaults checked; ValueError says what's wrong. Only the known keys are kept."""
+    out = {**BUILT_IN_DEFAULTS, **{k: v for k, v in d.items() if k in BUILT_IN_DEFAULTS}}
+    sym = out["symbol"]
+    if not isinstance(sym, str) or not sym.strip() or len(sym) > 12:
+        raise ValueError("The symbol is 1 to 12 characters")
+    out["symbol"] = sym.strip().upper()
+    if not isinstance(out["account"], str) or len(out["account"]) > 200:
+        raise ValueError("The account is a paper account's name, or empty for the defaults")
+    n = out["baseline_runs"]
+    if not isinstance(n, int) or isinstance(n, bool) or not 0 <= n <= 20:
+        raise ValueError("Random runs are 0 to 20")
+    if out["missing"] not in ("stop", "skip"):
+        raise ValueError("Days without cached bars: stop or skip")
+    return out
 
 
 def trading_days(symbol: str, start: str, end: str) -> tuple[list[str], list[str]]:

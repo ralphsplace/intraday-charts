@@ -7,7 +7,7 @@ import { equityChart } from "./equity.js";
 
 const KEY = "intraday-charts:paper-backtest";
 const enc = encodeURIComponent;
-let runs = [], shown = null, poll = null, accountsNow = {};
+let runs = [], shown = null, poll = null, accountsNow = {}, filled = false;
 
 const pct = (x) => (x == null ? "–" : `${x}%`);
 const money = (x) => (x == null ? "–" : dollars(x, { d: 2 }));
@@ -17,19 +17,27 @@ const ROWS = [["Trades", (s) => s.trades], ["Total P/L", (s) => money(s.total)],
               ["Largest drawdown", (s) => money(s.max_drawdown)], ["Longs", (s) => `${s.long.trades} · ${money(s.long.total)}`],
               ["Shorts", (s) => `${s.short.trades} · ${money(s.short.total)}`], ["Commissions", (s) => money(s.commissions)]];
 
-export function fillRunForm(ruleNames, accounts) {
+// the run form: the rules and accounts as they are now; symbol, account, random runs and "skip" from Config's
+// backtest defaults the first time; the dates this browser last ran
+export function fillRunForm(ruleNames, accounts, defaults) {
   accountsNow = accounts;
   const rs = $("ppRunRule"), cur = rs.value;
   rs.innerHTML = "";
   for (const n of ruleNames) { const o = el("option", null, n); o.value = n; rs.appendChild(o); }
-  if (!ruleNames.length) { const o = el("option", null, "Save a rule first (Rules)"); o.value = ""; rs.appendChild(o); }
+  if (!ruleNames.length) { const o = el("option", null, "Make a rule first (Config, Paper rules)"); o.value = ""; rs.appendChild(o); }
   rs.value = ruleNames.includes(cur) ? cur : ruleNames[0] || "";
   const as = $("ppRunAccount"), acur = as.value;
   as.innerHTML = "";
   for (const [v, t] of [["", "New accounts (the defaults)"], ...Object.keys(accounts).sort().map((n) => [n, n])]) { const o = el("option", null, t); o.value = v; as.appendChild(o); }
-  as.value = acur in accounts ? acur : "";
-  const saved = load(KEY) || {};
-  if (!$("ppRunFrom").value) { $("ppRunSymbol").value = saved.symbol || "QQQ"; $("ppRunFrom").value = saved.from || ""; $("ppRunTo").value = saved.to || ""; }
+  if (!filled && defaults) {                          // the first fill: Config's defaults
+    filled = true;
+    const saved = load(KEY) || {};
+    $("ppRunSymbol").value = defaults.symbol;
+    $("ppRunFrom").value = saved.from || ""; $("ppRunTo").value = saved.to || "";
+    $("ppRunBase").value = defaults.baseline_runs;
+    $("ppRunSkip").checked = defaults.missing === "skip";
+    as.value = defaults.account in accounts ? defaults.account : "";
+  } else as.value = acur in accounts ? acur : "";
 }
 
 export async function loadRuns(say) {
@@ -92,7 +100,7 @@ async function showReport(id, say, quiet = false) {
                 catch (e) { say(e.message, true); }
               }, "Save these trades into the account, as sessions that open on a chart", "pp-save"),
               el("span", "muted small", "each day then opens on a chart (Trades, Open on the chart)"));
-  if (!sel.options.length) save.replaceChildren(el("span", "muted small", "Make an account (Accounts) to save these trades into."));
+  if (!sel.options.length) save.replaceChildren(el("span", "muted small", "Make an account (Config, Paper accounts) to save these trades into."));
   box.appendChild(save);
   const t = el("table", "cfg-table pp-trades");
   const head = el("tr");
@@ -138,7 +146,7 @@ export function initBacktests(say) {
     const body = { rule_name: $("ppRunRule").value, symbol: $("ppRunSymbol").value.trim().toUpperCase(), start: $("ppRunFrom").value,
                    end: $("ppRunTo").value, account: $("ppRunAccount").value || null, missing: $("ppRunSkip").checked ? "skip" : "stop",
                    baseline_runs: parseInt($("ppRunBase").value, 10) || 0 };
-    if (!body.rule_name) { say("Save a rule first (Rules).", true); return; }
+    if (!body.rule_name) { say("Make a rule first: Config, Paper rules.", true); return; }
     store(KEY, { symbol: body.symbol, from: body.start, to: body.end });
     try { const r = await api("/api/paper/backtests", body); say(`Started "${r.rule_name}" on ${r.symbol}.`); shown = r.id; }
     catch (err) { say(err.message, true); return; }

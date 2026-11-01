@@ -1,4 +1,4 @@
-/* The Paper page's Rules section: a form that writes a rule (app/paper/rules.py) as data, never as code. Entry
+/* The Config page's Paper rules section: a form that writes a rule (app/paper/rules.py) as data, never as code. Entry
    conditions for long and short, the entry order, the exits, the hours, saved app-wide by name. The server checks
    every field and says what's wrong. Data: /api/paper/rules, the study catalog (/api/studies). */
 import { fmtMin } from "../format.js";
