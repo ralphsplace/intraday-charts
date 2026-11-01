@@ -570,7 +570,7 @@ def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
-                                                                 "Option chain", "Config", "Manage dashboards…"]
+                                                                 "Option chain", "Paper trading", "Config", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
@@ -1738,3 +1738,51 @@ def test_replay_practice_on_a_chart(tab, data):
     p.wait_for_selector("#savedMenu select.paperacctsel")
     p.select_option("#savedMenu select.paperacctsel", "")
     assert bar.is_hidden()
+
+
+def test_the_paper_page_writes_a_rule_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
+    p = tab.goto("/paper", 1500)
+    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+               "body: JSON.stringify({name: 'Tests', start_cash: 100000})})")
+    days = [d for s in p.evaluate("fetch('/api/meta').then((r) => r.json())")["symbols"] if s["symbol"] == "QQQ" for d in s["days"]]
+    p = tab.goto("/paper", 1500)
+    assert p.locator(".dashsel").input_value() == "\u0000paper"
+    assert "No trades yet" in p.inner_text("#ppTrades")
+    # a rule: long when the close crosses above VWAP, $0.50 stop, $1 target, 10 shares
+    p.click(".cfg-tabs button[data-sec=rules]")
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('entry conditions')")   # none yet: refused
+    p.locator("#ppRuleForm button.pp-add").first.click()
+    shares = p.locator("#ppRuleForm .pp-row", has_text="Shares").locator("input")
+    shares.fill("10")
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent === 'Saved \"Rule 1\".'")
+    rules = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
+    r = rules["Rule 1"]["rule"]
+    assert r["qty"] == 10 and r["long"][0]["op"] == "crosses_above" and r["long"][0]["b"]["study"]["type"] == "vwap"
+    # backtest it over the cached days, and save the trades into the account
+    p.click(".cfg-tabs button[data-sec=backtests]")
+    p.fill("#ppRunSymbol", "QQQ")
+    p.fill("#ppRunFrom", min(days))
+    p.fill("#ppRunTo", max(days))
+    p.check("#ppRunSkip")
+    p.fill("#ppRunBase", "1")
+    p.click("#ppRun button[type=submit]")
+    p.wait_for_selector("#ppReport .pp-stats", timeout=120000)
+    assert "Random entries (1 runs)" in p.inner_text("#ppReport") and p.locator("#ppReport .pp-trades tr").count() > 1
+    p.select_option("#ppReport select", "Tests")
+    p.click("#ppReport button.pp-save")
+    p.wait_for_function("document.querySelector('#ppRunMsg').textContent.startsWith('Saved')")
+    # the trades, and one opened on a chart in the account
+    p.click(".cfg-tabs button[data-sec=trades]")
+    p.wait_for_selector("#ppTrades tr[data-key]")
+    assert p.locator("#ppEquity canvas").count() > 0
+    p.locator("#ppTrades tr[data-key] input.pp-note").first.fill("Testing the notes")
+    p.locator("#ppTrades tr[data-key] input.pp-note").first.press("Tab")
+    p.wait_for_function("document.querySelector('#cfgStatus').textContent === 'Note saved.'")
+    href = p.locator("#ppTrades a.pp-open").first.get_attribute("href")
+    p.screenshot(path="/tmp/paper-page.png", full_page=True)
+    p = tab.goto(href, 2500)
+    wait_state(p, "a.panels[0].paperView && a.panels[0].paperView.fills.length > 0")
+    assert app_state(p, "a.panels[0].symbol") == "QQQ" and "Tests" in p.inner_text(".panel .paperbar")
+    assert "?" not in p.url                                                     # the address is tidied

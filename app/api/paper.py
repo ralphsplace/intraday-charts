@@ -224,3 +224,20 @@ def paper_backtest_save(run_id: str, req: SaveBody):
         raise HTTPException(409, "The backtest hasn't finished")
     n = _call(practice.save_backtest, req.account, run["report"], run_id)
     return {"saved_days": n, "accounts": accounts.all_accounts()}
+
+
+# ---------------------------------------------------------------- an account's trades and notes (the Paper page)
+class NoteBody(BaseModel):
+    key: str = Field(max_length=40)
+    text: str = Field("", max_length=2000)
+
+
+@router.get("/api/paper/accounts/{name}/trades")
+def paper_account_trades(name: str):
+    return _call(practice.trades, name)
+
+
+@router.put("/api/paper/accounts/{name}/notes")
+def paper_account_note(name: str, req: NoteBody):
+    _call(practice.note, name, req.key, req.text)
+    return _call(practice.trades, name)

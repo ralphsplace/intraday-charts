@@ -108,3 +108,10 @@ def test_a_background_run_end_to_end(on_demo):
     assert [(fills[i], fills[i + 1]) for i in range(0, len(fills), 2)] == want
     assert c.post("/api/paper/backtests", json={"rule_name": "nope", "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]}).status_code == 404
     assert c.delete(f"/api/paper/backtests/{r['id']}").json()["runs"] == []
+
+
+def test_entries_the_account_cant_afford_are_counted_not_hidden(on_demo):
+    """Long or short, a position may be worth at most the equity; signals beyond it are skipped and reported."""
+    days = store.list_days("QQQ-DEMO")[:3]
+    rep = backtest.run(cross_rule(qty=1000), "QQQ-DEMO", days, 25_000, engine.DEFAULT_SETTINGS, baseline_runs=0)
+    assert rep["trades"] == [] and rep["skipped"]["count"] > 0 and "buying power" in rep["skipped"]["first"]

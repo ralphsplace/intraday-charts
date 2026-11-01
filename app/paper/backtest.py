@@ -68,7 +68,7 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
         by_minute.setdefault(x["minute"], []).append(x)
     day_bars = practice.bars(symbol, day)
     st = engine.new_state(cash, settings)
-    actions, events = [], []
+    actions, events, skipped = [], [], []
     h = rule["hours"]
 
     def level_of(spec):                                       # the level's value at the last closed rule bar
@@ -80,8 +80,8 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
         try:
             events.extend(practice._apply(st, a, practice.last_price(day_bars, a["minute"])))
             actions.append(a)
-        except engine.PaperError:
-            pass                                              # e.g. not enough cash: the signal is skipped
+        except engine.PaperError as e:                        # e.g. not enough buying power: skipped, and counted
+            skipped.append(str(e))
 
     for b in day_bars:
         cur_minute = b["minute"]
@@ -101,7 +101,7 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
                 act(_entry(rule, x["what"], x["close"], cur_minute))
         events.extend({**e, "minute": cur_minute} for e in engine.step(st, b, level_of))
     return {"day": day, "actions": actions, "fills": [e for e in events if e["event"] == "fill"], "cash": st["cash"],
-            "start_cash": cash, "state": st}
+            "start_cash": cash, "state": st, "skipped": skipped}
 
 
 def trades_of(day: str, fills: list[dict]) -> list[dict]:
@@ -162,9 +162,10 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
     """The rule over `days`, then the baseline. progress(done, total) is called after each day."""
     total = len(days) * (1 + baseline_runs)
     done = 0
-    results, trades, equity, bal = [], [], [], cash
+    results, trades, equity, bal, skipped = [], [], [], cash, []
     for d in days:
         r = run_day(rule, symbol, d, bal, settings)
+        skipped += r["skipped"]
         bal = r["cash"]
         t = trades_of(d, r["fills"])
         trades += t
@@ -187,4 +188,5 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
     base = stats(base_trades, len(days) * baseline_runs) if baseline_runs else None
     return {"symbol": symbol, "days": days, "start_cash": cash, "end_cash": round(bal, 2), "trades": trades,
             "equity": equity, "stats": stats(trades, len(days)), "baseline": base, "baseline_runs": baseline_runs,
-            "actions": {res["day"]: res["actions"] for res in results}, "demo": symbol.endswith("-DEMO")}
+            "actions": {res["day"]: res["actions"] for res in results}, "demo": symbol.endswith("-DEMO"),
+            "skipped": {"count": len(skipped), "first": skipped[0] if skipped else None}}

@@ -202,7 +202,8 @@ def catalog(user: bool = True) -> list[dict]:
         mine = user_defaults(s["type"]) if user else {}
         params = [{**p, "factory": p["default"], "default": mine.get(p["key"], p["default"])} for p in s["params"]]
         out.append({**{k: v for k, v in s.items() if k in ("type", "name", "category", "pane", "description")},
-                    "params": params, "customized": sorted(mine)})
+                    "params": params, "customized": sorted(mine),
+                    "lines": [{"id": pl["id"], "label": pl["label"]} for pl in s.get("plots", [])]})
     return out
 
 

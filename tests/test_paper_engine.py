@@ -138,7 +138,8 @@ def test_orders_are_checked():
                      ({"side": "buy", "qty": 1.5, "type": "market"}, "quantity"), ({"side": "buy", "qty": 1, "type": "limit"}, "price"),
                      ({"side": "buy", "qty": 1, "type": "trail", "trail": {}}, "distance"),
                      ({"side": "buy", "qty": 1, "type": "level", "level": {"spec": {}}}, "study level"),
-                     ({"side": "buy", "qty": 100, "type": "market"}, "Not enough cash")):
+                     ({"side": "buy", "qty": 100, "type": "market"}, "Not enough buying power"),
+                     ({"side": "sell", "qty": 100, "type": "market"}, "Not enough buying power")):
         with pytest.raises(E.PaperError, match=why):
             E.place(s, bad, 600, 100)
 

@@ -176,3 +176,32 @@ def save_backtest(account: str, report: dict, run_id: str) -> int:
             cash = st["cash"]
             n += 1
     return n
+
+
+def trades(account: str) -> dict:
+    """Every trade in the account's sessions since the last reset (practice and saved backtests), as round trips,
+    with its note, and the account's equity after each session."""
+    from .backtest import trades_of
+    name, item = accounts.find(account)
+    h = accounts.history(item)
+    last = max((r["at"] for r in h["resets"]), default=0)
+    out, equity, bal = [], [], item["start_cash"]
+    for s in sorted((x for x in h["sessions"] if x.get("started", 0) >= last and x.get("state")), key=lambda x: (x["day"], x["started"])):
+        for i, t in enumerate(trades_of(s["day"], [f for f in s["state"]["fills"]])):
+            key = f"{s['id']}:{i}"
+            out.append({**t, "symbol": s["symbol"], "session": s["id"], "key": key, "note": h["notes"].get(key, ""),
+                        "backtest": s.get("backtest"), "open": False})
+        bal += s["state"]["cash"] - s["state"]["start_cash"]
+        equity.append({"day": s["day"], "symbol": s["symbol"], "equity": round(bal, 2)})
+    return {"account": name, "id": item["id"], "start_cash": item["start_cash"], "balance": accounts.balance(item),
+            "trades": out, "equity": equity}
+
+
+def note(account: str, key: str, text: str) -> None:
+    _, item = accounts.find(account)
+    with accounts.editing_history(item) as h:
+        notes = h.setdefault("notes", {})
+        if text.strip():
+            notes[key] = text.strip()[:2000]
+        else:
+            notes.pop(key, None)

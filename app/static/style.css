@@ -561,3 +561,33 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
   border-radius: 5px; padding: 3px 6px; color-scheme: dark; }
 .mpaper { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .mpaper a { color: #8cc4ff; }
+
+/* ---------------------------------------------------------------- the Paper page (/paper) */
+.pp-equity { height: 180px; margin: 10px 0; border: 1px solid var(--line); border-radius: 6px; }
+.pp-trades td.up, .pp-trades td.down { font-variant-numeric: tabular-nums; }
+.pp-trades td.up { color: var(--bull); } .pp-trades td.down { color: var(--bear); }
+.pp-trades input.pp-note { width: 220px; background: #0f1318; color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; }
+.pp-trades a.pp-open { color: #8cc4ff; white-space: nowrap; }
+.pp-rule { display: flex; flex-direction: column; gap: 6px; max-width: 980px; }
+.pp-rule h4.sec { margin: 10px 0 2px; }
+.pp-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pp-row .pp-label { width: 140px; color: var(--muted); font-size: 12px; }
+.pp-conds { display: flex; flex-direction: column; gap: 4px; }
+.pp-cond, .pp-operand { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pp-cond { padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; }
+.pp-rule input, .pp-rule select, .pp-run input, .pp-run select { background: #0f1318; color: var(--text); border: 1px solid var(--line);
+  border-radius: 5px; padding: 3px 6px; color-scheme: dark; }
+.pp-rule input.pp-num { width: 70px; }
+.pp-rule select, .pp-rule input { width: auto; max-width: 280px; }
+.pp-rule input[type=number] { width: 90px; }
+.pp-conds { flex: 1 1 auto; min-width: 0; }
+.pp-conds:empty { flex: 0 0 0; }
+.pp-cond { flex-wrap: nowrap; width: max-content; max-width: 100%; }
+.pp-run { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 8px; }
+.pp-run label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.pp-run label.papercheck { flex-direction: row; align-items: center; }
+.pp-run #ppRunSymbol { width: 90px; text-transform: uppercase; }
+.pp-run #ppRunBase { width: 70px; }
+.pp-stats { max-width: 720px; }
+.pp-report { margin-top: 14px; }
+.pp-report .bad, .cfg .bad { color: var(--bear); }

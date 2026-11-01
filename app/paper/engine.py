@@ -17,6 +17,8 @@ An order:
     exit       True for an order that only reduces the position (a bracket's exits; sized to the position)
     active, placed (minute of day), note
 
+Buying power: no margin is modelled, so a position, long or short, may be worth at most the account's equity.
+
 Fill rules (no look-ahead; prior art tools/backtest_signals.py):
   - market: the open of the next bar after it was placed, plus slippage against the trader;
   - limit: when the bar trades through the limit: at the limit, or at the open when the bar opens past it;
@@ -89,10 +91,11 @@ def place(state: dict, order: dict, minute: int, price: float | None = None) -> 
     after = pos + (o["qty"] if o["side"] == "buy" else -o["qty"])
     if not o["exit"] and after < 0 and not state["settings"]["shorting"]:
         raise PaperError("Shorting is off for this account: you can sell only shares you hold")
-    if o["side"] == "buy" and after > 0 and price:
-        need = (after - max(pos, 0)) * price
-        if need > state["cash"] + 1e-9:
-            raise PaperError(f"Not enough cash: {after - max(pos, 0)} shares at about {price:.2f} need {need:,.2f}")
+    if not o["exit"] and abs(after) > abs(pos) and price:          # no margin: long or short, at most the equity
+        equity = state["cash"] + pos * price
+        if abs(after) * price > equity + 1e-9:
+            raise PaperError(f"Not enough buying power: {abs(after)} shares at about {price:.2f} are "
+                             f"${abs(after) * price:,.0f}; the account has ${equity:,.0f} (no margin)")
     if o["type"] == "trail" and o.get("price") is None and price and o["active"]:
         o["price"] = _trail_level(o, price, price)
     o["id"] = state["next_id"]
@@ -162,6 +165,15 @@ def _trail_level(o: dict, best: float, ref: float) -> float:
     t = o.get("trail") or {}
     dist = t["amount"] if t.get("amount") else ref * t["pct"] / 100
     return round(best - dist, 4) if o["side"] == "sell" else round(best + dist, 4)
+
+
+def _how(o: dict) -> str:
+    """How an order filled, in words, for the trade list: "target", "stop", "trailing stop", "limit", …"""
+    if o["type"] == "trail":
+        return "trailing stop"
+    if o["exit"] and o["type"] in ("limit", "stop"):
+        return "target" if o["type"] == "limit" else "stop"
+    return {"level": "study line"}.get(o["type"], o["type"])
 
 
 def _trigger(o: dict, bar: dict, price: float | None) -> tuple[str, float] | None:
@@ -251,7 +263,7 @@ def step(state: dict, bar: dict, level_of=None) -> list[dict]:
         if kind in ("market", "stop"):
             px = px + slip if o["side"] == "buy" else px - slip
         state["orders"].remove(o)
-        events.append(_apply_fill(state, o["side"], qty, px, m, o["id"], o.get("note", "")))
+        events.append(_apply_fill(state, o["side"], qty, px, m, o["id"], o.get("note") or _how(o)))
         if o["oco"]:
             filled_groups.add(o["oco"])
             for x in [x for x in state["orders"] if x["oco"] == o["oco"]]:

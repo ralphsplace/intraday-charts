@@ -93,7 +93,7 @@ app/api/                the endpoints, one module per area of the app, each with
   config.py             the Config page: study defaults, each list kind's default columns
   dashboards.py         create, rename, change, delete, default dashboard
   earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
-  paper.py              paper accounts, their history, and Replay practice sessions
+  paper.py              paper accounts, practice sessions, rules, backtests, trades and notes
   pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
@@ -143,6 +143,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   legends.js            the legend on each pane, with Settings / Hide / Remove
                         (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
   paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
+  paper/                the Paper page: main.js (sections), trades.js, rules.js (the rule form), backtests.js, equity.js
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)

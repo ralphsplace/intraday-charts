@@ -36,6 +36,28 @@ whether to remove those trades. Remove them to trade again from there; or step f
 **The end of the day.** At the last regular-hours bar, working orders are cancelled and any position is closed at
 that bar's close. Positions are never held overnight.
 
+## The Paper page
+
+**Paper trading** in the pages menu (address `/paper`) has four sections:
+
+- **Trades**: an account's trades since its last reset, from Replay practice and from saved backtests. Filter by
+  symbol and day; see the totals and the equity after each session; write a note on any trade; **Open on the chart**
+  opens the default dashboard's first chart at that day, just after the entry, practising in that account.
+- **Rules**: write a rule in a form, no code. Conditions compare a price (open, high, low, close), a number or a
+  study line (with its settings): *crosses above*, *crosses below*, *is above*, *is below*. A rule has long and/or
+  short entry conditions (all of them must hold, on the same bar or within N bars of each other); the entry order
+  (market, a limit or stop a distance from the close, or at a study line); the shares; the exits (a stop, target or
+  trailing distance from the signal bar's close, conditions that close a long or a short, and reversing on the
+  opposite signal); and the hours new trades may start. Rules are saved by name. A study whose past values change
+  as new bars arrive is refused: trading on it would look ahead.
+- **Backtests**: run a saved rule on a symbol's cached days, with an account's cash and costs. It runs in the
+  background (you can leave the page). The report has the trades, the equity by day, win rate, average win and
+  loss, profit factor, the largest drawdown, trades a day and longs and shorts apart, next to **random entries with
+  the same exits** (several runs): a rule that doesn't beat them has no edge. Days without cached bars stop the run,
+  or are skipped if you tick that. Entry signals the account can't afford are skipped, and the report says how many. Tick runs to **compare** them side by side; **Save** puts a run's trades into an
+  account, as sessions that open on a chart and fill the same.
+- **Accounts**: the same as on the Config page.
+
 ## How fills work
 
 The same rules for practice and for backtests:
@@ -57,7 +79,8 @@ The same rules for practice and for backtests:
 
 - Stocks and ETFs only; options aren't simulated.
 - An order fills in full when its price trades: no queue position, partial fills or order book.
-- No margin, borrow fees or short-sale restrictions.
+- No margin: a position, long or short, may be worth at most the account's equity. No borrow fees or short-sale
+  restrictions.
 - Each chart's practice session is one symbol on one day, starting with the account's balance; sessions on several
   charts at once don't share buying power.
 - Synthetic (`-DEMO`) symbols are labelled as such in the strip.

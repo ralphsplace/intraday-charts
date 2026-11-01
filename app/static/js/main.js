@@ -52,6 +52,7 @@ expose("priceTypes", PT);
   $("fitLevels").checked = app.prefs.fitLevels; $("extShade").checked = app.prefs.extShade; $("syncCrosshair").checked = app.prefs.sync;
   buildGrid();
   save();
+  openAt(new URLSearchParams(location.search));
   if (firstRun) {
     app.day = meta.calendar.last_session; app.extraDays.add(app.day); fillDays();
     openData("No market data is cached yet. Pick the symbols and the day to load from TWS. " +
@@ -61,3 +62,21 @@ expose("priceTypes", PT);
   showCursor();
   await replay.restoreMode();              // Live, if this tab was in Live on the dashboard or page before
 })();
+
+// an address that opens the first chart at a symbol, day and replay time, practising in a paper account (the Paper
+// page's "open on the chart"): ?symbol=QQQ&day=2026-10-16&at=630&paper=<account id>. The address is then tidied.
+function openAt(q) {
+  if (!q.has("symbol") && !q.has("day")) return;
+  const chart = app.panels[0];
+  if (!chart) return;
+  const sym = (q.get("symbol") || "").toUpperCase();
+  if (/^[A-Z][A-Z0-9.-]{0,11}$/.test(sym)) { chart.symbol = sym; chart.symIn.value = sym; chart.fitSymbolBox(); }
+  const day = q.get("day") || "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day)) { app.day = day; app.extraDays.add(day); fillDays(); }
+  const at = parseInt(q.get("at"), 10);
+  if (at >= 0 && at <= 24 * 60) app.cursor = at;
+  if (q.get("paper")) chart.paper = q.get("paper");
+  save();
+  history.replaceState(null, "", location.pathname);
+}
+

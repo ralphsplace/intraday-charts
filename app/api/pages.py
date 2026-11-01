@@ -76,6 +76,11 @@ def options_page():
     return _page("options.html")
 
 
+@router.get("/paper")
+def paper_page():
+    return _page("paper.html")
+
+
 @router.get("/config")
 def config_page():
     return _page("config.html")
