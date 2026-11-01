@@ -14,7 +14,7 @@ export async function loadTrades(accounts, say) {
   const names = Object.keys(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   sel.innerHTML = "";
   for (const n of names) { const o = el("option", null, n); o.value = n; sel.appendChild(o); }
-  if (!names.length) { $("ppTrades").innerHTML = ""; $("ppTotals").textContent = "No paper accounts yet: make one under Accounts."; return; }
+  if (!names.length) { $("ppTrades").innerHTML = ""; $("ppEquity").hidden = true; $("ppTotals").textContent = "No paper accounts yet: make one under Accounts."; return; }
   sel.value = names.includes(load(KEY)) ? load(KEY) : names[0];
   sel.onchange = () => { store(KEY, sel.value); show(say); };
   await show(say);
