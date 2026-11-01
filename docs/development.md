@@ -99,6 +99,7 @@ app/control.py          requests and status shared by the server and the collect
 app/sessions.py         US trading days and holidays
 app/saved.py            saved chart views, layouts and option structures (data/user/)
 app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
+app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks
