@@ -1,11 +1,12 @@
 /* The strike profile: gamma exposure by strike for the expiry on view, calls up (green) and puts down (red),
    with the stock's price marked. "Near" shows the strikes closest to the price, "All" every strike in the snapshot.
    Data: the chain view's "profile" (app/option_chain.py strike_profile). */
-import { fmtValue, svgEl } from "../util.js";
+import { dollars } from "../format.js";
+import { svgEl } from "../util.js";
 
 export const NEAR = 5;                 // strikes either side of the price in "Near"
 
-const money = (x) => (x < 0 ? "−" : x > 0 ? "+" : "") + "$" + fmtValue(Math.abs(x)).replace(/\.00$/, "");
+const money = (x) => dollars(x, { compact: true });
 
 function niceStep(x) {
   const p = 10 ** Math.floor(Math.log10(Math.max(x, 1e-9)));

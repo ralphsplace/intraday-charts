@@ -1,7 +1,7 @@
 /* The structure's legs: side, quantity, expiry, strike, mid price, delta and theta, with the net debit or credit.
    Legs are {qty (+ bought, - sold), expiry (YYYYMMDD), strike, right ("C"|"P")}; prices come from the evaluation. */
+import { expiryDate, fixed, signed } from "../format.js";
 import { btn, el } from "../util.js";
-import { num } from "./chain.js";
 
 export const sameContract = (a, b) => a.expiry === b.expiry && a.strike === b.strike && a.right === b.right;
 
@@ -13,9 +13,8 @@ export function addLeg(legs, leg) {
   return out.filter((l) => l.qty !== 0).sort((a, b) => a.expiry.localeCompare(b.expiry) || a.right.localeCompare(b.right) || a.strike - b.strike);
 }
 
-const fmtDate = (e) => new Date(`${e.slice(0, 4)}-${e.slice(4, 6)}-${e.slice(6)}T12:00:00`)
-  .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-const signed = (x, d = 2) => (x == null ? "–" : (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(d));
+const fmtDate = expiryDate;
+const num = fixed;
 
 export function renderLegs(box, legs, ev, change) {
   box.innerHTML = "";

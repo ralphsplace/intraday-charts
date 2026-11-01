@@ -2,8 +2,6 @@
 export const LWC = window.LightweightCharts;
 export const $ = (id) => document.getElementById(id);
 
-export const fmtMin = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-
 // stocks and ETFs; breadth indexes; series recorded from live quotes (ADD, VOLD); -VIX (VIX upside down)
 export const SYMBOL_RE = /^[A-Z][A-Z0-9]{0,5}(\.[A-Z]{1,2})?$|^(TICK|TRIN|AD|VOL)-(NYSE|NASD|NDX)$|^(ADD|VOLD)-NYSE$|^-VIX$/;
 
@@ -13,6 +11,28 @@ export async function api(path, body, method) {
   const r = await fetch(path, opts);
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
   return r.json();
+}
+
+// ---------------------------------------------------------------- requests the page can do without
+// A request whose failure the page survives, carrying on with `fallback` (a value, or a function of the error), but
+// that the user should know failed: a note in the corner of any page, one per kind of request (`what`), gone once
+// that request works again. For polls, an unreachable server shows one note, not one per tick.
+const problems = new Map();
+function showProblems() {
+  let box = $("problems");
+  if (!box && !problems.size) return;
+  if (!box) { box = el("div"); box.id = "problems"; box.setAttribute("role", "status"); document.body.appendChild(box); }
+  box.replaceChildren(...[...problems].map(([what, why]) => el("div", "problem", `${what}: ${why}`)));
+  box.hidden = !problems.size;
+}
+export function orElse(promise, fallback, what) {
+  return promise.then(
+    (v) => { if (problems.delete(what)) showProblems(); return v; },
+    (e) => {
+      console.warn(`${what}:`, e);
+      if (problems.get(what) !== e.message) { problems.set(what, e.message); showProblems(); }
+      return typeof fallback === "function" ? fallback(e) : fallback;
+    });
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 9);
@@ -32,12 +52,6 @@ export function btn(text, fn, aria, cls) {
 }
 export function store(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* unavailable */ } }
 export function load(key) { try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; } }
-
-// large values (e.g. NYSE up - down volume) as 25.04M / 1.20B; anything else with 2 decimals
-export function fmtValue(v) {
-  const a = Math.abs(v);
-  return a >= 1e9 ? (v / 1e9).toFixed(2) + "B" : a >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v.toFixed(2);
-}
 
 export const cleanSymbol = (s) => { s = (s || "").trim().toUpperCase(); return SYMBOL_RE.test(s) ? s : null; };
 

@@ -7,12 +7,12 @@
      finviz      a FinViz screen or portfolio (feed.js)
      holdings    the account's stock and ETF positions (app/positions.py; HOLDINGS=on in .env)
    Rows come from /api/quotes, or /api/positions for holdings (the quote columns plus the position's). */
-import { ago } from "./data.js";
 import { columnsFor, sortValue } from "./columns.js";
 import { Feed } from "./feed.js";
+import { ago, amount, sign } from "./format.js";
 import * as lists from "./lists.js";
 import { app } from "./state.js";
-import { api, el, uid } from "./util.js";
+import { api, el, orElse, uid } from "./util.js";
 
 export const MAX_SYMBOLS = 100;
 
@@ -34,7 +34,8 @@ export class WatchTab {
   }
 
   config() {
-    return { id: this.id, listId: this.listId, list: this.list, columns: this.columns, heat: this.heat, sort: this.sort };
+    const old = this.legacy ? { symbols: this.legacy.symbols, feed: this.legacy.feed } : {};   // until it's moved
+    return { id: this.id, listId: this.listId, list: this.list, columns: this.columns, heat: this.heat, sort: this.sort, ...old };
   }
 
   // the named list this tab shows (found by id first: it may have been renamed elsewhere); null when deleted
@@ -49,14 +50,15 @@ export class WatchTab {
   // a tab saved before named lists: becomes a named list of its own ("Watch list N"), once
   async migrate() {
     const cfg = this.legacy;
-    if (!cfg) return;
-    delete this.legacy;
+    if (!cfg || app.listsUnknown) return;                 // the lists didn't load: try again on the next page load
     const source = cfg.list === "@feed" ? "finviz" : cfg.list === "@holdings" ? "holdings" : "symbols";
-    if (source === "finviz" && !cfg.feed?.address) return;
-    const r = await lists.create(source, source === "symbols" ? { symbols: cfg.symbols || [] } : source === "finviz" ? { feed: cfg.feed } : {},
-                                 cfg.name && cfg.name !== "Watch list" && !app.saved.watchlists[cfg.name] ? cfg.name : undefined)
-      .catch(() => null);                                  // "Watch list" was the old default: numbered instead
-    if (r) { this.list = r.name; this.listId = r.item.id; this.resolve(); }
+    if (source === "finviz" && !cfg.feed?.address) { delete this.legacy; return; }
+    const r = await orElse(lists.create(source, source === "symbols" ? { symbols: cfg.symbols || [] } : source === "finviz" ? { feed: cfg.feed } : {},
+                                        cfg.name && cfg.name !== "Watch list" && !app.saved.watchlists[cfg.name] ? cfg.name : undefined),
+                           null, "Moving an old watch list tab to a named list");   // "Watch list" was the old default: numbered
+    if (!r) return;                                        // kept, so nothing the tab held is lost
+    delete this.legacy;
+    this.list = r.name; this.listId = r.item.id; this.resolve();
   }
 
   source() { return this.item?.source || "symbols"; }
@@ -129,6 +131,7 @@ export class WatchTab {
   // the footer's line about the source: FinViz's status, or the holdings' totals and age
   status() {
     if (this.legacy) return null;                         // becoming a named list
+    if (!this.item && app.listsUnknown) return el("span", "wlfeed bad", "The watch lists couldn't be loaded: the note in the corner says why. Reload the page once it's fixed.");
     if (!this.item) return el("span", "wlfeed bad", `The watch list "${this.list}" was deleted: pick another in the menu.`);
     if (this.source() === "finviz") return this.feed.status(MAX_SYMBOLS);
     if (this.source() !== "holdings" || !this.held) return null;
@@ -140,8 +143,8 @@ export class WatchTab {
     else if (h.status === "error") say(h.message || "TWS didn't send the positions.", "bad");
     else {
       const t = h.totals || {};
-      const pnl = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
-      say(`Value ${Math.round(t.market_value || 0).toLocaleString("en-US")}`);
+      const pnl = (x) => sign(Math.round(x || 0)) + amount(x || 0, 0);
+      say(`Value ${amount(t.market_value || 0, 0)}`);
       say(`Unrl ${pnl(t.unrealized)}`, t.unrealized > 0 ? "up" : t.unrealized < 0 ? "down" : null);
       say(`Day ${pnl(t.day_pnl)}`, t.day_pnl > 0 ? "up" : t.day_pnl < 0 ? "down" : null);
       const acc = (h.accounts || []).length;

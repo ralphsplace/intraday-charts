@@ -43,6 +43,10 @@ A new install starts with an **empty cache**. The first time you open the page, 
 A chart says what it is waiting for, e.g. "number 3 of 12 in the queue". When its bars arrive, it
 draws them by itself. If the collector isn't running yet, requests are kept and run when it starts.
 
+If something the page asks the server for fails (the server is restarting, say, or a hand-edited file has a typo),
+a red note in the bottom-left corner says what and why, and the page carries on with what it has. The note goes as
+soon as that request works again.
+
 From there:
 
 1. Type a symbol into the chart's symbol box and press Enter. Its bars are fetched if they aren't cached.

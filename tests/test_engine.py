@@ -324,6 +324,22 @@ def test_ma_cloud_fill_follows_which_line_is_on_top(demo):
     assert any(pt["a"] > pt["b"] for pt in pts) and any(pt["a"] < pt["b"] for pt in pts)   # crosses on the demo day
 
 
+@pytest.mark.parametrize("kind", ["bollinger", "keltner", "donchian"])
+def test_channels_fill_between_their_bands(demo, kind):
+    """One colour for the whole channel, edges exactly on the upper and lower lines; off when the fill is off."""
+    r = view("QQQ-DEMO", "2026-10-16", 900, kind, params={kind: {"fill_color": "#336699", "fill_transp": 80}})
+    out = r["studies"][kind]
+    assert out["cloud"]["up"] == out["cloud"]["down"] == "rgba(51,102,153,0.2)"
+    lines = {l["id"]: {pt["time"]: pt["value"] for pt in l["data"]} for l in out["lines"]}
+    pts = out["cloud"]["points"]
+    assert len(pts) > 50
+    for pt in pts:
+        assert pt["a"] == pytest.approx(lines["upper"][pt["time"]]) and pt["b"] == pytest.approx(lines["lower"][pt["time"]])
+        assert pt["a"] >= pt["b"]
+    off = view("QQQ-DEMO", "2026-10-16", 900, kind, params={kind: {"fill": False}})["studies"][kind]
+    assert "cloud" not in off and len(off["lines"]) == 3
+
+
 def test_line_transparency_setting(demo):
     r = view("QQQ-DEMO", "2026-10-16", 640, "ema", params={"ema": {"ema_color": "#102030", "ema_transp": 50}})
     assert r["studies"]["ema"]["lines"][0]["color"] == "rgba(16,32,48,0.5)"

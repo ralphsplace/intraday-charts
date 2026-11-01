@@ -5,7 +5,8 @@ import pandas as pd
 
 from .. import engine as en
 from .. import indicators as ind
-from .base import P, src_param, color, plot, with_alpha, study, ln, bars_for, level, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN
+from .base import (P, src_param, color, plot, with_alpha, study, ln, bars_for, level, fill_params, fill_between,
+                   channel_fill, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
 
 
 @study("sma", "Simple moving average (SMA)", "Overlays", "price",
@@ -143,39 +144,40 @@ def _anchored_vwap(ctx, p):
 
 @study("bollinger", "Bollinger Bands", "Overlays", "price",
        [P("length", "Length", "int", 20, min=2, max=300), P("mult", "Std devs", "float", 2.0, min=0.5, max=5, step=0.1),
-        src_param()],
-       lambda p: f"BB ({p['length']}, {p['mult']:g})", "SMA with bands N standard deviations away.",
+        src_param(), *fill_params(BLUE, "Fill between the bands")],
+       lambda p: f"BB ({p['length']}, {p['mult']:g})", "SMA with bands N standard deviations away, the space between them filled.",
        plots=[plot("upper", "Upper", BLUE), plot("basis", "Basis", BLUE, 1, "dashed"), plot("lower", "Lower", BLUE)],
        warmup=lambda p: p["length"])
 def _bb(ctx, p):
     w = bars_for(ctx, p["length"])
     mid, up, lo = ind.bollinger(ind.source(w, p["source"]), p["length"], p["mult"])
     return {"lines": [ln("upper", "BB upper", ctx.points(w, up)), ln("basis", "BB basis", ctx.points(w, mid)),
-                      ln("lower", "BB lower", ctx.points(w, lo))]}
+                      ln("lower", "BB lower", ctx.points(w, lo))], **channel_fill(w, up, lo, p)}
 
 
 @study("keltner", "Keltner Channels", "Overlays", "price",
-       [P("length", "Length", "int", 20, min=2, max=300), P("mult", "ATR multiplier", "float", 1.5, min=0.5, max=5, step=0.1)],
-       lambda p: f"KC ({p['length']}, {p['mult']:g})", "EMA with bands a multiple of ATR away.",
+       [P("length", "Length", "int", 20, min=2, max=300), P("mult", "ATR multiplier", "float", 1.5, min=0.5, max=5, step=0.1),
+        *fill_params(ORANGE, "Fill between the bands")],
+       lambda p: f"KC ({p['length']}, {p['mult']:g})", "EMA with bands a multiple of ATR away, the space between them filled.",
        plots=[plot("upper", "Upper", ORANGE), plot("basis", "Basis", ORANGE, 1, "dashed"), plot("lower", "Lower", ORANGE)],
        warmup=lambda p: p["length"] * 3)
 def _kc(ctx, p):
     w = bars_for(ctx, p["length"] * 3)
     mid, up, lo = ind.keltner(w, p["length"], p["mult"])
     return {"lines": [ln("upper", "KC upper", ctx.points(w, up)), ln("basis", "KC basis", ctx.points(w, mid)),
-                      ln("lower", "KC lower", ctx.points(w, lo))]}
+                      ln("lower", "KC lower", ctx.points(w, lo))], **channel_fill(w, up, lo, p)}
 
 
 @study("donchian", "Donchian Channels", "Overlays", "price",
-       [P("length", "Length", "int", 20, min=2, max=300)],
-       lambda p: f"DC ({p['length']})", "Highest high and lowest low of the last N bars.",
+       [P("length", "Length", "int", 20, min=2, max=300), *fill_params(PINK, "Fill between the bands")],
+       lambda p: f"DC ({p['length']})", "Highest high and lowest low of the last N bars, the space between them filled.",
        plots=[plot("upper", "Upper", PINK), plot("mid", "Middle", PINK, 1, "dotted"), plot("lower", "Lower", PINK)],
        warmup=lambda p: p["length"])
 def _dc(ctx, p):
     w = bars_for(ctx, p["length"])
     mid, up, lo = ind.donchian(w, p["length"])
     return {"lines": [ln("upper", "DC upper", ctx.points(w, up)), ln("mid", "DC mid", ctx.points(w, mid)),
-                      ln("lower", "DC lower", ctx.points(w, lo))]}
+                      ln("lower", "DC lower", ctx.points(w, lo))], **channel_fill(w, up, lo, p)}
 
 
 @study("psar", "Parabolic SAR", "Overlays", "price",
@@ -244,8 +246,5 @@ def _ma_cloud(ctx, p):
     out = {"lines": [ln("ma1", f"{p['type1']} {p['len1']}", ctx.points(w, m1), last_value=True),
                      ln("ma2", f"{p['type2']} {p['len2']}", ctx.points(w, m2), last_value=True)]}
     if p["cloud"]:
-        keep = w["current"].to_numpy(dtype=bool) & m1.notna().to_numpy() & m2.notna().to_numpy()
-        out["cloud"] = {"points": [{"time": int(t), "a": round(float(a), 4), "b": round(float(b), 4)}
-                                   for t, a, b in zip(w["ct"].to_numpy()[keep], m1.to_numpy()[keep], m2.to_numpy()[keep], strict=True)],
-                        "up": up, "down": down}
+        out["cloud"] = fill_between(w, m1, m2, up, down)
     return out

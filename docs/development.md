@@ -130,7 +130,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   params.js             settings parameters (the shape the settings dialog takes)
   keys.js               this browser's storage keys (also used by the dashboards page)
   pricetypes.js         price types: candles, Heikin-Ashi, OHLC bars, line, area, current price line
-  primitives.js         canvas drawings: volume profile, extended-hours shading, zones, trend lines
+  primitives.js         canvas drawings: volume profile, extended-hours shading, zones, fills between lines, trend lines
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
@@ -258,7 +258,9 @@ TradingView's two official agent skills for Lightweight Charts™ are in `.claud
 Claude Code loads them when it works in this repository.
 
 The app already draws several things as plugins (series primitives in `app/static/js/primitives.js`): the volume
-profile, extended-hours shading, zones and trend lines. Lightweight Charts 5.2 is bundled as a single file with no
+profile, extended-hours shading, zones, trend lines, and the fill between two lines (the `cloud` output, used by the
+moving average cloud and the Bollinger, Keltner and Donchian channels through `fill_between` and `channel_fill` in
+`app/studies/base.py`). Lightweight Charts 5.2 is bundled as a single file with no
 build step, so new plugins are written the same way: small ES modules against the bundled library, following the
 skill's rules (bitmap coordinates for lines, draw the visible range only, `requestUpdate()` after changes, undo
 everything in `detached()`).

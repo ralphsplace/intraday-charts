@@ -7,7 +7,7 @@ import { isLayout } from "./layouts.js";
 import { showCursor } from "./replay.js";
 import { layoutKey } from "./keys.js";
 import { DASH, KEY, app, defaultConfigs, normStudies, save } from "./state.js";
-import { $, api, load } from "./util.js";
+import { $, api, load, orElse } from "./util.js";
 import { PriceTypes as PT } from "./pricetypes.js";
 import * as grid from "./grid.js";
 import * as modal from "./dialogs/modal.js";
@@ -24,11 +24,11 @@ window.__chartApp = app;   // for debugging from the browser console (and the br
 window.__priceTypes = PT;
 
 (async () => {
-  const [cat, meta, st, wl, cols] = await Promise.all([api("/api/studies"), api("/api/meta"), api("/api/collector").catch(() => null),
-                                                       api("/api/saved/watchlists").catch(() => ({})), api("/api/watch/columns")]);
+  const [cat, meta, st, wl, cols] = await Promise.all([api("/api/studies"), api("/api/meta"), orElse(api("/api/collector"), null, "Collector status"),
+                                                       orElse(api("/api/saved/watchlists"), null, "Watch lists"), api("/api/watch/columns")]);
   setColumns(cols);
   app.catalog = cat.studies; app.defaults = cat.default_layout; app.meta = meta;
-  app.collector = st; app.saved.watchlists = wl;
+  app.collector = st; app.saved.watchlists = wl || {}; app.listsUnknown = !wl;   // unknown: change no list
   fillSymbolList();
   const firstRun = !meta.symbols.length;
   // first visit to this dashboard in this browser: the dashboard it was copied from, or its starting layout

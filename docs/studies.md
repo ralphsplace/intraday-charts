@@ -41,9 +41,9 @@ Drawn on price.
   Regular hours only unless **Include extended hours** is on. It carries on across days (up to 15 days
   back) and draws a dotted line at the anchor.
 
-- Bollinger Bands
-- Keltner Channels
-- Donchian Channels
+- **Bollinger Bands**, **Keltner Channels** and **Donchian Channels**, with the space between the upper and lower
+  bands filled. The fill has its own section in the study's settings: on or off, colour and transparency (85% by
+  default). To change it for every new study, use the [Config page](config.md).
 - Parabolic SAR
 
 - **Moving average cloud.** Two moving averages, each SMA or EMA with its own length, with the space

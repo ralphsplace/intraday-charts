@@ -5,7 +5,7 @@ import { layoutSection } from "./layout-actions.js";
 import { isLayout, layoutLabel } from "./layouts.js";
 import { defaultSpan, isPeriod, rangeLabel, tfLabel } from "./timeframes.js";
 import { app, normStudies, save } from "./state.js";
-import { $, api, btn, clone, el } from "./util.js";
+import { $, api, btn, clone, el, orElse } from "./util.js";
 
 let menuFor = null;
 export function closeMenu() { $("savedMenu").hidden = true; menuFor = null; }
@@ -111,7 +111,7 @@ export async function openSavedMenu(anchor, kind, panel) {
   renderList();
   placeMenu(m, anchor);
   name.focus();
-  api(`/api/saved/${kind}`).then((d) => { app.saved[kind] = d; renderList(); }).catch(() => {});
+  orElse(api(`/api/saved/${kind}`), null, `Saved ${kind}`).then((d) => { if (d) { app.saved[kind] = d; renderList(); } });
 }
 
 // under its button, or above it when there's no room below (a bottom-row chart); never past the window's edge

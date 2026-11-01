@@ -1294,6 +1294,37 @@ def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
 
 
+def test_an_old_watch_list_tab_keeps_its_symbols_until_it_moves_to_a_named_list(tab, data):
+    """A tab saved before named lists becomes one, but only once the lists have loaded: if they can't be, the page
+    says so in the corner and the tab keeps its symbols, however often the layout is saved meanwhile."""
+    p = tab.goto("/QQQs", 1500)
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
+    key = p.evaluate("Object.keys(localStorage).find((k) => k.includes('layout') && localStorage[k].includes('watchlist'))")
+    p.evaluate("""(key) => {
+        const s = JSON.parse(localStorage[key]);
+        const cell = s.configs.find((c) => c && c.kind === "watchlist");
+        cell.tabs = [{ id: "old1", name: "", list: "", symbols: ["IWM", "DIA"], columns: null }];
+        localStorage[key] = JSON.stringify(s);
+    }""", key)
+    p.route("**/api/saved/watchlists", lambda r: r.fulfill(status=500, body='{"detail": "disk unavailable"}'))
+    p.reload()
+    p.wait_for_selector("#problems .problem")
+    assert "Watch lists: disk unavailable" in p.inner_text("#problems")
+    wl = p.locator(".panel.wl")
+    wl.locator("button.wlcolbtn").click()
+    col_box(wl, "Volume").uncheck()                                           # saves the layout meanwhile
+    stored = p.evaluate("(key) => JSON.parse(localStorage[key]).configs.find((c) => c && c.kind === 'watchlist').tabs", key)
+    assert [t.get("symbols") for t in stored] == [["IWM", "DIA"]] and "volume" not in stored[0]["columns"]
+    assert set(json.loads((data / "user" / "config.json").read_text())["watchlists"]) == {"Watch list 1"}
+    p.unroute("**/api/saved/watchlists")
+    p.reload()
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
+    assert wl_rows(p) == ["IWM", "DIA"] and p.locator("#problems .problem").count() == 0
+    lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
+    assert lists["Watch list 2"]["symbols"] == ["IWM", "DIA"]
+
+
 def test_renaming_moves_a_list_deleting_removes_it_and_columns_drag(tab, data):
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
@@ -1626,3 +1657,29 @@ def test_mixed_layout_columns_resize_row_by_row(tab):
     full = p.locator(".panel").nth(4).bounding_box()["width"]
     assert full > p.locator("#grid").bounding_box()["width"] - 20
 
+
+
+def test_numbers_and_times_are_written_the_same_way_on_every_page(tab):
+    """app/static/js/format.js: the one place numbers, money, percentages and ages become text."""
+    p = tab.goto("/QQQs", 500)
+    out = p.evaluate("""async () => {
+        const f = await import("/static/js/format.js");
+        return {
+            price: [f.price(691.234), f.price(25040000), f.price(null)],
+            signed: [f.signed(1.25), f.signed(-0.4, 1), f.signed(0), f.signed(undefined)],
+            pct: [f.pct(1.234), f.signedPct(-2.5), f.signedPct(0.04, 2), f.pct(NaN)],
+            dollars: [f.dollars(1250.4), f.dollars(-80), f.dollars(-0.4), f.dollars(-1234567, { compact: true }), f.dollars(null)],
+            amount: [f.amount(-12345.6), f.amount(1999.5, 0)],
+            ago: [f.ago(45), f.ago(720), f.ago(10800), f.ago(null)],
+            other: [f.fmtMin(570), f.fixed(0.456), f.expiryDate("20261030"), f.expiryDate("")],
+        };
+    }""")
+    assert out == {
+        "price": ["691.23", "25.04M", "–"],
+        "signed": ["+1.25", "−0.4", "0.00", "–"],
+        "pct": ["1.2%", "−2.5%", "+0.04%", "–"],
+        "dollars": ["+$1,250", "−$80", "$0", "−$1.23M", "–"],
+        "amount": ["12,345.60", "2,000"],
+        "ago": ["45 s ago", "12 min ago", "3 h ago", "never"],
+        "other": ["09:30", "0.46", "Fri, Oct 30", ""],
+    }

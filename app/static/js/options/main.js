@@ -1,8 +1,9 @@
 /* Starts the option-chain page (/options?symbol=QQQ): shows the cached chain, asks the TWS collector for fresh
    snapshots when they're missing or stale (or on Refresh), builds a structure from clicks or a template, and
    evaluates it. Read-only: nothing here places or prepares orders. */
+import { ago } from "../format.js";
 import { OPTIONS_KEY } from "../keys.js";
-import { $, api, cleanSymbol, el, inUse, keepScroll, load, setValue, store, submitted, trackEdits } from "../util.js";
+import { $, api, cleanSymbol, el, inUse, keepScroll, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 
 // the page's scrolling column (the toolbar and expiry strip stay above it)
 const SCROLLER = () => document.querySelector("main.oc");
@@ -26,7 +27,6 @@ const save = () => store(OPTIONS_KEY, st);
 function message(text) { $("ocMsg").hidden = !text; $("ocMsg").textContent = text || ""; }
 const needed = () => [...new Set([st.expiry, st.back, ...st.legs.map((l) => l.expiry)].filter(Boolean))].slice(0, MAX_EXPIRIES);
 const timeOf = (iso) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" }) + " ET";
-const ago = (s) => (s == null ? "" : s < 90 ? "just now" : s < 5400 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`);
 
 // what the page is waiting for, from the collector's last report
 function waitingText() {
@@ -58,7 +58,7 @@ async function loadChain(refresh = false) {
     try { await api("/api/options/request", { symbol: st.symbol, expiries: needed(), window: st.window }); }
     catch (e) { message("Error: " + e.message); waitingSince = 0; }
   }
-  if (waitingSince) collector = await api("/api/collector").catch(() => null);
+  if (waitingSince) collector = await orElse(api("/api/collector"), null, "Collector status");
   if (mine !== asking) return;
   const pending = waitingSince && (v.fetched || 0) * 1000 < waitingSince;
   render();
@@ -179,7 +179,7 @@ async function evaluate() {
 
 // ---------------------------------------------------------------- saved structures
 async function fillSaved(selected) {
-  const all = await api("/api/saved/structures").catch(() => ({}));
+  const all = await orElse(api("/api/saved/structures"), {}, "Saved structures");
   const sel = $("ocSaved");
   sel.innerHTML = "";
   sel.appendChild(el("option", null, Object.keys(all).length ? "Open a saved structure…" : "none saved yet")).value = "";
