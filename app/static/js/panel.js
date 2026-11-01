@@ -7,12 +7,13 @@ import { updateBanner } from "./grid.js";
 import { Legends } from "./legends.js";
 import { publish } from "./links.js";
 import { PanelHeader } from "./panel-header.js";
+import { PaperPractice } from "./paper-practice.js";
 import { ChartPrimitives as PR } from "./primitives.js";
 import { PriceTypes as PT } from "./pricetypes.js";
 import { app, defaultSymbol, defaultsFor, normStudies, save } from "./state.js";
 import { StudyLayers, attachOutputs } from "./study-layers.js";
 import { COLORS } from "./styles.js";
-import { $, LWC, api, cleanSymbol, clone, el, uid } from "./util.js";
+import { $, LWC, api, cleanSymbol, clone, el, mixParts, uid } from "./util.js";
 import { defaultSpan, findTf, isPeriod } from "./timeframes.js";
 
 export class Panel {
@@ -22,16 +23,17 @@ export class Panel {
     this.link = cfg.link || "";                           // symbol-link group (links.js)
     this.symbol = cfg.symbol; this.tf = findTf(cfg.tf) ? cfg.tf : 3; this.days = cfg.days || 1;
     this.spans = { ...(cfg.spans || {}) };               // months shown, per daily / weekly / monthly duration
-    this.price = PT.normalize(cfg.price, cfg.style);     // {type, params}; "style" is how older versions saved it
+    this.price = PT.normalize(cfg.price);                // {type, params}
     this.studies = normStudies(cfg.studies);
     this.view = null; this.fitted = false; this.rendered = {}; this.layoutSig = ""; this.levelPrices = [];
     this.times = []; this.tool = null; this.pending = null;
     this.lastCursor = null; this.inflight = 0;
+    this.paper = cfg.paper || "";                          // the paper account this chart practises in (paper-practice.js)
     this.buildDom();
     this.buildChart();
   }
 
-  config() { return { id: this.id, link: this.link, symbol: this.symbol, tf: this.tf, days: this.days, spans: { ...this.spans }, price: clone(this.price), studies: this.studies }; }
+  config() { return { id: this.id, link: this.link, symbol: this.symbol, tf: this.tf, days: this.days, spans: { ...this.spans }, price: clone(this.price), studies: this.studies, ...this.paperConfig() }; }
 
   // daily, weekly or monthly candles (from daily prices) rather than intraday ones
   isPeriod() { return isPeriod(this.tf); }
@@ -91,7 +93,7 @@ export class Panel {
     this.chartEl.addEventListener("mouseup", () => requestAnimationFrame(() => { this.drawOverlay(); this.drawLegends(); }));
   }
 
-  destroy() { this.dead = true; this.resizeObs.disconnect(); this.chart.remove(); this.root.remove(); }
+  destroy() { this.dead = true; this.closeTicket(); this.resizeObs.disconnect(); this.chart.remove(); this.root.remove(); }
 
   fillSymbols() {
     this.symbol = this.symbol || defaultSymbol();
@@ -198,6 +200,7 @@ export class Panel {
                       el("span", last && last.close >= v.bars[0].open ? "up" : "down", " " + (big ? fmtValue(v.price) : v.price.toFixed(2))));
     this.watermark.applyOptions({ lines: [{ text: v.symbol.replace("-DEMO", " (synthetic)"), color: "rgba(255,255,255,0.05)", fontSize: 44 }] });
     requestAnimationFrame(() => { this.drawOverlay(); this.drawLegends(); });
+    this.paperRefresh(v);
   }
 
   defaultView(v) {
@@ -273,6 +276,4 @@ export class Panel {
 }
 
 // the parts of a chart kept in their own modules
-for (const part of [PanelHeader, StudyLayers, Legends, DrawingTools]) {
-  for (const k of Object.getOwnPropertyNames(part.prototype)) if (k !== "constructor") Panel.prototype[k] = part.prototype[k];
-}
+mixParts(Panel, PanelHeader, StudyLayers, Legends, DrawingTools, PaperPractice);

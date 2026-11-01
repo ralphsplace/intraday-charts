@@ -5,6 +5,9 @@ Sections (each optional; missing ones fall back to the built-in defaults):
     watchlists      {name: definition}       the named watch lists (app/watchlists.py)
     studies         {study type: {key: value}}  default settings for new studies (app/studies/base.py)
     watch_columns   {list kind: [column ids]}    each watch list type's default columns (app/watch_fields.py)
+    paper_accounts  {name: account}          the named paper accounts (app/paper/accounts.py)
+    paper           {"defaults": {...}}      a new paper account's starting cash and settings
+    paper_rules     {name: {"id", "rule"}}   the named paper trading rules (app/paper/rules.py)
 
 One job: read and change sections, safely across the server's worker processes (a lock file), with the file
 read again only when it has changed. config.json next to the app (default symbol, default layout) stays as it
@@ -18,7 +21,7 @@ from pathlib import Path
 
 from . import jsonfile, store
 
-SECTIONS = ("watchlists", "studies", "watch_columns")
+SECTIONS = ("watchlists", "studies", "watch_columns", "paper_accounts", "paper", "paper_rules")
 _cache: dict = {}
 
 
@@ -26,13 +29,8 @@ def path() -> Path:
     return store.DATA_DIR / "user" / "config.json"
 
 
-def _legacy_watchlists() -> dict:
-    """Watch lists kept in their own file before the application config existed (Load data's saves)."""
-    return jsonfile.read(store.DATA_DIR / "user" / "watchlists.json")
-
-
 def read() -> dict:
-    """The whole config (a copy), with watch lists from the older file if the config has none yet."""
+    """The whole config (a copy)."""
     p = path()
     try:
         key = (str(p), p.stat().st_mtime_ns)
@@ -40,10 +38,7 @@ def read() -> dict:
         key = (str(p), None)
     if _cache.get("key") != key:
         _cache.update(key=key, data=jsonfile.read(p))
-    d = copy.deepcopy(_cache["data"])
-    if "watchlists" not in d:
-        d["watchlists"] = _legacy_watchlists()
-    return d
+    return copy.deepcopy(_cache["data"])
 
 
 def section(name: str) -> dict:
@@ -57,8 +52,6 @@ def section(name: str) -> dict:
 def editing():
     """The config to change in place, written back atomically when the block ends without an error."""
     with jsonfile.editing(path()) as d:
-        if "watchlists" not in d:
-            d["watchlists"] = _legacy_watchlists()            # moved in on the first change
         yield d
 
 

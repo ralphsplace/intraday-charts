@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper trading</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="cfg-page">
+<header class="toolbar">
+  <div class="group"><span id="dashNav" class="dashnav"></span></div>
+  <span id="cfgStatus" class="muted small" role="status"></span>
+</header>
+<main class="cfg">
+  <p class="muted small cfg-intro">Paper accounts are <b>simulated on the NAS from the cached bars</b>: they never talk to TWS
+    or your IBKR account, and nothing here places a real order. How fills are modelled, and the limits: user guide, Paper trading.</p>
+  <nav class="cfg-tabs" role="tablist" aria-label="Paper trading sections">
+    <button type="button" role="tab" data-sec="trades">Trades</button>
+    <button type="button" role="tab" data-sec="rules">Rules</button>
+    <button type="button" role="tab" data-sec="backtests">Backtests</button>
+    <button type="button" role="tab" data-sec="accounts">Accounts</button>
+  </nav>
+
+  <section id="sec-trades" class="cfg-sec" hidden>
+    <h2>Trades</h2>
+    <div class="cfg-row"><label for="ppAccount">Account</label> <select id="ppAccount"></select>
+      <label for="ppSymbol">Symbol</label> <select id="ppSymbol"></select>
+      <label for="ppDay">Day</label> <select id="ppDay"></select>
+      <span id="ppTotals" class="muted small"></span></div>
+    <div id="ppEquity" class="pp-equity" hidden></div>
+    <table id="ppTrades" class="cfg-table pp-trades"></table>
+  </section>
+
+  <section id="sec-rules" class="cfg-sec" hidden>
+    <h2>Rules</h2>
+    <p class="muted small">When to enter and leave a trade, built from prices and study lines, read at each bar's close.
+      A study whose past values change as new bars arrive is refused, as a rule would otherwise look ahead.</p>
+    <div class="cfg-row"><label for="ppRule">Rule</label> <select id="ppRule"></select>
+      <button id="ppRuleRename" type="button">Rename</button> <button id="ppRuleDelete" type="button" class="danger">Delete</button></div>
+    <form id="ppRuleForm" class="pp-rule" autocomplete="off"></form>
+    <div class="cfg-row"><button id="ppRuleSave" type="button" class="primary">Save rule</button>
+      <span id="ppRuleMsg" class="muted small" role="status"></span></div>
+  </section>
+
+  <section id="sec-backtests" class="cfg-sec" hidden>
+    <h2>Backtests</h2>
+    <form id="ppRun" class="pp-run" autocomplete="off">
+      <label>Rule <select id="ppRunRule"></select></label>
+      <label>Symbol <input id="ppRunSymbol" value="QQQ" maxlength="12" spellcheck="false"></label>
+      <label>From <input id="ppRunFrom" type="date"></label>
+      <label>To <input id="ppRunTo" type="date"></label>
+      <label>Cash and costs of <select id="ppRunAccount"></select></label>
+      <label>Random runs <input id="ppRunBase" type="number" min="0" max="20" value="5"></label>
+      <label class="papercheck"><input id="ppRunSkip" type="checkbox"> Skip days without cached bars</label>
+      <button type="submit" class="primary">Run</button>
+    </form>
+    <div id="ppRunMsg" class="muted small" role="status"></div>
+    <table id="ppRuns" class="cfg-table"></table>
+    <div class="cfg-row"><button id="ppCompare" type="button">Compare the ticked runs</button></div>
+    <div id="ppReport" class="pp-report"></div>
+  </section>
+
+  <section id="sec-accounts" class="cfg-sec" hidden>
+    <h2>Accounts</h2>
+    <p class="muted small">The same accounts as on the Config page. Names are unique; renaming keeps the history; a reset
+      puts the balance back to the starting cash and keeps the history.</p>
+    <table id="cfgPaper" class="cfg-table"></table>
+    <div class="cfg-row"><button id="cfgPaperNew" type="button">New account</button>
+      <span id="cfgPaperMsg" class="muted small" role="status"></span></div>
+    <h3>Settings</h3>
+    <div class="cfg-row"><label for="cfgPaperFor">For</label> <select id="cfgPaperFor"></select>
+      <span id="cfgPaperNote" class="muted small"></span></div>
+    <form id="cfgPaperForm" class="settings cfg-paperform" autocomplete="off"></form>
+    <div class="cfg-row">
+      <button id="cfgPaperSave" type="button" class="primary">Save</button>
+      <button id="cfgPaperReset" type="button">Built-in defaults</button>
+    </div>
+  </section>
+</main>
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/paper/main.js"></script>
+</body>
+</html>

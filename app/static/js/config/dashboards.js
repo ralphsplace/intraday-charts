@@ -1,103 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboards</title>
-<link rel="stylesheet" href="/static/style.css">
-<style>
-  body.manage { overflow: auto; height: auto; min-height: 100vh; }
-  .wrap { max-width: 980px; width: 100%; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 20px; margin: 4px 0 4px; }
-  h2 { font-size: 15px; margin: 26px 0 8px; }
-  table.dash { width: 100%; border-collapse: collapse; }
-  table.dash th, table.dash td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-  table.dash th { color: var(--muted); font-weight: 500; font-size: 12px; }
-  table.dash a { color: #8cc4ff; text-decoration: none; font-weight: 600; }
-  table.dash a:hover { text-decoration: underline; }
-  .addr { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
-  .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-  .acts button { padding: 3px 9px; font-size: 12px; }
-  button.danger { border-color: #7a2e2e; color: #ffb4b4; }
-  .badge { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #1f3b37; border: 1px solid var(--teal); color: #c9fff3; }
-  form.create { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end;
-                background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-  form.create label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-  form.create input, form.create select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
-  form.create .rows { display: flex; gap: 8px; }
-  form.create .rows label { flex: 1; }
-  form.create .rows input { width: 100%; box-sizing: border-box; }
-  .msg { min-height: 20px; margin-top: 8px; font-size: 13px; }
-  .msg.err { color: var(--bear); }
-  .msg.ok { color: var(--teal); }
-  input.rename { width: 160px; background: var(--bg); border: 1px solid var(--teal); border-radius: 6px; padding: 3px 6px; }
-  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
-  .env { display: grid; grid-template-columns: 52px 190px 1fr; gap: 0 10px; }
-  .env > div { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 9px; text-align: center; }
-  .pill.ok { background: #1f3b37; color: #c9fff3; }
-  .pill.warn { background: #3a2f12; color: #f3d48a; }
-  .pill.fail { background: #4a1f1f; color: #ffb4b4; }
-  .env .detail { color: var(--muted); }
-  .envhead { display: flex; align-items: baseline; gap: 12px; }
-  .envhead button { padding: 2px 10px; font-size: 12px; }
-</style>
-</head>
-<body class="manage">
-<header class="toolbar">
-  <div class="group"><span id="dashNav" class="dashnav"></span></div>
-</header>
-<div class="wrap">
-  <h1>Dashboards</h1>
-  <p class="note">Each dashboard has its own address. The default one opens at <span class="addr" id="rootAddr"></span>.</p>
+/* The Config page's Dashboards section (formerly the /dashboards page): every dashboard with its address, make
+   default, rename, duplicate (with this browser's window) and delete; create one from a template, a saved layout
+   or rows of charts; and the environment check. Data: /api/dashboards, /api/environment. */
+import { layoutKey } from "../keys.js";
+import { $, api, el } from "../util.js";
 
-  <table class="dash" aria-label="Dashboards">
-    <thead><tr><th>Name</th><th>Address</th><th></th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div id="msg" class="msg" role="status"></div>
-
-  <h2>Create a dashboard</h2>
-  <form class="create" id="createForm" autocomplete="off">
-    <label>Name <input id="newName" maxlength="40" placeholder="e.g. SPY" required></label>
-    <label id="startWrap">Start from
-      <select id="newStart"><option value="">One QQQ chart, no studies</option>
-        <option value="rows:">Top and bottom rows of charts…</option></select>
-    </label>
-    <div class="rows" id="rowsWrap" hidden>
-      <label>Top charts <input id="newTop" type="number" min="1" max="6" value="2" required></label>
-      <label>Bottom charts <input id="newBottom" type="number" min="1" max="6" value="4" required></label>
-    </div>
-    <button class="primary" type="submit">Create and open</button>
-  </form>
-  <p class="note" id="nameRule"></p>
-  <p class="note">A dashboard keeps its window (charts, studies, sizes) in each browser.
-    "Start from" sets what a browser sees the first time it opens it. Duplicate copies a dashboard's settings, and in this
-    browser its window too.</p>
-  <div class="envhead"><h2 id="environment">Environment check</h2>
-    <button id="recheck" type="button" title="Run the checks again">Check again</button></div>
-  <p class="note">The dashboard has no logins: only devices on your home network can use it, and it only reads from
-    TWS. These checks run when the server starts; a failed one stops it.</p>
-  <div id="env" class="env" role="table" aria-label="Environment check"></div>
-
-  <p class="dash-credit">Charts drawn with <a href="https://www.tradingview.com/lightweight-charts/" target="_blank"
-    rel="noopener">TradingView Lightweight Charts</a> (Apache 2.0).</p>
-</div>
-<script src="/static/dash.js"></script>
-<script type="module">
-import { layoutKey } from "/static/js/keys.js";
-{
-  const $ = (id) => document.getElementById(id);
+export function initDashboards() {
   let data = null, renaming = null, confirming = null;
   const say = (t, ok) => { $("msg").textContent = t || ""; $("msg").className = "msg " + (ok ? "ok" : t ? "err" : ""); };
-  async function api(path, body, method) {
-    const r = await fetch(path, body != null ? { method: method || "POST", headers: { "Content-Type": "application/json" },
-                                                   body: JSON.stringify(body) } : { method: method || "GET" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.detail || r.statusText);
-    return j;
-  }
-  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const button = (text, fn, cls, title) => { const b = el("button", cls, text); b.type = "button"; b.onclick = fn; if (title) b.title = title; return b; };
 
   async function reload() {
@@ -213,6 +122,3 @@ import { layoutKey } from "/static/js/keys.js";
   environment();
   reload().catch((e) => say(e.message));
 }
-</script>
-</body>
-</html>

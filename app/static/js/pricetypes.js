@@ -307,12 +307,10 @@ const get = (id) => TYPES.find((t) => t.id === id);
 const defaults = (id) => Object.fromEntries((get(id)?.params || []).map((q) => [q.key, q.default]));
 const list = () => TYPES.map(({ id, name, description, params }) => ({ id, name, description, params }));
 
-// a chart's saved price setting with every value filled in; older saved charts kept only a style name
-const LEGACY = { candles: ["candles", {}], hollow: ["candles", { up_fill: false }], heikin: ["heikin", {}],
-                 bars: ["bars", {}], line: ["line", {}], area: ["area", {}] };
-function normalize(price, legacyStyle) {
-  let type = price && get(price.type) ? price.type : null, params = (price && price.params) || {};
-  if (!type) [type, params] = LEGACY[legacyStyle] || LEGACY.candles;
+// a chart's saved price setting with every value filled in (candles when it names no known type)
+function normalize(price) {
+  const known = price && get(price.type);
+  const type = known ? price.type : "candles", params = (known && price.params) || {};
   const spec = get(type), out = defaults(type);
   for (const q of spec.params) {
     const v = params[q.key];

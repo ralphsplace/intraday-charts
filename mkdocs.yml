@@ -39,6 +39,7 @@ nav:
       - Expected move view: expected-move.md
       - Option chain view: option-chain.md
       - Config page: config.md
+      - Paper trading: paper.md
   - Setting up:
       - Connecting to TWS: tws.md
       - Configuration: configuration.md

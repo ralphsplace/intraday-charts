@@ -35,6 +35,51 @@ export function orElse(promise, fallback, what) {
     });
 }
 
+// a class built from parts, each a class whose methods serve one job (e.g. a panel's legends): their methods are
+// copied onto the target's prototype, in order
+export function mixParts(Target, ...parts) {
+  for (const part of parts) {
+    for (const k of Object.getOwnPropertyNames(part.prototype)) if (k !== "constructor") Target.prototype[k] = part.prototype[k];
+  }
+}
+
+// ---------------------------------------------------------------- redrawing without replacing what's on screen
+// Bring a live element's children in line with freshly built ones (the same code that drew it, run again into
+// `fresh`): an element of the same tag (and data-key, when it has one) is kept and updated in place, so a click,
+// drag, double-click or hover on it survives a refresh; others are added, moved or removed. Attributes, text and
+// on* handlers are copied, so handlers must find their element through the event (e.currentTarget), never by a
+// variable from when they were built. A box being typed in (inUse) is left as it is.
+const HANDLERS = ["onclick", "ondblclick", "onchange", "oninput", "onkeydown", "ondragstart", "ondragover", "ondragleave", "ondrop"];
+const PROPS = ["value", "checked", "disabled", "draggable", "colSpan", "hidden"];
+// the same control: same tag and key; a button without a key is also known by its label (a different label is a
+// different control, so it doesn't inherit the focus of the one it replaces)
+const sameKind = (a, b) => a.nodeName === b.nodeName && (a.dataset?.key ?? null) === (b.dataset?.key ?? null) &&
+  (a.nodeName !== "BUTTON" || a.dataset.key != null || a.textContent === b.textContent);
+function syncNode(a, b) {
+  if (a.nodeType !== 1) { if (a.nodeValue !== b.nodeValue) a.nodeValue = b.nodeValue; return; }
+  if (a.matches("input, textarea, select") && inUse(a)) return;     // being typed in or picked from
+  for (const { name } of [...a.attributes]) if (!b.hasAttribute(name)) a.removeAttribute(name);
+  for (const { name, value } of b.attributes) if (a.getAttribute(name) !== value) a.setAttribute(name, value);
+  for (const h of HANDLERS) if (a[h] !== b[h]) a[h] = b[h];
+  for (const p of PROPS) if (p in b && a[p] !== b[p]) a[p] = b[p];
+  syncChildren(a, b);
+}
+function syncChildren(a, b) {
+  const want = [...b.childNodes];
+  want.forEach((w, i) => {
+    const key = w.dataset?.key;
+    let cur = a.childNodes[i];
+    if (key != null && !(cur && sameKind(cur, w))) {                 // a keyed element moved: bring it here
+      const found = [...a.children].find((c) => c.dataset.key === key && c.nodeName === w.nodeName);
+      if (found) { a.insertBefore(found, cur || null); cur = found; }
+    }
+    if (cur && sameKind(cur, w)) syncNode(cur, w);
+    else a.insertBefore(w, cur || null);
+  });
+  while (a.childNodes.length > want.length) a.lastChild.remove();
+}
+export function morph(live, fresh) { syncChildren(live, fresh); }
+
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const clone = (x) => JSON.parse(JSON.stringify(x));

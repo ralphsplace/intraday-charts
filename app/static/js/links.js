@@ -29,20 +29,6 @@ export function publish(from, symbol) {
   for (const c of members(from)) c.showLinked?.(symbol);
 }
 
-// Earlier watch lists named one chart by its id ("active" for the active chart): give both a group of their own
-// (the first colour not in use). Settings in, settings changed in place; unknown groups are dropped.
-export function migrateLinks(configs) {
-  const used = new Set(configs.map((c) => c?.link).filter(known));
-  for (const c of configs) {
-    if (!c || !c.link || known(c.link)) continue;
-    const chart = c.kind === "watchlist" ? configs.find((x) => x && x !== c && x.id === c.link) : null;
-    const group = chart ? (known(chart.link) ? chart.link : GROUPS.find((g) => g.id && !used.has(g.id))?.id) : "";
-    if (chart && group) { chart.link = group; used.add(group); }
-    c.link = group || "";
-  }
-  return configs;
-}
-
 /* A cell header's link control: a coloured square over an invisible menu of the groups (so it takes little
    room, and the browser's own menu shows the names). onChange runs after the cell joins another group. */
 export function linkControl(cell, onChange) {

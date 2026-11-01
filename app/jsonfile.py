@@ -16,8 +16,9 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 
-class BrokenFile(ValueError):
-    """A user file that exists but isn't a JSON object."""
+class BrokenFile(Exception):
+    """A user file that exists but isn't a JSON object. Not a ValueError: it isn't bad input from the request, so
+    the routes that turn bad input into a 400 let it through to the server's 409 that names the file."""
 
 
 def _load(p: Path) -> dict:

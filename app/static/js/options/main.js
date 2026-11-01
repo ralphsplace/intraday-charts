@@ -1,6 +1,7 @@
 /* Starts the option-chain page (/options?symbol=QQQ): shows the cached chain, asks the TWS collector for fresh
    snapshots when they're missing or stale (or on Refresh), builds a structure from clicks or a template, and
    evaluates it. Read-only: nothing here places or prepares orders. */
+import { expose } from "../debug.js";
 import { ago } from "../format.js";
 import { OPTIONS_KEY } from "../keys.js";
 import { $, api, cleanSymbol, el, inUse, keepScroll, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
@@ -261,4 +262,4 @@ window.addEventListener("resize", () => {
   }), 150);
 });
 
-window.__options = { get state() { return st; }, get view() { return view; }, get ev() { return ev; } };   // for the browser tests
+expose("options", { get state() { return st; }, get view() { return view; }, get ev() { return ev; } });   // for the browser tests (debug.js)

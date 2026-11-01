@@ -6,7 +6,7 @@ import { gatherOutputs, studyColor } from "./study-layers.js";
 import { COLORS } from "./styles.js";
 import { toolFor } from "./tools/index.js";
 import { spec } from "./state.js";
-import { btn, el } from "./util.js";
+import { btn, el, morph } from "./util.js";
 
 // legends for a Panel (mixed into Panel)
 export class Legends {
@@ -18,10 +18,15 @@ export class Legends {
     return tops;
   }
 
+  // drawn into a fresh box and moved onto the live one (morph): a refresh keeps the rows and their buttons
   drawLegends() {
-    const box = this.legends;
     if (this.dead) return;
-    box.innerHTML = "";
+    const box = el("div");
+    this.drawLegendsInto(box);
+    morph(this.legends, box);
+  }
+
+  drawLegendsInto(box) {
     const v = this.view;
     if (!v || !this.chart.panes().length) return;
     const lists = this.paneTops().map((top, i) => {
@@ -46,6 +51,7 @@ export class Legends {
       const res = v.studies[s.uid];
       const pane = s.visible ? (this.rendered[s.uid]?.pane ?? 0) : 0;
       const row = el("div", "leg" + (s.visible ? "" : " hidden"));
+      row.dataset.key = s.uid;
       const sw = el("span", "sw2"); sw.style.background = studyColor(res) || COLORS.muted;
       const name = el("span", "name", res?.label || spec(s.type)?.name || s.type);
       row.append(sw, name);
@@ -59,6 +65,7 @@ export class Legends {
     }
     for (const d of drawingsFor(this.symbol)) {
       const row = el("div", "leg drawing");
+      row.dataset.key = "drawing:" + d.id;
       const sw = el("span", "sw2"); sw.style.background = d.color;
       row.append(sw, el("span", "name", drawingLabel(d)));
       const acts = el("span", "acts");

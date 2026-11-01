@@ -12,7 +12,7 @@ import { Feed } from "./feed.js";
 import { ago, amount, sign } from "./format.js";
 import * as lists from "./lists.js";
 import { app } from "./state.js";
-import { api, el, orElse, uid } from "./util.js";
+import { api, el, uid } from "./util.js";
 
 export const MAX_SYMBOLS = 100;
 
@@ -28,14 +28,11 @@ export class WatchTab {
     this.feed = new Feed(null, changed);
     this.changed = changed;
     this.rows = []; this.held = null; this.seq = 0;
-    // tabs saved before lists were named and app-wide: their own symbols, a FinViz screen or the holdings
-    if (!cfg.listId && (["", "@feed", "@holdings"].includes(this.list) || cfg.symbols?.length)) this.legacy = cfg;
     this.resolve();
   }
 
   config() {
-    const old = this.legacy ? { symbols: this.legacy.symbols, feed: this.legacy.feed } : {};   // until it's moved
-    return { id: this.id, listId: this.listId, list: this.list, columns: this.columns, heat: this.heat, sort: this.sort, ...old };
+    return { id: this.id, listId: this.listId, list: this.list, columns: this.columns, heat: this.heat, sort: this.sort };
   }
 
   // the named list this tab shows (found by id first: it may have been renamed elsewhere); null when deleted
@@ -45,20 +42,6 @@ export class WatchTab {
     if (name) { this.list = name; this.listId = item.id || this.listId; }
     if (item?.source === "finviz" && item.feed?.address !== this.feed.address) this.feed.configure(item.feed);
     return item;
-  }
-
-  // a tab saved before named lists: becomes a named list of its own ("Watch list N"), once
-  async migrate() {
-    const cfg = this.legacy;
-    if (!cfg || app.listsUnknown) return;                 // the lists didn't load: try again on the next page load
-    const source = cfg.list === "@feed" ? "finviz" : cfg.list === "@holdings" ? "holdings" : "symbols";
-    if (source === "finviz" && !cfg.feed?.address) { delete this.legacy; return; }
-    const r = await orElse(lists.create(source, source === "symbols" ? { symbols: cfg.symbols || [] } : source === "finviz" ? { feed: cfg.feed } : {},
-                                        cfg.name && cfg.name !== "Watch list" && !app.saved.watchlists[cfg.name] ? cfg.name : undefined),
-                           null, "Moving an old watch list tab to a named list");   // "Watch list" was the old default: numbered
-    if (!r) return;                                        // kept, so nothing the tab held is lost
-    delete this.legacy;
-    this.list = r.name; this.listId = r.item.id; this.resolve();
   }
 
   source() { return this.item?.source || "symbols"; }
@@ -130,7 +113,7 @@ export class WatchTab {
 
   // the footer's line about the source: FinViz's status, or the holdings' totals and age
   status() {
-    if (this.legacy) return null;                         // becoming a named list
+    if (!this.item && !this.list) return el("span", "wlfeed", "Pick a watch list in the menu, or press + for a new one.");
     if (!this.item && app.listsUnknown) return el("span", "wlfeed bad", "The watch lists couldn't be loaded: the note in the corner says why. Reload the page once it's fixed.");
     if (!this.item) return el("span", "wlfeed bad", `The watch list "${this.list}" was deleted: pick another in the menu.`);
     if (this.source() === "finviz") return this.feed.status(MAX_SYMBOLS);
@@ -162,6 +145,5 @@ export class WatchTab {
   }
 }
 
-// a tab showing the named list `name` (with its id), and a panel saved before tabs existed (its own settings)
+// a tab showing the named list `name` (with its id)
 export const tabConfig = (name, listId) => ({ id: uid(), list: name, listId, columns: null });
-export const legacyTab = (cfg) => ({ id: uid(), name: "", list: cfg.list || "", symbols: cfg.symbols || [], columns: null, feed: cfg.feed || null });

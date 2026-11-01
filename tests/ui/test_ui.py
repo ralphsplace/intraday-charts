@@ -12,12 +12,12 @@ WIDE = 1840   # Ralph's screen: the chart page's top bar fits one line there wit
 
 
 def app_state(page, expr):
-    return page.evaluate(f"(() => {{ const a = window.__chartApp; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const a = window.__intraday.chart; return {expr}; }})()")
 
 
 def wait_state(page, expr, timeout=15000):
     """Wait until the expression is true (slower machines, e.g. GitHub's runners, need more than a fixed pause)."""
-    page.wait_for_function(f"(() => {{ const a = window.__chartApp; return {expr}; }})()", timeout=timeout)
+    page.wait_for_function(f"(() => {{ const a = window.__intraday.chart; return {expr}; }})()", timeout=timeout)
 
 
 # ---------------------------------------------------------------- chart grid (QQQs)
@@ -30,7 +30,9 @@ def test_default_is_one_qqq_chart_with_no_studies(tab):
     assert p.locator("#day").input_value() == LAST
     assert app_state(p, "a.panels[0].view.bars.length > 100")
     assert p.locator(".panel .leg").count() == 0                                 # nothing drawn but the price
-    assert p.locator(".brand").first.inner_text() == "RP"
+    brand = p.locator(".brand").first                                            # the mark: a link to the repository
+    assert brand.inner_text() == "RP" and brand.get_attribute("target") == "_blank"
+    assert brand.get_attribute("href") == "https://github.com/ralphsplace/intraday-charts"
     assert p.locator("a[href*='tradingview']").count() == 0          # the library's logo is off
 
 
@@ -87,14 +89,14 @@ def test_price_type_settings(tab):
     assert {"up_color", "down_color", "color_by", "up_fill", "down_fill", "outline_width", "wick_width", "body_pct"} <= set(keys)
     # hollow candles are a setting of Candles, not a separate type
     apply_price_settings(p, {"up_fill": False, "color_by": "Previous close", "wick_width": 2, "up_color": "#112233"})
-    assert app_state(p, "a.panels[0].price") == {"type": "candles", "params": {**app_state(p, "window.__priceTypes.defaults('candles')"),
+    assert app_state(p, "a.panels[0].price") == {"type": "candles", "params": {**app_state(p, "window.__intraday.priceTypes.defaults('candles')"),
                                                  "up_fill": False, "color_by": "Previous close", "wick_width": 2, "up_color": "#112233"}}
     assert app_state(p, PRICE_SERIES + ".length") == 1
     open_price_settings(p)
     p.locator("#settingsDefaults").click()
     p.locator("#settingsApply").click()
     p.wait_for_timeout(300)
-    assert app_state(p, "a.panels[0].price.params") == app_state(p, "window.__priceTypes.defaults('candles')")
+    assert app_state(p, "a.panels[0].price.params") == app_state(p, "window.__intraday.priceTypes.defaults('candles')")
     # every type's settings open and apply cleanly
     for t in ("heikin", "bars", "line", "area", "current"):
         p.select_option(".pstyle", t)
@@ -102,16 +104,6 @@ def test_price_type_settings(tab):
         p.locator("#settingsApply").click()
         p.wait_for_timeout(200)
         assert app_state(p, PRICE_SERIES + ".length") == 1, t
-
-
-def test_old_saved_style_is_migrated(tab):
-    p = tab.goto("/QQQs", 1500)
-    p.evaluate("""localStorage.setItem('intraday-charts.layout.v5', JSON.stringify({ layout: '1x1',
-        configs: [{ symbol: 'QQQ', tf: 3, days: 1, style: 'hollow', studies: [] }], prefs: {} }))""")
-    p.reload()
-    p.wait_for_timeout(2000)
-    assert app_state(p, "[a.panels[0].price.type, a.panels[0].price.params.up_fill]") == ["candles", False]
-    assert app_state(p, "a.configs[0].style") is None
 
 
 def test_current_price_line(tab):
@@ -231,19 +223,19 @@ def test_daily_candles_follow_replay_and_mark_intraday_studies(tab):
     daily.locator("select.tf").select_option("1d")
     p.wait_for_timeout(1500)
     # today's candle is built from the minutes up to the replay cursor
-    p.evaluate("(() => { const a = window.__chartApp; a.cursor = 10 * 60 + 30; })()")
-    p.evaluate("window.__chartApp.panels.forEach((x) => x.refresh())")
+    p.evaluate("(() => { const a = window.__intraday.chart; a.cursor = 10 * 60 + 30; })()")
+    p.evaluate("window.__intraday.chart.panels.forEach((x) => x.refresh())")
     p.wait_for_timeout(1500)
     early = app_state(p, "a.panels[1].view.bars.at(-1)")
-    p.evaluate("(() => { const a = window.__chartApp; a.cursor = 15 * 60 + 59; })()")
-    p.evaluate("window.__chartApp.panels.forEach((x) => x.refresh())")
+    p.evaluate("(() => { const a = window.__intraday.chart; a.cursor = 15 * 60 + 59; })()")
+    p.evaluate("window.__intraday.chart.panels.forEach((x) => x.refresh())")
     p.wait_for_timeout(1500)
     late = app_state(p, "a.panels[1].view.bars.at(-1)")
     assert early["day"] == late["day"] and early["open"] == late["open"]
     assert early["high"] <= late["high"] and early["low"] >= late["low"] and not early["complete"]
     # studies: an EMA draws; VWAP needs minutes, so it says so instead
     p.locator(".panel").nth(1).click(position={"x": 200, "y": 200})
-    p.evaluate("""(() => { const pnl = window.__chartApp.panels[1]; pnl.addStudy("ema"); pnl.addStudy("vwap"); })()""")
+    p.evaluate("""(() => { const pnl = window.__intraday.chart.panels[1]; pnl.addStudy("ema"); pnl.addStudy("vwap"); })()""")
     p.wait_for_timeout(1500)
     res = app_state(p, "Object.values(a.panels[1].view.studies).map((r) => [r.type, r.ok, r.note || null, (r.lines || []).length])")
     assert ["ema", True, None, 1] in res and ["vwap", True, "intraday charts only (1m to 15m)", 0] in res
@@ -272,7 +264,7 @@ def test_session_structure_studies(tab):
     assert s["anchor"] == "Chosen time" and s["at"].endswith(" 10:30")
     assert app_state(p, "a.panels[0].tool") is None                       # one click, then the tool is off
     for type in ("initial_balance", "rvol", "tpo", "volume_profile", "cvd_estimate"):
-        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+        p.evaluate(f"window.__intraday.chart.panels[0].addStudy('{type}')")
     wait_state(p, "Object.keys(a.panels[0].view.studies).length === 6")
     res = app_state(p, "Object.values(a.panels[0].view.studies).map((r) => [r.type, r.ok, r.error || null])")
     assert all(ok for _, ok, _ in res), res
@@ -305,7 +297,7 @@ def test_context_studies_ask_for_the_symbols_they_read(tab):
     asked = []
     p.on("request", lambda r: asked.append(json.loads(r.post_data)) if r.url.endswith("/api/fetch") else None)
     for type in ("relative_strength", "heavyweights", "range_meter"):
-        p.evaluate(f"window.__chartApp.panels[0].addStudy('{type}')")
+        p.evaluate(f"window.__intraday.chart.panels[0].addStudy('{type}')")
     wait_state(p, "Object.keys(a.panels[0].view.studies).length === 3")
     p.wait_for_timeout(800)
     syms = {s for a in asked for s in a["symbols"]}
@@ -317,26 +309,6 @@ def test_context_studies_ask_for_the_symbols_they_read(tab):
     assert any(b.startswith("Day range") for b in boxes)
     assert "weights as of 2026-10-02" in legend.inner_text()
 
-
-def test_windows_saved_under_the_old_project_name_carry_over(tab):
-    """The project was called intraday-chart: a browser's saved windows and drawings move to the new names once."""
-    p = tab.goto("/QQQs", 800)
-    p.evaluate("""localStorage.clear();
-      localStorage.setItem('intraday-chart.layout.v5', JSON.stringify({ layout: '2x1',
-        configs: [{ symbol: 'QQQ', tf: 5, days: 1, studies: [] }, { symbol: 'SPY', tf: 3, days: 1, studies: [] }], prefs: {} }));
-      localStorage.setItem('intraday-chart.drawings.v1', JSON.stringify({ QQQ: [{ id: 'd1', type: 'hline', price: 700 }] }));
-      localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('price'));""")
-    p = tab.goto("/QQQs", 2500)
-    assert app_state(p, "[a.layout, a.panels.map((x) => [x.symbol, x.tf])]") == ["2x1", [["QQQ", 5], ["SPY", 3]]]
-    keys = p.evaluate("Object.keys(localStorage).sort()")
-    assert not any(k.startswith("intraday-chart.") for k in keys)
-    assert {"intraday-charts.layout.v5", "intraday-charts.drawings.v1", "intraday-charts.earnings.mode"} <= set(keys)
-    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1')).QQQ[0].price") == 700
-    # a newer value already saved under the new name is kept
-    p.evaluate("""localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('relative'))""")
-    p = tab.goto("/earnings", 800)
-    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.earnings.mode'))") == "price"
-    assert p.evaluate("localStorage.getItem('intraday-chart.earnings.mode')") is None
 
 def test_symbol_input_accepts_and_rejects(tab):
     p = tab.goto("/QQQs")
@@ -466,7 +438,8 @@ def test_drawing_tools_alert_trend_and_settings(tab):
     row.locator("button", has_text="Re-arm").click()
     p.wait_for_timeout(300)
     assert "triggered" not in drawn()[0]
-    # a drawing's settings come from its tool
+    # a drawing's settings come from its tool (move off the first row first: its buttons stay open under the pointer)
+    p.mouse.move(5, 5)
     row = panel.locator(".leg.drawing").nth(1)
     row.hover()
     row.locator("button", has_text="Settings").click()
@@ -565,7 +538,7 @@ def test_a_new_tab_starts_in_replay(tab, browser, server, data):
     other = browser.new_page()
     other.goto(server + "/QQQs")
     other.wait_for_timeout(2000)
-    assert other.evaluate("window.__chartApp.live") is False and "active" in (other.get_attribute("#modeReplay", "class") or "")
+    assert other.evaluate("window.__intraday.chart.live") is False and "active" in (other.get_attribute("#modeReplay", "class") or "")
     other.close()
 
 
@@ -597,9 +570,9 @@ def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
-                                                                 "Option chain", "Config", "Manage dashboards…"]
+                                                                 "Option chain", "Paper trading", "Config", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
-    p.wait_for_url("**/dashboards")
+    p.wait_for_url("**/config?tab=dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
     assert p.locator("table.dash tbody tr").count() == 2          # QQQs and the built-in Internals
     assert p.locator("#newType").count() == 0                    # one kind of dashboard: no type to pick
@@ -611,7 +584,7 @@ def test_create_rename_default_duplicate_delete(tab):
     p = tab.goto("/QQQs")
     p.select_option("#layout", "3x1")                         # this browser's QQQs window, to be duplicated
     p.wait_for_timeout(1200)
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.fill("#newName", "two words")
     p.click("button:has-text('Create and open')")
     p.wait_for_timeout(500)
@@ -619,7 +592,7 @@ def test_create_rename_default_duplicate_delete(tab):
     p.fill("#newName", "Swing")
     p.click("button:has-text('Create and open')")
     p.wait_for_url("**/Swing")
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.locator("tr:has-text('QQQs') button:has-text('Duplicate')").click()
     p.wait_for_timeout(800)
     copy = next(i for i in p.evaluate("fetch('/api/dashboards').then((r) => r.json())")["items"] if i["name"] == "QQQs-2")
@@ -627,7 +600,7 @@ def test_create_rename_default_duplicate_delete(tab):
     assert stored[1] and stored[1] == stored[0]                # the dashboards page copied this browser's window
     p = tab.goto("/QQQs-2", 2000)
     assert p.locator("#layout").input_value() == "3x1"
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.locator("tr:has-text('QQQs-2') button:has-text('Rename')").click()
     p.fill("input.rename", "Scalp")
     p.press("input.rename", "Enter")
@@ -645,10 +618,10 @@ def test_create_rename_default_duplicate_delete(tab):
 
 
 def test_charts_dashboard_from_saved_layout(tab):
-    p = tab.goto("/dashboards", 500)
+    p = tab.goto("/config?tab=dashboards", 500)
     p.evaluate("""fetch('/api/saved/layouts/Solo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
                   body: JSON.stringify({layout: '1x1', configs: [{symbol: 'SPY', tf: 15, days: 1, studies: [{type: 'vwap'}]}]})})""")
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.fill("#newName", "Solo")
     p.select_option("#newStart", "layout:Solo")
     p.click("button:has-text('Create and open')")
@@ -666,7 +639,7 @@ def test_unknown_dashboard_page_is_escaped(tab):
 
 # ---------------------------------------------------------------- environment check
 def test_environment_check_on_the_dashboards_page(tab):
-    p = tab.goto("/dashboards", 1200)
+    p = tab.goto("/config?tab=dashboards", 1200)
     rows = p.locator("#env .pill")
     assert rows.count() >= 6
     names = p.locator("#env div:nth-child(3n+2)").all_inner_texts()
@@ -679,7 +652,7 @@ def test_environment_check_on_the_dashboards_page(tab):
 
 def test_checks_needing_attention_are_linked_from_every_page(tab):
     tab.page.set_viewport_size({"width": WIDE, "height": 850})
-    for path in ("/QQQs", "/dashboards"):          # no collector in the tests: TWS connection is "Check"
+    for path in ("/QQQs", "/config?tab=dashboards"):          # no collector in the tests: TWS connection is "Check"
         p = tab.goto(path, 1500)
         assert p.evaluate("document.querySelector('header.toolbar').offsetHeight") < 60, path   # one line on Ralph's screen
         # how many need attention depends on the machine (e.g. running as root here, not on GitHub's runners)
@@ -687,7 +660,7 @@ def test_checks_needing_attention_are_linked_from_every_page(tab):
         link = p.locator(".dashnav a.envwarn")
         assert n >= 1 and link.count() == 1 and link.get_attribute("aria-label").startswith(f"Environment check: {n}"), path
     link.click()
-    p.wait_for_url("**/dashboards#environment")
+    p.wait_for_url("**/config?tab=dashboards#environment")
 
 
 def test_charts_added_with_layout_open_on_qqq_without_studies(tab):
@@ -729,7 +702,7 @@ def test_screenshot_layout_renders(tab):
 
 # ---------------------------------------------------------------- earnings page
 def earn_state(page, expr):
-    return page.evaluate(f"(() => {{ const e = window.__earnings; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const e = window.__intraday.earnings; return {expr}; }})()")
 
 
 def test_earnings_page_overlays_six_quarters(tab):
@@ -875,11 +848,11 @@ def test_expected_move_page_form_and_memory(tab):
 
 # ---------------------------------------------------------------- option-chain page
 def oc(page, expr):
-    return page.evaluate(f"(() => {{ const o = window.__options; return {expr}; }})()")
+    return page.evaluate(f"(() => {{ const o = window.__intraday.options; return {expr}; }})()")
 
 
 def wait_oc(page, expr, timeout=15000):
-    page.wait_for_function(f"(() => {{ const o = window.__options; return {expr}; }})()", timeout=timeout)
+    page.wait_for_function(f"(() => {{ const o = window.__intraday.options; return {expr}; }})()", timeout=timeout)
 
 
 def test_option_chain_page_builds_and_evaluates_a_template(tab):
@@ -1093,7 +1066,7 @@ def test_splitters_follow_the_grid_when_the_top_bar_grows(tab):
     move with the charts, or it sits on the bottom charts' headers and takes their clicks."""
     p = tab.goto("/Internals", 3000)
     gap = "(() => { const s = document.querySelector('.splitter.row').getBoundingClientRect(); "\
-          "const top = window.__chartApp.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
+          "const top = window.__intraday.chart.cells[0].root.getBoundingClientRect(); return Math.abs(s.top - top.bottom); })()"
     assert p.evaluate(gap) < 4
     p.add_style_tag(content="header.toolbar { padding-bottom: 40px; }")
     p.wait_for_timeout(500)
@@ -1106,7 +1079,7 @@ def test_add_spy_far_left_turns_two_over_four_into_two_over_five(tab):
     p = tab.goto("/Internals", 3000)
     assert app_state(p, "a.layout") == "2/4"
     layout_action(p, 2, "chart-left")                                       # left of VOLD-NYSE: the bottom row's far left
-    assert p.evaluate("document.activeElement === window.__chartApp.cells[2].symIn")    # type the symbol straight away
+    assert p.evaluate("document.activeElement === window.__intraday.chart.cells[2].symIn")    # type the symbol straight away
     p.keyboard.type("SPY")
     p.keyboard.press("Enter")
     wait_state(p, "a.cells[2].symbol === 'SPY' && a.cells[2].view")
@@ -1201,23 +1174,6 @@ def test_symbol_links_are_colour_groups_across_charts_and_watch_lists(tab):
     assert app_state(p, "a.cells[1].link") == "" and app_state(p, "a.cells[0].link") == "red"
 
 
-def test_a_watch_list_saved_linked_to_one_chart_gets_a_colour_group(tab):
-    """Earlier versions linked a watch list to one chart by its id: both get the first free colour."""
-    p = tab.goto("/QQQs", 1500)
-    key = p.evaluate("Object.keys(localStorage).find((k) => JSON.parse(localStorage.getItem(k) || 'null')?.configs)")
-    p.evaluate("""(key) => {
-      const s = JSON.parse(localStorage.getItem(key));
-      s.layout = "2";
-      s.configs = [{ id: "c1", symbol: "SPY", tf: 3, days: 1, studies: [] },
-                   { kind: "watchlist", id: "w1", symbols: ["QQQ", "SPY"], list: "", link: "c1" }];
-      localStorage.setItem(key, JSON.stringify(s));
-    }""", key)
-    p = tab.goto("/QQQs", 2000)
-    assert app_state(p, "a.cells.map((c) => c.link)") == ["red", "red"]
-    p.locator(".panel.wl tr[data-symbol='QQQ']").click()
-    wait_state(p, "a.cells[0].symbol === 'QQQ'")
-
-
 def col_box(wl, label):
     """A column's checkbox in the watch list's column chooser, by its exact label."""
     return wl.locator("label.wlcol").filter(has_text=re.compile(rf"^\s*{re.escape(label)}$")).locator("input")
@@ -1294,36 +1250,25 @@ def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
 
 
-def test_an_old_watch_list_tab_keeps_its_symbols_until_it_moves_to_a_named_list(tab, data):
-    """A tab saved before named lists becomes one, but only once the lists have loaded: if they can't be, the page
-    says so in the corner and the tab keeps its symbols, however often the layout is saved meanwhile."""
+def test_when_the_watch_lists_cant_load_nothing_is_changed_and_the_page_says_why(tab, data):
+    """The lists failed to load: a note in the corner says why, tabs don't claim their list was deleted, and no
+    new list is made (a new watch list panel is refused) until they load."""
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
     p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
-    key = p.evaluate("Object.keys(localStorage).find((k) => k.includes('layout') && localStorage[k].includes('watchlist'))")
-    p.evaluate("""(key) => {
-        const s = JSON.parse(localStorage[key]);
-        const cell = s.configs.find((c) => c && c.kind === "watchlist");
-        cell.tabs = [{ id: "old1", name: "", list: "", symbols: ["IWM", "DIA"], columns: null }];
-        localStorage[key] = JSON.stringify(s);
-    }""", key)
-    p.route("**/api/saved/watchlists", lambda r: r.fulfill(status=500, body='{"detail": "disk unavailable"}'))
+    p.route("**/api/watchlists", lambda r: r.fulfill(status=500, body='{"detail": "disk unavailable"}'))
     p.reload()
     p.wait_for_selector("#problems .problem")
     assert "Watch lists: disk unavailable" in p.inner_text("#problems")
-    wl = p.locator(".panel.wl")
-    wl.locator("button.wlcolbtn").click()
-    col_box(wl, "Volume").uncheck()                                           # saves the layout meanwhile
-    stored = p.evaluate("(key) => JSON.parse(localStorage[key]).configs.find((c) => c && c.kind === 'watchlist').tabs", key)
-    assert [t.get("symbols") for t in stored] == [["IWM", "DIA"]] and "volume" not in stored[0]["columns"]
+    assert "couldn't be loaded" in p.inner_text(".panel.wl .wlfoot") and "deleted" not in p.inner_text(".panel.wl .wlfoot")
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelector('#toasts')?.innerText.includes(\"couldn't be loaded\")")
+    assert p.locator(".panel.wl").count() == 1
     assert set(json.loads((data / "user" / "config.json").read_text())["watchlists"]) == {"Watch list 1"}
-    p.unroute("**/api/saved/watchlists")
+    p.unroute("**/api/watchlists")
     p.reload()
-    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
-    assert wl_rows(p) == ["IWM", "DIA"] and p.locator("#problems .problem").count() == 0
-    lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
-    assert lists["Watch list 2"]["symbols"] == ["IWM", "DIA"]
-
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 1")
+    assert p.locator("#problems .problem").count() == 0
 
 def test_renaming_moves_a_list_deleting_removes_it_and_columns_drag(tab, data):
     p = tab.goto("/QQQs", 1500)
@@ -1363,7 +1308,7 @@ def test_the_config_page_edits_lists_columns_and_study_defaults(tab, data):
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
     p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
-    p = tab.goto("/config", 1500)
+    p = tab.goto("/config?tab=lists", 1500)
     assert p.locator(".dashsel").input_value() == "\u0000config"
     # watch lists: rename and delete
     row = p.locator("#cfgLists tr[data-name='Watch list 1']")
@@ -1581,7 +1526,7 @@ def test_internals_dashboard(tab):
 
 
 def test_dashboard_from_the_internals_template(tab):
-    p = tab.goto("/dashboards", 1500)
+    p = tab.goto("/config?tab=dashboards", 1500)
     assert "Market internals" in " ".join(p.locator("#newStart option").all_inner_texts())
     p.fill("#newName", "Breadth")
     p.select_option("#newStart", "template:internals")
@@ -1592,7 +1537,7 @@ def test_dashboard_from_the_internals_template(tab):
 
 
 def test_dashboard_from_top_and_bottom_counts(tab):
-    p = tab.goto("/dashboards", 1500)
+    p = tab.goto("/config?tab=dashboards", 1500)
     assert p.locator("#rowsWrap").is_hidden()
     p.fill("#newName", "Wide")
     p.select_option("#newStart", "rows:")
@@ -1683,3 +1628,161 @@ def test_numbers_and_times_are_written_the_same_way_on_every_page(tab):
         "ago": ["45 s ago", "12 min ago", "3 h ago", "never"],
         "other": ["09:30", "0.46", "Fri, Oct 30", ""],
     }
+
+
+def test_a_refresh_keeps_the_legend_watch_list_and_chain_on_screen(tab, data):
+    """Stepping Replay redraws everything, but keeps the elements under the pointer (a legend row and its buttons, a
+    watch list's tabs, headers and rows) and updates them in place, so a click, drag or double-click that spans a
+    refresh still lands. Same for the option chain's rows."""
+    p = tab.goto("/QQQs", 2000)
+    p.evaluate("window.__intraday.chart.panels[0].addStudy('vwap')")
+    wait_state(p, "a.panels[0].view.studies && Object.keys(a.panels[0].view.studies).length === 1")
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length >= 1")
+    p.click("#stepBack")
+    p.wait_for_timeout(1200)
+    keep = """() => { window._kept = ['.panel .leg', '.panel .leg button', '.panel.wl button.wltab', '.panel.wl th',
+                      '.panel.wl tr.wlr'].map((s) => document.querySelector(s)); }"""
+    p.evaluate(keep)
+    last = p.locator(".panel.wl tr.wlr td").nth(1).inner_text()
+    p.click("#stepBack")
+    p.wait_for_function(f"document.querySelectorAll('.panel.wl tr.wlr td')[1].innerText !== {json.dumps(last)}")
+    assert p.evaluate("window._kept.every((e) => e && e.isConnected)")
+    # a double-click spanning a refresh still renames the tab
+    p.locator(".panel.wl button.wltab").dblclick()
+    assert p.locator(".panel.wl input.wltabname").count() == 1
+    p.keyboard.press("Escape")
+    # the option chain: its rows stay while the chain is drawn again
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    wait_oc(p, "o.view && o.view.status === 'ok'")
+    p.evaluate("() => { window._row = document.querySelector('#ocChain tbody tr[data-strike]'); }")
+    p.click("#ocStrip .oc-chip[data-expiry='20261106']")
+    wait_oc(p, "o.state.expiry === '20261106'")
+    p.click("#ocStrip .oc-chip[data-expiry='20261030']")
+    wait_oc(p, "o.state.expiry === '20261030'")
+    assert p.evaluate("window._row.isConnected")
+
+
+def test_the_config_page_makes_and_sets_up_paper_accounts(tab, data):
+    p = tab.goto("/config", 1500)
+    p.click(".cfg-tabs button[data-sec=paper]")
+    assert "No paper accounts yet" in p.inner_text("#cfgPaper")
+    # the defaults for new accounts: $30,000, long only
+    p.fill("#cfgPaperForm [data-key=start_cash]", "30000")
+    p.uncheck("#cfgPaperForm [data-key=shorting]")
+    p.click("#cfgPaperSave")
+    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent.startsWith('Saved the defaults')")
+    p.click("#cfgPaperNew")
+    p.wait_for_selector("#cfgPaper tr[data-name='Paper 1']")
+    row = p.locator("#cfgPaper tr[data-name='Paper 1']")
+    assert "$30,000" in row.inner_text() and "long only" in row.inner_text()
+    assert p.locator("#cfgPaperFor").input_value() == "Paper 1"                # the new account's settings on view
+    # one account's own settings
+    p.fill("#cfgPaperForm [data-key=slippage]", "0.03")
+    p.click("#cfgPaperSave")
+    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent === 'Saved \"Paper 1\".'")
+    acct = json.loads((data / "user" / "config.json").read_text())["paper_accounts"]["Paper 1"]
+    assert acct["settings"]["slippage"] == 0.03 and acct["settings"]["shorting"] is False and acct["start_cash"] == 30000
+    # rename, then delete with two clicks
+    row.locator("button.cfg-rename").click()
+    p.fill("#cfgPaper input.cfg-input", "Morning practice")
+    p.press("#cfgPaper input.cfg-input", "Enter")
+    p.wait_for_selector("#cfgPaper tr[data-name='Morning practice']")
+    row = p.locator("#cfgPaper tr[data-name='Morning practice']")
+    row.locator("button.danger").click()
+    assert row.locator("button.danger").inner_text() == "Delete? Yes"
+    row.locator("button.danger").click()
+    p.wait_for_function("document.querySelector('#cfgPaper').innerText.includes('No paper accounts yet')")
+    p.screenshot(path="/tmp/cfg-paper.png", full_page=True)
+
+
+def test_replay_practice_on_a_chart(tab, data):
+    """A chart trades a paper account in Replay: a market buy fills on the next bar, the position and its line show,
+    and stepping back past the trade asks before removing it."""
+    p = tab.goto("/QQQs", 2000)
+    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+               "body: JSON.stringify({name: 'Practice'})})")
+    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 630;          // 10:30, in the session
+                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
+    wait_state(p, "a.cursor === 630 && a.panels[0].view && a.panels[0].view.cursor === 630")
+    p.locator(".panel").first.locator(".viewsbtn").click()
+    p.wait_for_selector("#savedMenu select.paperacctsel option:nth-child(2)", state="attached")
+    acct = p.evaluate("[...document.querySelectorAll('#savedMenu select.paperacctsel option')].find((o) => o.text.startsWith('Practice')).value")
+    p.select_option("#savedMenu select.paperacctsel", acct)
+    p.keyboard.press("Escape")
+    bar = p.locator(".panel .paperbar")
+    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Flat')")
+    assert app_state(p, "a.panels[0].config().paper") == app_state(p, "a.panels[0].paper") != ""
+    # a market buy of 10: working until the next bar is shown
+    bar.locator("button.paperbuy").click()
+    p.fill(".paperticket input[type=number] >> nth=0", "10")
+    p.click(".paperticket button[type=submit]")
+    p.wait_for_selector(".panel .paperorder.buy")
+    assert "BUY MKT 10" in bar.inner_text()
+    p.click("#stepFwd")
+    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Long 10 @')")
+    assert p.locator(".toast", has_text="Paper Practice: BUY 10").count() == 1
+    assert app_state(p, "a.panels[0].toolState.paper.length") == 1                    # the average-price line
+    # step back past the trade: it asks; Remove takes it out
+    p.click("#stepBack")
+    p.click("#stepBack")
+    p.wait_for_selector(".toast .toastbtn:has-text('Remove')")
+    assert bar.locator("button.paperbuy").is_disabled()                                # not until it's settled
+    p.locator(".toast .toastbtn:has-text('Remove')").click()
+    p.wait_for_function("!document.querySelector('.panel .paperbar button.paperbuy').disabled")
+    assert "Flat" in bar.inner_text()
+    assert not bar.locator("button.paperbuy").is_disabled() and bar.locator(".paperorder").count() == 0
+    p.screenshot(path="/tmp/practice.png")
+    # off again
+    p.locator(".panel").first.locator(".viewsbtn").click()
+    p.wait_for_selector("#savedMenu select.paperacctsel")
+    p.select_option("#savedMenu select.paperacctsel", "")
+    assert bar.is_hidden()
+
+
+def test_the_paper_page_writes_a_rule_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
+    p = tab.goto("/paper", 1500)
+    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+               "body: JSON.stringify({name: 'Tests', start_cash: 100000})})")
+    days = [d for s in p.evaluate("fetch('/api/meta').then((r) => r.json())")["symbols"] if s["symbol"] == "QQQ" for d in s["days"]]
+    p = tab.goto("/paper", 1500)
+    assert p.locator(".dashsel").input_value() == "\u0000paper"
+    assert "No trades yet" in p.inner_text("#ppTrades")
+    # a rule: long when the close crosses above VWAP, $0.50 stop, $1 target, 10 shares
+    p.click(".cfg-tabs button[data-sec=rules]")
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('entry conditions')")   # none yet: refused
+    p.locator("#ppRuleForm button.pp-add").first.click()
+    shares = p.locator("#ppRuleForm .pp-row", has_text="Shares").locator("input")
+    shares.fill("10")
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent === 'Saved \"Rule 1\".'")
+    rules = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
+    r = rules["Rule 1"]["rule"]
+    assert r["qty"] == 10 and r["long"][0]["op"] == "crosses_above" and r["long"][0]["b"]["study"]["type"] == "vwap"
+    # backtest it over the cached days, and save the trades into the account
+    p.click(".cfg-tabs button[data-sec=backtests]")
+    p.fill("#ppRunSymbol", "QQQ")
+    p.fill("#ppRunFrom", min(days))
+    p.fill("#ppRunTo", max(days))
+    p.check("#ppRunSkip")
+    p.fill("#ppRunBase", "1")
+    p.click("#ppRun button[type=submit]")
+    p.wait_for_selector("#ppReport .pp-stats", timeout=120000)
+    assert "Random entries (1 runs)" in p.inner_text("#ppReport") and p.locator("#ppReport .pp-trades tr").count() > 1
+    p.select_option("#ppReport select", "Tests")
+    p.click("#ppReport button.pp-save")
+    p.wait_for_function("document.querySelector('#ppRunMsg').textContent.startsWith('Saved')")
+    # the trades, and one opened on a chart in the account
+    p.click(".cfg-tabs button[data-sec=trades]")
+    p.wait_for_selector("#ppTrades tr[data-key]")
+    assert p.locator("#ppEquity canvas").count() > 0
+    p.locator("#ppTrades tr[data-key] input.pp-note").first.fill("Testing the notes")
+    p.locator("#ppTrades tr[data-key] input.pp-note").first.press("Tab")
+    p.wait_for_function("document.querySelector('#cfgStatus').textContent === 'Note saved.'")
+    href = p.locator("#ppTrades a.pp-open").first.get_attribute("href")
+    p.screenshot(path="/tmp/paper-page.png", full_page=True)
+    p = tab.goto(href, 2500)
+    wait_state(p, "a.panels[0].paperView && a.panels[0].paperView.fills.length > 0")
+    assert app_state(p, "a.panels[0].symbol") == "QQQ" and "Tests" in p.inner_text(".panel .paperbar")
+    assert "?" not in p.url                                                     # the address is tidied

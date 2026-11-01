@@ -9,6 +9,8 @@ import { btn, el } from "./util.js";
 import { parseTf, rangesFor, timeframeList } from "./timeframes.js";
 import { PriceTypes as PT } from "./pricetypes.js";
 
+const REPO = "https://github.com/ralphsplace/intraday-charts";
+
 // builds the header and chart area of a Panel (mixed into Panel)
 export class PanelHeader {
   buildDom() {
@@ -56,9 +58,10 @@ export class PanelHeader {
     const wrap = el("div", "pchart");
     this.chartEl = el("div", "chart"); this.overlay = el("div", "overlay"); this.legends = el("div", "legends");
     this.msg = el("div", "pmsg"); this.msg.hidden = true;
-    // TODO: make the "RP" brand mark a link to the project's git repository once it exists
-    wrap.append(this.chartEl, this.overlay, this.legends, this.msg, el("div", "brand", "RP"));
-    root.append(head, wrap);
+    const brand = el("a", "brand", "RP");                 // the project's repository, in a new tab
+    Object.assign(brand, { href: REPO, target: "_blank", rel: "noopener", title: "intraday-charts on GitHub" });
+    wrap.append(this.chartEl, this.overlay, this.legends, this.msg, brand);
+    root.append(head, this.buildPaper(), wrap);
   }
 
   // the range menu's choices for the current duration

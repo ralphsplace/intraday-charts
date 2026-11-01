@@ -1,5 +1,6 @@
 /* Starts the expected-move page (/expected-move?symbols=AMZN,LLY&date=2026-10-30): shows what's cached, asks the
    TWS collector for fresh option quotes when they're missing or stale (or on Refresh), and waits for them. */
+import { expose } from "../debug.js";
 import { EXPECTED_MOVE_KEY } from "../keys.js";
 import { $, api, keepScroll, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 import { renderCards, renderSummary } from "./render.js";
@@ -85,4 +86,4 @@ $("emDate").value = startDate;
 if (startSyms.length) show(startSyms, startDate);
 else message("Type one or more stock symbols (e.g. AMZN LLY MA), pick the date the expiry should be on or after, and press Show.");
 
-window.__expectedMove = { get current() { return current; } };   // for the browser tests
+expose("expectedMove", { get current() { return current; } });   // for the browser tests (debug.js)

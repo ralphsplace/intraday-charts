@@ -6,12 +6,19 @@ import { buildGrid, gridSizes, setActive, showLayout } from "./grid.js";
 import { addCell, cantAdd, removeCell } from "./layout-edit.js";
 import { toast, toastAction } from "./notify.js";
 import { applyLayout, closeMenu, layoutSnapshot } from "./saved.js";
+import * as lists from "./lists.js";
 import { app, isWatchlist, newConfig, save } from "./state.js";
 import { btn, clone, el, uid } from "./util.js";
+import { tabConfig } from "./watch-tab.js";
 
-// a new watch list starts with the symbols on screen, unlinked: it drives the active chart (links.js)
-export function newWatchlistConfig() {
-  return { kind: "watchlist", id: uid(), symbols: [...new Set(app.panels.map((p) => p.symbol))], list: "", link: "" };
+// a new watch list panel shows a new named list ("Watch list N") of the symbols on screen; unlinked, it drives the
+// active chart (links.js). null (and a message) when the list can't be made.
+async function newWatchlistConfig() {
+  if (app.listsUnknown) { toast("The watch lists couldn't be loaded: see the note in the corner.", true); return null; }
+  try {
+    const r = await lists.create("symbols", { symbols: [...new Set(app.panels.map((p) => p.symbol))] });
+    return { kind: "watchlist", id: uid(), link: "", tabs: [tabConfig(r.name, r.item.id)] };
+  } catch (e) { toast(e.message, true); return null; }
 }
 
 // a new chart is a copy of the chart it was added from (same duration, range, price type and studies)
@@ -31,10 +38,12 @@ function apply(r) {
   save();
 }
 
-export function addNext(cell, where, kind) {
+export async function addNext(cell, where, kind) {
   save();
+  const cfg = kind === "watchlist" ? await newWatchlistConfig() : copyOf(cell);
+  if (!cfg) return null;
   const i = app.cells.indexOf(cell);
-  const cfg = kind === "watchlist" ? newWatchlistConfig() : copyOf(cell);
+  if (i < 0) return null;                                  // removed while the list was being made
   const r = addCell({ layout: app.layout, configs: app.configs, sizes: gridSizes() }, i, where, cfg);
   if (r.error) { toast(r.error, true); return null; }
   apply(r);

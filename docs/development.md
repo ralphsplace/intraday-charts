@@ -84,16 +84,33 @@ app/indicators.py       indicator maths (SMA/EMA/WMA, RSI, MACD, Bollinger, ATR,
 app/studies/base.py     the study interface: @study, settings, plots, run_study, catalog
 app/studies/outputs.py  what a study may return; every result is checked against it
 app/studies/*.py        one module per family: overlays, volume, profiles, oscillators, levels, internals
-app/server.py           web server: the pages (/, /<dashboard>, /dashboards) and the /api endpoints
+app/server.py           web server: builds the app from app/api/, the startup check, home-network-only access
+app/api/                the endpoints, one module per area of the app, each with its own APIRouter:
+  common.py             shared checks of symbols, dates and expiries; the deployment config file
+  charts.py             meta, fetch and live requests, collector status, study catalog, the chart view
+  watch.py              watch list rows and columns, study values, Holdings, FinViz sources, named lists
+  saved.py              saved views, layouts and structures
+  config.py             the Config page: study defaults, each list kind's default columns
+  dashboards.py         create, rename, change, delete, default dashboard
+  earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
+  paper.py              paper accounts, practice sessions, rules, backtests, trades and notes
+  pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
 app/sessions.py         US trading days and holidays
-app/saved.py            saved chart views, layouts, watchlists and option structures (data/user/)
+app/saved.py            saved chart views, layouts and option structures (data/user/)
+app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
+app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
+app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
+app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
+app/paper/rules.py      rules as data: checked, evaluated bar by bar at the close; refuses studies that repaint
+app/paper/backtest.py   a rule over many days with the paper engine; trades, stats, the random baseline
+app/paper/jobs.py       backtests as background runs, followed by id (progress and results in files)
+app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks
-app/envcheck.py         the startup environment check (Dashboards page)
-app/static/dashboards.html  the dashboards page (/dashboards)
+app/envcheck.py         the startup environment check (Config, Dashboards)
 app/static/dash.js      the dashboard drop-down on every page
 app/templates.py        built-in starting layouts for dashboards (Market internals)
 app/earnings.py         earnings view: reports, reaction days, the % windows (no network)
@@ -123,21 +140,29 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   study-layers.js       draws a chart's studies by running the output modules' hooks
   outputs/              one module per kind of study output (lines, levels, profile, box, event lines, ...)
   legends.js            the legend on each pane, with Settings / Hide / Remove
+                        (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
+  paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
+  paper/                the Paper page: main.js (sections), trades.js, rules.js (the rule form), backtests.js, equity.js
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)
   styles.js             line types, dash patterns, colours
   params.js             settings parameters (the shape the settings dialog takes)
-  keys.js               this browser's storage keys (also used by the dashboards page)
+  keys.js               this browser's storage keys (also used by config/dashboards.js)
   pricetypes.js         price types: candles, Heikin-Ashi, OHLC bars, line, area, current price line
   primitives.js         canvas drawings: volume profile, extended-hours shading, zones, fills between lines, trend lines
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
-  watchlist.js          the watch list cell: tabs, the table, the column chooser, picking a row
+  watchlist.js          the watch list cell: its tabs and link group, picking a row; built from the parts below
+  watchlist-tabs.js     its tabs and list menu: show, add, close, rename; pick, make or delete a list
+  watchlist-columns.js  its column chooser, with heat shading
+  watchlist-table.js    its table and footer: rows, sorting, dragging a column, the selected row
+  watchlist-editor.js   its editor: a list's symbols, or a FinViz address
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
-  config/               the Config page: watch lists, watch list columns, study defaults
+  config/               the Config page: dashboards and the environment check, watch lists, watch list
+                        columns, study defaults, paper accounts
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
@@ -150,7 +175,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   dialogs/              the Studies, settings and Load data dialogs, and opening/closing dialogs
 app/static/vendor/      TradingView Lightweight Charts 5.2.1 (Apache 2.0), bundled for offline use. Its logo on the
                         charts is replaced by "RP" (to do: link it to the git repository once it exists); the library is
-                        credited on the /dashboards page and in [Licence and thanks](about.md)
+                        credited in Config, Dashboards, and in [Licence and thanks](about.md)
 tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history and live streaming (read-only)
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT
