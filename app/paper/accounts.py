@@ -115,13 +115,15 @@ def _since_reset(h: dict) -> list[dict]:
 def balance(item: dict) -> float:
     """Starting cash plus every session's result since the last reset (open sessions at their cash)."""
     h = history(item)
-    return round(item["start_cash"] + sum(s["state"]["cash"] - s["state"]["start_cash"] for s in _since_reset(h)), 2)
+    return round(item["start_cash"] + sum(s["state"]["cash"] - s["state"]["start_cash"] for s in _since_reset(h)
+                                          if s.get("state")), 2)
 
 
 def reset(name: str) -> dict:
     """Back to the starting cash; the sessions before stay in the history, marked by the reset."""
     _, item = find(name)
     with editing_history(item) as h:
-        h.setdefault("sessions", [])
         h.setdefault("resets", []).append({"at": time.time(), "balance": balance(item)})
+        for s in h.setdefault("sessions", []):
+            s["archived"] = True                               # a session after the reset starts afresh
     return item

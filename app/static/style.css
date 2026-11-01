@@ -535,3 +535,29 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
 .bad { color: var(--bear); }
 .wltable th.dropto { box-shadow: inset 2px 0 0 var(--teal); }
 .wltable th[draggable=true] { cursor: grab; }
+
+/* ---------------------------------------------------------------- paper practice on a chart (paper-practice.js) */
+.paperbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 3px 8px; font-size: 12px;
+  border-bottom: 1px solid var(--line); background: #10151b; }
+.paperbar .papertag { color: var(--amber); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.paperinfo { display: inline-flex; gap: 10px; align-items: baseline; }
+.paperinfo .paperacct { font-weight: 600; }
+.paperinfo .up { color: var(--bull); } .paperinfo .down { color: var(--bear); }
+.paperorders { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.paperorder { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px 0 6px; border-radius: 9px; font-size: 11px;
+  border: 1px solid var(--line); }
+.paperorder.buy { border-color: #1f5f58; color: #b8efe7; } .paperorder.sell { border-color: #6b2a2a; color: #ffc4c4; }
+.paperorder .paperx { padding: 0 5px; font-size: 11px; line-height: 15px; border: none; background: none; }
+.paperbar button.paperbuy { border-color: var(--bull); } .paperbar button.papersell { border-color: var(--bear); }
+.paperbar button { padding: 1px 9px; font-size: 12px; }
+.paperticket { position: absolute; z-index: 30; display: grid; grid-template-columns: auto; gap: 6px; padding: 10px 12px;
+  background: var(--panel); border: 1px solid #3a4552; border-radius: 8px; box-shadow: 0 8px 26px rgba(0,0,0,.55);
+  font-size: 12px; min-width: 230px; }
+.paperticket label { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; }
+.paperticket label[hidden] { display: none; }
+.paperticket label.papercheck { display: flex; gap: 6px; }
+.paperticket b.buy { color: var(--bull); } .paperticket b.sell { color: var(--bear); }
+.paperticket input, .paperticket select { background: #0f1318; color: var(--text); border: 1px solid var(--line);
+  border-radius: 5px; padding: 3px 6px; color-scheme: dark; }
+.mpaper { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.mpaper a { color: #8cc4ff; }

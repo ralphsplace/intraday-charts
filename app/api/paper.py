@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts
+from ..paper import accounts, engine, practice
+from .common import one_symbol, valid_date
 
 router = APIRouter()
 
@@ -24,6 +25,8 @@ class RenameBody(BaseModel):
 def _call(fn, *a):
     try:
         return fn(*a)
+    except engine.PaperError as e:                         # an order the account can't take: say why
+        raise HTTPException(409, str(e)) from None
     except KeyError as e:
         raise HTTPException(404, str(e.args[0])) from None
     except ValueError as e:
@@ -87,3 +90,47 @@ def paper_defaults_reset():
     with app_config.editing() as cfg:
         cfg.setdefault("paper", {}).pop("defaults", None)
     return accounts.defaults()
+
+
+# ---------------------------------------------------------------- Replay practice (app/paper/practice.py)
+class PracticeBody(BaseModel):
+    account: str = Field(max_length=200)
+    symbol: str
+    day: str
+    cursor: int = Field(ge=0, le=24 * 60)
+
+
+class OrderBody(PracticeBody):
+    kind: str = "order"                     # order | bracket | cancel | modify | flatten
+    order: dict | None = None               # order, bracket: the order (the bracket's entry)
+    stop: dict | None = None                # bracket: {"price"} or {"trail": {"amount" | "pct"}}
+    target: dict | None = None              # bracket: {"price"}
+    id: int | None = None                   # cancel, modify: the order
+    changes: dict | None = None             # modify
+
+
+def _where(req: PracticeBody) -> tuple:
+    return req.account, one_symbol(req.symbol, demo_ok=True), valid_date(req.day), req.cursor
+
+
+@router.post("/api/paper/practice")
+def paper_practice(req: PracticeBody):
+    """The account's practice session for this symbol and day, at the replay cursor."""
+    return _call(practice.view, *_where(req))
+
+
+@router.post("/api/paper/practice/act")
+def paper_practice_act(req: OrderBody):
+    """Place, change or cancel an order, or flatten, at the replay cursor. Simulated: never sent to the broker."""
+    if req.kind not in ("order", "bracket", "cancel", "modify", "flatten"):
+        raise HTTPException(400, "kind must be order, bracket, cancel, modify or flatten")
+    action = {"kind": req.kind, **({"order": req.order} if req.order else {}), **({"stop": req.stop} if req.stop else {}),
+              **({"target": req.target} if req.target else {}), **({"id": req.id} if req.id is not None else {}),
+              **({"changes": req.changes} if req.changes else {})}
+    return _call(practice.act, *_where(req), action)
+
+
+@router.post("/api/paper/practice/rewind")
+def paper_practice_rewind(req: PracticeBody):
+    """The replay stepped back: drop what was done after the cursor (the page asks first)."""
+    return _call(practice.rewind, *_where(req))

@@ -1694,3 +1694,47 @@ def test_the_config_page_makes_and_sets_up_paper_accounts(tab, data):
     row.locator("button.danger").click()
     p.wait_for_function("document.querySelector('#cfgPaper').innerText.includes('No paper accounts yet')")
     p.screenshot(path="/tmp/cfg-paper.png", full_page=True)
+
+
+def test_replay_practice_on_a_chart(tab, data):
+    """A chart trades a paper account in Replay: a market buy fills on the next bar, the position and its line show,
+    and stepping back past the trade asks before removing it."""
+    p = tab.goto("/QQQs", 2000)
+    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+               "body: JSON.stringify({name: 'Practice'})})")
+    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 630;          // 10:30, in the session
+                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
+    wait_state(p, "a.cursor === 630 && a.panels[0].view && a.panels[0].view.cursor === 630")
+    p.locator(".panel").first.locator(".viewsbtn").click()
+    p.wait_for_selector("#savedMenu select.paperacctsel option:nth-child(2)", state="attached")
+    acct = p.evaluate("[...document.querySelectorAll('#savedMenu select.paperacctsel option')].find((o) => o.text.startsWith('Practice')).value")
+    p.select_option("#savedMenu select.paperacctsel", acct)
+    p.keyboard.press("Escape")
+    bar = p.locator(".panel .paperbar")
+    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Flat')")
+    assert app_state(p, "a.panels[0].config().paper") == app_state(p, "a.panels[0].paper") != ""
+    # a market buy of 10: working until the next bar is shown
+    bar.locator("button.paperbuy").click()
+    p.fill(".paperticket input[type=number] >> nth=0", "10")
+    p.click(".paperticket button[type=submit]")
+    p.wait_for_selector(".panel .paperorder.buy")
+    assert "BUY MKT 10" in bar.inner_text()
+    p.click("#stepFwd")
+    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Long 10 @')")
+    assert p.locator(".toast", has_text="Paper Practice: BUY 10").count() == 1
+    assert app_state(p, "a.panels[0].toolState.paper.length") == 1                    # the average-price line
+    # step back past the trade: it asks; Remove takes it out
+    p.click("#stepBack")
+    p.click("#stepBack")
+    p.wait_for_selector(".toast .toastbtn:has-text('Remove')")
+    assert bar.locator("button.paperbuy").is_disabled()                                # not until it's settled
+    p.locator(".toast .toastbtn:has-text('Remove')").click()
+    p.wait_for_function("!document.querySelector('.panel .paperbar button.paperbuy').disabled")
+    assert "Flat" in bar.inner_text()
+    assert not bar.locator("button.paperbuy").is_disabled() and bar.locator(".paperorder").count() == 0
+    p.screenshot(path="/tmp/practice.png")
+    # off again
+    p.locator(".panel").first.locator(".viewsbtn").click()
+    p.wait_for_selector("#savedMenu select.paperacctsel")
+    p.select_option("#savedMenu select.paperacctsel", "")
+    assert bar.is_hidden()
