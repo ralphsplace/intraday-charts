@@ -4,7 +4,7 @@
 import * as lists from "./lists.js";
 import { toast, toastAction } from "./notify.js";
 import { app, save } from "./state.js";
-import { btn, el, inUse } from "./util.js";
+import { btn, el, inUse, morph } from "./util.js";
 import { tabConfig } from "./watch-tab.js";
 
 export const MAX_TABS = 12;
@@ -14,23 +14,25 @@ const NEW_SYMBOLS = "@new", NEW_FINVIZ = "@new-finviz", NEW_HOLDINGS = "@new-hol
 export class WatchListTabs {
   renderTabs() {
     if (this.tabBar.querySelector("input")) return;                  // a tab being renamed
-    this.tabBar.innerHTML = "";
+    const bar = el("div");                                           // drawn fresh, moved onto the live bar (morph)
     this.tabs.forEach((t, i) => {
       const b = btn(t.label(), () => this.showTab(i), null, "wltab" + (i === this.at ? " on" : ""));
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", i === this.at ? "true" : "false");
       b.title = i === this.at ? "Double-click to rename" : `Show ${t.label()}`;
-      b.ondblclick = () => this.rename(i, b);
-      this.tabBar.appendChild(b);
+      b.dataset.key = t.id;
+      b.ondblclick = (e) => this.rename(i, e.currentTarget);
+      bar.appendChild(b);
       if (i === this.at && this.tabs.length > 1) {
         const x = btn("×", () => this.closeTab(i), `Close the ${t.label()} tab`, "wltabx");
-        this.tabBar.appendChild(x);
+        bar.appendChild(x);
       }
     });
     if (this.tabs.length < MAX_TABS) {
       const add = btn("+", () => this.addTab(), "Add a tab", "wltabadd");
-      this.tabBar.appendChild(add);
+      bar.appendChild(add);
     }
+    morph(this.tabBar, bar);
   }
 
   showTab(i) {

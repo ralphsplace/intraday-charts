@@ -1,7 +1,7 @@
 /* The expiry strip and the chain table for one expiry. Clicking a bid adds a sold leg, an ask a bought one.
    Data: /api/options/chain. */
 import { fixed, pct as fmtPct } from "../format.js";
-import { el } from "../util.js";
+import { el, morph } from "../util.js";
 
 const num = fixed;
 const pct = (x) => fmtPct(x == null ? x : x * 100);                  // implied volatility comes as a fraction
@@ -29,8 +29,9 @@ export function renderStrip(box, view, state, pick) {
 // a leg in this expiry at this strike and right: its quantity (sold < 0 < bought), or 0
 const legQty = (legs, e, k, r) => legs.filter((l) => l.expiry === e && l.strike === k && l.right === r).reduce((a, l) => a + l.qty, 0);
 
-export function renderChain(table, view, legs, click) {
-  table.innerHTML = "";
+// drawn into a fresh table and moved onto the live one (morph), so a refresh keeps the rows on screen
+export function renderChain(live, view, legs, click) {
+  const table = el("table");
   const head = el("thead");
   const h1 = el("tr");
   for (const [text, span] of [["Calls", 4], ["", 1], ["Puts", 4]]) { const th = el("th", "oc-side-h", text); th.colSpan = span; h1.appendChild(th); }
@@ -59,7 +60,7 @@ export function renderChain(table, view, legs, click) {
         td.tabIndex = 0;
         td.title = `${side === "bid" ? "Sell" : "Buy"} 1 ${view.expiry_label} ${r.strike} ${right === "C" ? "call" : "put"}`;
         td.onclick = () => click(r.strike, right, side === "bid" ? -1 : 1);
-        td.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); td.click(); } };
+        td.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.click(); } };
       }
     };
     const itmC = r.strike < price ? " oc-itm" : "", itmP = r.strike > price ? " oc-itm" : "";
@@ -72,6 +73,7 @@ export function renderChain(table, view, legs, click) {
     body.appendChild(tr);
   }
   table.append(head, body);
+  morph(live, table);
 }
 
 const nearestTo = (rows, x) => rows.reduce((b, r) => (Math.abs(r.strike - x) < Math.abs(b - x) ? r.strike : b), rows[0].strike);

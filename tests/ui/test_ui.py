@@ -438,7 +438,8 @@ def test_drawing_tools_alert_trend_and_settings(tab):
     row.locator("button", has_text="Re-arm").click()
     p.wait_for_timeout(300)
     assert "triggered" not in drawn()[0]
-    # a drawing's settings come from its tool
+    # a drawing's settings come from its tool (move off the first row first: its buttons stay open under the pointer)
+    p.mouse.move(5, 5)
     row = panel.locator(".leg.drawing").nth(1)
     row.hover()
     row.locator("button", has_text="Settings").click()
@@ -1627,3 +1628,36 @@ def test_numbers_and_times_are_written_the_same_way_on_every_page(tab):
         "ago": ["45 s ago", "12 min ago", "3 h ago", "never"],
         "other": ["09:30", "0.46", "Fri, Oct 30", ""],
     }
+
+
+def test_a_refresh_keeps_the_legend_watch_list_and_chain_on_screen(tab, data):
+    """Stepping Replay redraws everything, but keeps the elements under the pointer (a legend row and its buttons, a
+    watch list's tabs, headers and rows) and updates them in place, so a click, drag or double-click that spans a
+    refresh still lands. Same for the option chain's rows."""
+    p = tab.goto("/QQQs", 2000)
+    p.evaluate("window.__intraday.chart.panels[0].addStudy('vwap')")
+    wait_state(p, "a.panels[0].view.studies && Object.keys(a.panels[0].view.studies).length === 1")
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length >= 1")
+    p.click("#stepBack")
+    p.wait_for_timeout(1200)
+    keep = """() => { window._kept = ['.panel .leg', '.panel .leg button', '.panel.wl button.wltab', '.panel.wl th',
+                      '.panel.wl tr.wlr'].map((s) => document.querySelector(s)); }"""
+    p.evaluate(keep)
+    last = p.locator(".panel.wl tr.wlr td").nth(1).inner_text()
+    p.click("#stepBack")
+    p.wait_for_function(f"document.querySelectorAll('.panel.wl tr.wlr td')[1].innerText !== {json.dumps(last)}")
+    assert p.evaluate("window._kept.every((e) => e && e.isConnected)")
+    # a double-click spanning a refresh still renames the tab
+    p.locator(".panel.wl button.wltab").dblclick()
+    assert p.locator(".panel.wl input.wltabname").count() == 1
+    p.keyboard.press("Escape")
+    # the option chain: its rows stay while the chain is drawn again
+    p = tab.goto("/options?symbol=ACME-DEMO", 2000)
+    wait_oc(p, "o.view && o.view.status === 'ok'")
+    p.evaluate("() => { window._row = document.querySelector('#ocChain tbody tr[data-strike]'); }")
+    p.click("#ocStrip .oc-chip[data-expiry='20261106']")
+    wait_oc(p, "o.state.expiry === '20261106'")
+    p.click("#ocStrip .oc-chip[data-expiry='20261030']")
+    wait_oc(p, "o.state.expiry === '20261030'")
+    assert p.evaluate("window._row.isConnected")
