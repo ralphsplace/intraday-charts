@@ -9,7 +9,7 @@ import re
 
 OWN = ("/static/dash.js",)
 OWN_DIRS = ("/static/js/",)     # the chart page's modules
-INLINE_PAGES = ("/dashboards",)     # pages whose own <script> is measured
+INLINE_PAGES = ()     # pages whose own <script> is measured (none now: every page loads modules)
 
 
 class Coverage:

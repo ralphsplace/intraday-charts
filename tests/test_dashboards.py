@@ -22,9 +22,11 @@ def test_seeded_dashboard_and_addresses(client):
     assert root.status_code == 200 and "window.DASHBOARD" in root.text and '"name": "QQQs"' in root.text
     assert 'id="grid"' in root.text                              # the chart page
     assert 'id="grid"' in client.get("/qqqs").text               # any letter case
-    assert "Create a dashboard" in client.get("/dashboards").text
+    assert "Create a dashboard" in client.get("/config").text      # managed on the Config page
+    moved = client.get("/dashboards", follow_redirects=False)
+    assert moved.status_code == 307 and moved.headers["location"] == "/config?tab=dashboards"
     missing = client.get("/NoSuchBoard")
-    assert missing.status_code == 404 and "/dashboards" in missing.text
+    assert missing.status_code == 404 and "/config?tab=dashboards" in missing.text
     assert client.get("/static/dash.js").status_code == 200
 
 
@@ -120,7 +122,7 @@ def test_pages_ask_for_this_versions_scripts(client):
     """A browser mustn't run yesterday's scripts with today's page after an update (Firefox kept old copies)."""
     from app import server
     v = server.STATIC_VERSION
-    for page in ("/", "/Internals", "/dashboards", "/earnings"):
+    for page in ("/", "/Internals", "/config", "/earnings"):
         r = client.get(page)
         assert r.headers["cache-control"] == "no-store"
         assert r.text.count('"/static/') == r.text.count(f'"/static/{v}/') > 0, page   # every file, versioned

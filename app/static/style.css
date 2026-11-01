@@ -197,42 +197,38 @@ input[type=date] { width: 170px; }
 .dashnav a.envwarn { font-size: 11px; font-weight: 600; color: #f3d48a; background: #3a2f12; border-radius: 9px;
   padding: 1px 8px; text-decoration: none; white-space: nowrap; }
 
-/* ---------------------------------------------------------------- dashboards page (/dashboards) */
-body.manage { overflow: auto; height: auto; min-height: 100vh; }
-body.manage .wrap { max-width: 980px; width: 100%; margin: 0 auto; padding: 16px; }
-body.manage h1 { font-size: 20px; margin: 4px 0 4px; }
-body.manage h2 { font-size: 15px; margin: 26px 0 8px; }
-body.manage table.dash { width: 100%; border-collapse: collapse; }
-body.manage table.dash th, body.manage table.dash td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-body.manage table.dash th { color: var(--muted); font-weight: 500; font-size: 12px; }
-body.manage table.dash a { color: #8cc4ff; text-decoration: none; font-weight: 600; }
-body.manage table.dash a:hover { text-decoration: underline; }
-body.manage .addr { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
-body.manage .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-body.manage .acts button { padding: 3px 9px; font-size: 12px; }
-body.manage button.danger { border-color: #7a2e2e; color: #ffb4b4; }
-body.manage .badge { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #1f3b37; border: 1px solid var(--teal); color: #c9fff3; }
-body.manage form.create { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end;
+/* ---------------------------------------------------------------- the Config page's Dashboards section */
+.manage table.dash { width: 100%; border-collapse: collapse; }
+.manage table.dash th, .manage table.dash td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.manage table.dash th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.manage table.dash a { color: #8cc4ff; text-decoration: none; font-weight: 600; }
+.manage table.dash a:hover { text-decoration: underline; }
+.manage .addr { color: var(--muted); font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.manage .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.manage .acts button { padding: 3px 9px; font-size: 12px; }
+.manage button.danger { border-color: #7a2e2e; color: #ffb4b4; }
+.manage .badge { font-size: 11px; padding: 1px 7px; border-radius: 9px; background: #1f3b37; border: 1px solid var(--teal); color: #c9fff3; }
+.manage form.create { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
-body.manage form.create label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-body.manage form.create input, body.manage form.create select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
-body.manage form.create .rows { display: flex; gap: 8px; }
-body.manage form.create .rows label { flex: 1; }
-body.manage form.create .rows input { width: 100%; box-sizing: border-box; }
-body.manage .msg { min-height: 20px; margin-top: 8px; font-size: 13px; }
-body.manage .msg.err { color: var(--bear); }
-body.manage .msg.ok { color: var(--teal); }
-body.manage input.rename { width: 160px; background: var(--bg); border: 1px solid var(--teal); border-radius: 6px; padding: 3px 6px; }
-body.manage .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
-body.manage .env { display: grid; grid-template-columns: 52px 190px 1fr; gap: 0 10px; }
-body.manage .env > div { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
-body.manage .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 9px; text-align: center; }
-body.manage .pill.ok { background: #1f3b37; color: #c9fff3; }
-body.manage .pill.warn { background: #3a2f12; color: #f3d48a; }
-body.manage .pill.fail { background: #4a1f1f; color: #ffb4b4; }
-body.manage .env .detail { color: var(--muted); }
-body.manage .envhead { display: flex; align-items: baseline; gap: 12px; }
-body.manage .envhead button { padding: 2px 10px; font-size: 12px; }
+.manage form.create label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.manage form.create input, .manage form.create select { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.manage form.create .rows { display: flex; gap: 8px; }
+.manage form.create .rows label { flex: 1; }
+.manage form.create .rows input { width: 100%; box-sizing: border-box; }
+.manage .msg { min-height: 20px; margin-top: 8px; font-size: 13px; }
+.manage .msg.err { color: var(--bear); }
+.manage .msg.ok { color: var(--teal); }
+.manage input.rename { width: 160px; background: var(--bg); border: 1px solid var(--teal); border-radius: 6px; padding: 3px 6px; }
+.manage .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.manage .env { display: grid; grid-template-columns: 52px 190px 1fr; gap: 0 10px; }
+.manage .env > div { padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.manage .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 9px; text-align: center; }
+.manage .pill.ok { background: #1f3b37; color: #c9fff3; }
+.manage .pill.warn { background: #3a2f12; color: #f3d48a; }
+.manage .pill.fail { background: #4a1f1f; color: #ffb4b4; }
+.manage .env .detail { color: var(--muted); }
+.manage .envhead { display: flex; align-items: baseline; gap: 12px; margin-top: 22px; }
+.manage .envhead button { padding: 2px 10px; font-size: 12px; }
 
 /* ---------------------------------------------------------------- brand mark (where the chart library's logo was):
    a link to the project's repository */

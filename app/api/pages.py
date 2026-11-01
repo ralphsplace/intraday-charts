@@ -9,7 +9,7 @@ import os
 import re
 
 from fastapi import APIRouter
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .. import dashboards
@@ -94,7 +94,8 @@ def index():
 
 @router.get("/dashboards")
 def dashboards_page():
-    return _page("dashboards.html")
+    """The dashboards are managed on the Config page now; old links and bookmarks land there."""
+    return RedirectResponse("/config?tab=dashboards", status_code=307)
 
 
 @router.get("/{name}")
@@ -104,6 +105,6 @@ def dashboard_page(name: str):
         return HTMLResponse(f"""<!doctype html><meta charset="utf-8"><title>No such dashboard</title>
 <body style="font:15px system-ui;background:#0b0d10;color:#e3e6ea;padding:40px">
 <p>There is no dashboard called <b>{html.escape(name)}</b>.</p>
-<p><a style="color:#7fb8ff" href="/dashboards">Manage dashboards</a> · <a style="color:#7fb8ff" href="/">Default dashboard</a></p>""",
+<p><a style="color:#7fb8ff" href="/config?tab=dashboards">Manage dashboards</a> · <a style="color:#7fb8ff" href="/">Default dashboard</a></p>""",
                             status_code=404)
     return _page(PAGES[d["type"]], d)

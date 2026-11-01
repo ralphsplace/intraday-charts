@@ -1,66 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboards</title>
-<link rel="stylesheet" href="/static/style.css">
-</head>
-<body class="manage">
-<header class="toolbar">
-  <div class="group"><span id="dashNav" class="dashnav"></span></div>
-</header>
-<div class="wrap">
-  <h1>Dashboards</h1>
-  <p class="note">Each dashboard has its own address. The default one opens at <span class="addr" id="rootAddr"></span>.</p>
+/* The Config page's Dashboards section (formerly the /dashboards page): every dashboard with its address, make
+   default, rename, duplicate (with this browser's window) and delete; create one from a template, a saved layout
+   or rows of charts; and the environment check. Data: /api/dashboards, /api/environment. */
+import { layoutKey } from "../keys.js";
+import { $, api, el } from "../util.js";
 
-  <table class="dash" aria-label="Dashboards">
-    <thead><tr><th>Name</th><th>Address</th><th></th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div id="msg" class="msg" role="status"></div>
-
-  <h2>Create a dashboard</h2>
-  <form class="create" id="createForm" autocomplete="off">
-    <label>Name <input id="newName" maxlength="40" placeholder="e.g. SPY" required></label>
-    <label id="startWrap">Start from
-      <select id="newStart"><option value="">One QQQ chart, no studies</option>
-        <option value="rows:">Top and bottom rows of charts…</option></select>
-    </label>
-    <div class="rows" id="rowsWrap" hidden>
-      <label>Top charts <input id="newTop" type="number" min="1" max="6" value="2" required></label>
-      <label>Bottom charts <input id="newBottom" type="number" min="1" max="6" value="4" required></label>
-    </div>
-    <button class="primary" type="submit">Create and open</button>
-  </form>
-  <p class="note" id="nameRule"></p>
-  <p class="note">A dashboard keeps its window (charts, studies, sizes) in each browser.
-    "Start from" sets what a browser sees the first time it opens it. Duplicate copies a dashboard's settings, and in this
-    browser its window too.</p>
-  <div class="envhead"><h2 id="environment">Environment check</h2>
-    <button id="recheck" type="button" title="Run the checks again">Check again</button></div>
-  <p class="note">The dashboard has no logins: only devices on your home network can use it, and it only reads from
-    TWS. These checks run when the server starts; a failed one stops it.</p>
-  <div id="env" class="env" role="table" aria-label="Environment check"></div>
-
-  <p class="dash-credit">Charts drawn with <a href="https://www.tradingview.com/lightweight-charts/" target="_blank"
-    rel="noopener">TradingView Lightweight Charts</a> (Apache 2.0).</p>
-</div>
-<script src="/static/dash.js"></script>
-<script type="module">
-import { layoutKey } from "/static/js/keys.js";
-{
-  const $ = (id) => document.getElementById(id);
+export function initDashboards() {
   let data = null, renaming = null, confirming = null;
   const say = (t, ok) => { $("msg").textContent = t || ""; $("msg").className = "msg " + (ok ? "ok" : t ? "err" : ""); };
-  async function api(path, body, method) {
-    const r = await fetch(path, body != null ? { method: method || "POST", headers: { "Content-Type": "application/json" },
-                                                   body: JSON.stringify(body) } : { method: method || "GET" });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.detail || r.statusText);
-    return j;
-  }
-  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
   const button = (text, fn, cls, title) => { const b = el("button", cls, text); b.type = "button"; b.onclick = fn; if (title) b.title = title; return b; };
 
   async function reload() {
@@ -176,6 +122,3 @@ import { layoutKey } from "/static/js/keys.js";
   environment();
   reload().catch((e) => say(e.message));
 }
-</script>
-</body>
-</html>

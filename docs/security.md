@@ -48,7 +48,7 @@ checks that it runs in a secure environment:
     `FINVIZ_TOKEN` is set. It accepts only finviz.com screen and portfolio addresses, rebuilt from their checked
     settings, and the token stays in the collector (the web server is only told that it's set).
   - `tools/market_events.py --gdelt`, when you run it
-  The environment check on the Dashboards page says which are on.
+  The environment check (Config, Dashboards) says which are on.
 
 - **Supply chain.** Dependencies are pinned and checked for known vulnerabilities (`pip-audit`) on every
   push.

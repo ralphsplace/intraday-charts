@@ -23,7 +23,7 @@ Two containers run:
 |---|---|
 | `http://<your-nas>:8050/` | the default dashboard (QQQs to start with) |
 | `http://<your-nas>:8050/QQQs` | a dashboard by name ([Dashboards](dashboards.md)) |
-| `http://<your-nas>:8050/dashboards` | create, rename, duplicate, delete dashboards and pick the default |
+| `http://<your-nas>:8050/config` | the dashboards (create, rename, duplicate, delete, the default), watch lists, column and study defaults, paper accounts |
 | `http://<your-nas>:8050/earnings` | the [Earnings view](earnings.md) |
 | `http://<your-nas>:8050/expected-move` | the [Expected move view](expected-move.md) |
 | `http://<your-nas>:8050/options` | the [Option chain view](option-chain.md) |
