@@ -82,7 +82,7 @@ def test_an_order_at_a_study_level(acct):
 
 def test_refused_orders_say_why(acct):
     practice.view(acct, "QQQ-DEMO", DAY, 600)
-    with pytest.raises(Exception, match="Not enough cash"):
+    with pytest.raises(Exception, match="Not enough buying power"):
         practice.act(acct, "QQQ-DEMO", DAY, 600, {"kind": "order", "order": {"side": "buy", "qty": 100_000, "type": "market"}})
 
 
