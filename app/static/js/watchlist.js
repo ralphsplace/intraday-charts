@@ -12,7 +12,7 @@ import { toast, toastAction } from "./notify.js";
 import { openCellMenu } from "./saved.js";
 import { app, save } from "./state.js";
 import { api, btn, el, inUse, keepScroll, uid } from "./util.js";
-import { MAX_SYMBOLS, WatchTab, legacyTab, tabConfig } from "./watch-tab.js";
+import { MAX_SYMBOLS, WatchTab, tabConfig } from "./watch-tab.js";
 
 export { MAX_SYMBOLS };
 export const MAX_TABS = 12;
@@ -25,22 +25,12 @@ export class WatchList {
     this.index = index;
     this.id = cfg.id || uid();
     this.link = cfg.link || "";                 // link group (links.js); "" drives the active chart
-    const tabs = Array.isArray(cfg.tabs) && cfg.tabs.length ? cfg.tabs : [legacyTab(cfg)];
+    const tabs = Array.isArray(cfg.tabs) && cfg.tabs.length ? cfg.tabs : [tabConfig("", null)];     // no list yet: pick one
     this.tabs = tabs.slice(0, MAX_TABS).map((t) => this.makeTab(t));
     this.at = Math.min(Math.max(0, cfg.tab | 0), this.tabs.length - 1);
     this.selected = null;
     this.buildDom();
     this.tab().start();
-    this.migrate();
-  }
-
-  // tabs saved before watch lists were named and app-wide get a named list each (once)
-  async migrate() {
-    const old = this.tabs.filter((t) => t.legacy);
-    if (!old.length) return;
-    for (const t of old) await t.migrate();
-    if (this.dead) return;
-    save(); this.render(); this.tab().start(); this.refresh();
   }
 
   makeTab(cfg) {

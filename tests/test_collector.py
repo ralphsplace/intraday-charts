@@ -164,19 +164,17 @@ def test_fetch_endpoint_validates_and_queues(cache):
     assert "calendar" in c.get("/api/meta").json()
 
 
-def test_saved_views_layouts_and_watchlists(cache):
+def test_saved_views_and_layouts(cache):
     from app.server import app
     c = TestClient(app, client=("192.168.1.20", 50000))   # a device on the home network
     view = {"symbol": "QQQ", "tf": 3, "days": 2, "studies": [{"type": "vwap"}]}
     assert c.put("/api/saved/views/Opening drive", json=view).status_code == 200
-    assert c.put("/api/saved/watchlists/Zone", json=["QQQ", "SPY"]).status_code == 200
     assert c.get("/api/saved/views").json() == {"Opening drive": view}
     assert c.put("/api/saved/views/a%2Fb", json=view).status_code in (400, 404)
     assert c.put("/api/saved/nope/x", json=view).status_code == 404
     c.delete("/api/saved/views/Opening drive")
     assert c.get("/api/saved/views").json() == {}
-    lists = c.get("/api/saved/watchlists").json()                 # named watch lists, in the application config
-    assert list(lists) == ["Zone"] and lists["Zone"]["symbols"] == ["QQQ", "SPY"] and lists["Zone"]["source"] == "symbols"
+    assert c.get("/api/saved/watchlists").status_code == 404        # watch lists: /api/watchlists (test_watchlists.py)
 
 
 def test_watchlist_parsing():

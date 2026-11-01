@@ -12,6 +12,7 @@ from .common import one_symbol
 
 router = APIRouter()
 
+
 def earnings_lookups_on() -> bool:
     """The collector looks earnings dates up on SEC EDGAR only when SEC_CONTACT is set (.env)."""
     return bool(os.environ.get("SEC_CONTACT", "").strip())

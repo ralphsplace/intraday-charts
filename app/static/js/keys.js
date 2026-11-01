@@ -1,21 +1,5 @@
 /* Where this browser keeps things (localStorage keys). Shared by the chart page and the dashboards page. */
 
-// every key starts with the project's name; the project was called "intraday-chart" before, so a browser's
-// windows, drawings and choices saved under the old name are moved to the new one, once, before anything reads them
-const PREFIX = "intraday-charts.", OLD_PREFIX = "intraday-chart.";
-export function moveOldKeys(storage) {
-  try {
-    const old = [];
-    for (let i = 0; i < storage.length; i++) { const k = storage.key(i); if (k && k.startsWith(OLD_PREFIX)) old.push(k); }
-    for (const k of old) {
-      const k2 = PREFIX + k.slice(OLD_PREFIX.length);
-      if (storage.getItem(k2) === null) storage.setItem(k2, storage.getItem(k));
-      storage.removeItem(k);
-    }
-  } catch (e) { /* storage unavailable (private window): nothing to move */ }
-}
-try { moveOldKeys(window.localStorage); } catch (e) { /* no storage at all */ }
-
 // each dashboard's window (charts, studies, sizes); the original dashboard (id "main") keeps the plain key
 export const LAYOUT_KEY = "intraday-charts.layout.v5";     // v5: the single-chart default; earlier windows aren't carried over
 export const layoutKey = (dashboardId) => (dashboardId === "main" ? LAYOUT_KEY : LAYOUT_KEY + "@" + dashboardId);

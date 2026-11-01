@@ -10,6 +10,7 @@ from .common import clean_symbols, config
 
 router = APIRouter()
 
+
 class StudyRequest(BaseModel):
     uid: str
     type: str

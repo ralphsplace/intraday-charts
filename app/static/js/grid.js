@@ -3,7 +3,7 @@ import { fillDays } from "./data.js";
 import { setTools } from "./drawings.js";
 import { Panel } from "./panel.js";
 import { LAYOUTS, layoutLabel, shape } from "./layouts.js";
-import { migrateLinks, paintAll } from "./links.js";
+import { paintAll } from "./links.js";
 import { app, isWatchlist, newConfig, save } from "./state.js";
 import { WatchList } from "./watchlist.js";
 import { $, el } from "./util.js";
@@ -21,7 +21,6 @@ export function buildGrid() {
   app.cells = []; app.panels = [];
   const sh = shape(app.layout), n = sh.count;
   while (app.configs.length < n) app.configs.push(newConfig());
-  migrateLinks(app.configs);
   const grid = $("grid");
   grid.querySelectorAll(".splitter, .gridrow").forEach((e) => e.remove());
   app.maximized = null;

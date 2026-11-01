@@ -4,9 +4,8 @@
 import { app } from "./state.js";
 import { api } from "./util.js";
 
-// a stored list as {id, source, symbols?, feed?} (lists saved before ids existed are plain symbol lists)
+// a stored list as {id, source, symbols?, feed?}, with every field present
 export function normal(v) {
-  if (Array.isArray(v)) return { id: null, source: "symbols", symbols: v };
   return { id: v?.id || null, source: v?.source || "symbols", symbols: v?.symbols || [], feed: v?.feed || null };
 }
 

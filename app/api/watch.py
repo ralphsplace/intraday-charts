@@ -13,6 +13,7 @@ from .common import one_symbol, valid_date, watch_cols
 
 router = APIRouter()
 
+
 class SymbolsText(BaseModel):
     text: str
 

@@ -25,7 +25,7 @@ window.__priceTypes = PT;
 
 (async () => {
   const [cat, meta, st, wl, cols] = await Promise.all([api("/api/studies"), api("/api/meta"), orElse(api("/api/collector"), null, "Collector status"),
-                                                       orElse(api("/api/saved/watchlists"), null, "Watch lists"), api("/api/watch/columns")]);
+                                                       orElse(api("/api/watchlists"), null, "Watch lists"), api("/api/watch/columns")]);
   setColumns(cols);
   app.catalog = cat.studies; app.defaults = cat.default_layout; app.meta = meta;
   app.collector = st; app.saved.watchlists = wl || {}; app.listsUnknown = !wl;   // unknown: change no list

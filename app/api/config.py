@@ -10,6 +10,7 @@ from .. import app_config, studies, watch_fields, watchlists
 
 router = APIRouter()
 
+
 @router.get("/api/config")
 def app_config_view():
     """Everything the Config page edits: study defaults (with the built-in ones), each watch list kind's default

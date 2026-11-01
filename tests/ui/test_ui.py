@@ -104,16 +104,6 @@ def test_price_type_settings(tab):
         assert app_state(p, PRICE_SERIES + ".length") == 1, t
 
 
-def test_old_saved_style_is_migrated(tab):
-    p = tab.goto("/QQQs", 1500)
-    p.evaluate("""localStorage.setItem('intraday-charts.layout.v5', JSON.stringify({ layout: '1x1',
-        configs: [{ symbol: 'QQQ', tf: 3, days: 1, style: 'hollow', studies: [] }], prefs: {} }))""")
-    p.reload()
-    p.wait_for_timeout(2000)
-    assert app_state(p, "[a.panels[0].price.type, a.panels[0].price.params.up_fill]") == ["candles", False]
-    assert app_state(p, "a.configs[0].style") is None
-
-
 def test_current_price_line(tab):
     p = tab.goto("/QQQs", 2000)
     p.select_option(".pstyle", "current")
@@ -317,26 +307,6 @@ def test_context_studies_ask_for_the_symbols_they_read(tab):
     assert any(b.startswith("Day range") for b in boxes)
     assert "weights as of 2026-10-02" in legend.inner_text()
 
-
-def test_windows_saved_under_the_old_project_name_carry_over(tab):
-    """The project was called intraday-chart: a browser's saved windows and drawings move to the new names once."""
-    p = tab.goto("/QQQs", 800)
-    p.evaluate("""localStorage.clear();
-      localStorage.setItem('intraday-chart.layout.v5', JSON.stringify({ layout: '2x1',
-        configs: [{ symbol: 'QQQ', tf: 5, days: 1, studies: [] }, { symbol: 'SPY', tf: 3, days: 1, studies: [] }], prefs: {} }));
-      localStorage.setItem('intraday-chart.drawings.v1', JSON.stringify({ QQQ: [{ id: 'd1', type: 'hline', price: 700 }] }));
-      localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('price'));""")
-    p = tab.goto("/QQQs", 2500)
-    assert app_state(p, "[a.layout, a.panels.map((x) => [x.symbol, x.tf])]") == ["2x1", [["QQQ", 5], ["SPY", 3]]]
-    keys = p.evaluate("Object.keys(localStorage).sort()")
-    assert not any(k.startswith("intraday-chart.") for k in keys)
-    assert {"intraday-charts.layout.v5", "intraday-charts.drawings.v1", "intraday-charts.earnings.mode"} <= set(keys)
-    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.drawings.v1')).QQQ[0].price") == 700
-    # a newer value already saved under the new name is kept
-    p.evaluate("""localStorage.setItem('intraday-chart.earnings.mode', JSON.stringify('relative'))""")
-    p = tab.goto("/earnings", 800)
-    assert p.evaluate("JSON.parse(localStorage.getItem('intraday-charts.earnings.mode'))") == "price"
-    assert p.evaluate("localStorage.getItem('intraday-chart.earnings.mode')") is None
 
 def test_symbol_input_accepts_and_rejects(tab):
     p = tab.goto("/QQQs")
@@ -1201,23 +1171,6 @@ def test_symbol_links_are_colour_groups_across_charts_and_watch_lists(tab):
     assert app_state(p, "a.cells[1].link") == "" and app_state(p, "a.cells[0].link") == "red"
 
 
-def test_a_watch_list_saved_linked_to_one_chart_gets_a_colour_group(tab):
-    """Earlier versions linked a watch list to one chart by its id: both get the first free colour."""
-    p = tab.goto("/QQQs", 1500)
-    key = p.evaluate("Object.keys(localStorage).find((k) => JSON.parse(localStorage.getItem(k) || 'null')?.configs)")
-    p.evaluate("""(key) => {
-      const s = JSON.parse(localStorage.getItem(key));
-      s.layout = "2";
-      s.configs = [{ id: "c1", symbol: "SPY", tf: 3, days: 1, studies: [] },
-                   { kind: "watchlist", id: "w1", symbols: ["QQQ", "SPY"], list: "", link: "c1" }];
-      localStorage.setItem(key, JSON.stringify(s));
-    }""", key)
-    p = tab.goto("/QQQs", 2000)
-    assert app_state(p, "a.cells.map((c) => c.link)") == ["red", "red"]
-    p.locator(".panel.wl tr[data-symbol='QQQ']").click()
-    wait_state(p, "a.cells[0].symbol === 'QQQ'")
-
-
 def col_box(wl, label):
     """A column's checkbox in the watch list's column chooser, by its exact label."""
     return wl.locator("label.wlcol").filter(has_text=re.compile(rf"^\s*{re.escape(label)}$")).locator("input")
@@ -1294,36 +1247,25 @@ def test_watch_list_tabs_show_named_app_wide_lists(tab, data):
     assert wl.locator("button.wltab.on").inner_text() == "Index ETFs"
 
 
-def test_an_old_watch_list_tab_keeps_its_symbols_until_it_moves_to_a_named_list(tab, data):
-    """A tab saved before named lists becomes one, but only once the lists have loaded: if they can't be, the page
-    says so in the corner and the tab keeps its symbols, however often the layout is saved meanwhile."""
+def test_when_the_watch_lists_cant_load_nothing_is_changed_and_the_page_says_why(tab, data):
+    """The lists failed to load: a note in the corner says why, tabs don't claim their list was deleted, and no
+    new list is made (a new watch list panel is refused) until they load."""
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
     p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
-    key = p.evaluate("Object.keys(localStorage).find((k) => k.includes('layout') && localStorage[k].includes('watchlist'))")
-    p.evaluate("""(key) => {
-        const s = JSON.parse(localStorage[key]);
-        const cell = s.configs.find((c) => c && c.kind === "watchlist");
-        cell.tabs = [{ id: "old1", name: "", list: "", symbols: ["IWM", "DIA"], columns: null }];
-        localStorage[key] = JSON.stringify(s);
-    }""", key)
-    p.route("**/api/saved/watchlists", lambda r: r.fulfill(status=500, body='{"detail": "disk unavailable"}'))
+    p.route("**/api/watchlists", lambda r: r.fulfill(status=500, body='{"detail": "disk unavailable"}'))
     p.reload()
     p.wait_for_selector("#problems .problem")
     assert "Watch lists: disk unavailable" in p.inner_text("#problems")
-    wl = p.locator(".panel.wl")
-    wl.locator("button.wlcolbtn").click()
-    col_box(wl, "Volume").uncheck()                                           # saves the layout meanwhile
-    stored = p.evaluate("(key) => JSON.parse(localStorage[key]).configs.find((c) => c && c.kind === 'watchlist').tabs", key)
-    assert [t.get("symbols") for t in stored] == [["IWM", "DIA"]] and "volume" not in stored[0]["columns"]
+    assert "couldn't be loaded" in p.inner_text(".panel.wl .wlfoot") and "deleted" not in p.inner_text(".panel.wl .wlfoot")
+    layout_action(p, 0, "watchlist-right")
+    p.wait_for_function("document.querySelector('#toasts')?.innerText.includes(\"couldn't be loaded\")")
+    assert p.locator(".panel.wl").count() == 1
     assert set(json.loads((data / "user" / "config.json").read_text())["watchlists"]) == {"Watch list 1"}
-    p.unroute("**/api/saved/watchlists")
+    p.unroute("**/api/watchlists")
     p.reload()
-    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 2")
-    assert wl_rows(p) == ["IWM", "DIA"] and p.locator("#problems .problem").count() == 0
-    lists = json.loads((data / "user" / "config.json").read_text())["watchlists"]
-    assert lists["Watch list 2"]["symbols"] == ["IWM", "DIA"]
-
+    p.wait_for_function("document.querySelectorAll('.panel.wl tr.wlr').length === 1")
+    assert p.locator("#problems .problem").count() == 0
 
 def test_renaming_moves_a_list_deleting_removes_it_and_columns_drag(tab, data):
     p = tab.goto("/QQQs", 1500)

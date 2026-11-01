@@ -11,6 +11,7 @@ from .. import dashboards, saved, templates
 
 router = APIRouter()
 
+
 class DashboardCreate(BaseModel):
     name: str
     type: str = "charts"
