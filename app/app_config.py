@@ -7,6 +7,7 @@ Sections (each optional; missing ones fall back to the built-in defaults):
     watch_columns   {list kind: [column ids]}    each watch list type's default columns (app/watch_fields.py)
     paper_accounts  {name: account}          the named paper accounts (app/paper/accounts.py)
     paper           {"defaults": {...}}      a new paper account's starting cash and settings
+    paper_rules     {name: {"id", "rule"}}   the named paper trading rules (app/paper/rules.py)
 
 One job: read and change sections, safely across the server's worker processes (a lock file), with the file
 read again only when it has changed. config.json next to the app (default symbol, default layout) stays as it
@@ -20,7 +21,7 @@ from pathlib import Path
 
 from . import jsonfile, store
 
-SECTIONS = ("watchlists", "studies", "watch_columns", "paper_accounts", "paper")
+SECTIONS = ("watchlists", "studies", "watch_columns", "paper_accounts", "paper", "paper_rules")
 _cache: dict = {}
 
 
