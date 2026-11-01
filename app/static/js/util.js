@@ -35,6 +35,14 @@ export function orElse(promise, fallback, what) {
     });
 }
 
+// a class built from parts, each a class whose methods serve one job (e.g. a panel's legends): their methods are
+// copied onto the target's prototype, in order
+export function mixParts(Target, ...parts) {
+  for (const part of parts) {
+    for (const k of Object.getOwnPropertyNames(part.prototype)) if (k !== "constructor") Target.prototype[k] = part.prototype[k];
+  }
+}
+
 export const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const clone = (x) => JSON.parse(JSON.stringify(x));
