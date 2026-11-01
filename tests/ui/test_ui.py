@@ -1740,7 +1740,7 @@ def test_replay_practice_on_a_chart(tab, data):
     assert bar.is_hidden()
 
 
-def test_the_paper_page_writes_a_rule_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
+def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
     p = tab.goto("/paper", 1500)
     p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
                "body: JSON.stringify({name: 'Tests', start_cash: 100000})})")
@@ -1748,8 +1748,9 @@ def test_the_paper_page_writes_a_rule_backtests_it_and_opens_a_trade_on_a_chart(
     p = tab.goto("/paper", 1500)
     assert p.locator(".dashsel").input_value() == "\u0000paper"
     assert "No trades yet" in p.inner_text("#ppTrades")
-    # a rule: long when the close crosses above VWAP, $0.50 stop, $1 target, 10 shares
-    p.click(".cfg-tabs button[data-sec=rules]")
+    assert p.locator(".cfg-tabs button").all_inner_texts() == ["Trades", "Backtests"]   # set-up lives in Config
+    # a rule, in Config: long when the close crosses above VWAP, $0.50 stop, $1 target, 10 shares
+    p = tab.goto("/config?tab=rules", 1500)
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('entry conditions')")   # none yet: refused
     p.locator("#ppRuleForm button.pp-add").first.click()
@@ -1760,13 +1761,23 @@ def test_the_paper_page_writes_a_rule_backtests_it_and_opens_a_trade_on_a_chart(
     rules = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
     r = rules["Rule 1"]["rule"]
     assert r["qty"] == 10 and r["long"][0]["op"] == "crosses_above" and r["long"][0]["b"]["study"]["type"] == "vwap"
-    # backtest it over the cached days, and save the trades into the account
+    # backtest defaults, in Config: the Paper page's Run form starts with them
     p.click(".cfg-tabs button[data-sec=backtests]")
-    p.fill("#ppRunSymbol", "QQQ")
+    p.wait_for_function("document.querySelector('#cfgBtAccount').options.length === 2")
+    p.fill("#cfgBtSymbol", "qqq")
+    p.select_option("#cfgBtAccount", "Tests")
+    p.fill("#cfgBtBase", "1")
+    p.check("#cfgBtSkip")
+    p.click("#cfgBtSave")
+    p.wait_for_function("document.querySelector('#cfgBtMsg').textContent.startsWith('Saved')")
+    assert json.loads((data / "user" / "config.json").read_text())["paper"]["backtest"] == \
+        {"symbol": "QQQ", "account": "Tests", "baseline_runs": 1, "missing": "skip"}
+    # backtest it over the cached days, and save the trades into the account
+    p = tab.goto("/paper?tab=backtests", 1500)
+    assert [p.locator(x).input_value() for x in ("#ppRunRule", "#ppRunSymbol", "#ppRunAccount", "#ppRunBase")] == ["Rule 1", "QQQ", "Tests", "1"]
+    assert p.locator("#ppRunSkip").is_checked()
     p.fill("#ppRunFrom", min(days))
     p.fill("#ppRunTo", max(days))
-    p.check("#ppRunSkip")
-    p.fill("#ppRunBase", "1")
     p.click("#ppRun button[type=submit]")
     p.wait_for_selector("#ppReport .pp-stats", timeout=120000)
     assert "Random entries (1 runs)" in p.inner_text("#ppReport") and p.locator("#ppReport .pp-trades tr").count() > 1

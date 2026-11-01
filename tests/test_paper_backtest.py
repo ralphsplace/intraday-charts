@@ -115,3 +115,23 @@ def test_entries_the_account_cant_afford_are_counted_not_hidden(on_demo):
     days = store.list_days("QQQ-DEMO")[:3]
     rep = backtest.run(cross_rule(qty=1000), "QQQ-DEMO", days, 25_000, engine.DEFAULT_SETTINGS, baseline_runs=0)
     assert rep["trades"] == [] and rep["skipped"]["count"] > 0 and "buying power" in rep["skipped"]["first"]
+
+
+def test_backtest_defaults_are_kept_in_the_config_and_used_when_a_run_leaves_them_out(on_demo, monkeypatch):
+    from app.server import app
+    c = TestClient(app, client=("192.168.1.20", 50000))
+    assert c.get("/api/paper/backtest-defaults").json() == backtest.BUILT_IN_DEFAULTS
+    for bad in ({"symbol": ""}, {"baseline_runs": 21}, {"baseline_runs": True}, {"missing": "maybe"}, {"account": 3}):
+        assert c.put("/api/paper/backtest-defaults", json=bad).status_code == 400, bad
+    d = c.put("/api/paper/backtest-defaults", json={"symbol": " qqq-demo ", "baseline_runs": 0, "missing": "skip", "x": 1}).json()
+    assert d == {"symbol": "QQQ-DEMO", "account": "", "baseline_runs": 0, "missing": "skip"}
+    seen = {}
+    monkeypatch.setattr("app.paper.jobs.start", lambda *a: seen.update(missing=a[5], runs=a[8]) or {"id": "x"})
+    have = store.list_days("QQQ-DEMO")
+    rule = {"tf": 3, "long": [{"a": CLOSE, "op": "crosses_above", "b": SMA}], "qty": 10, "exits": {"stop": 0.6}}
+    c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]})
+    assert seen == {"missing": "skip", "runs": 0}                         # the defaults
+    c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1],
+                                         "missing": "stop", "baseline_runs": 3})
+    assert seen == {"missing": "stop", "runs": 3}                         # the run's own
+    assert c.delete("/api/paper/backtest-defaults").json() == backtest.BUILT_IN_DEFAULTS

@@ -6,7 +6,8 @@ Sections (each optional; missing ones fall back to the built-in defaults):
     studies         {study type: {key: value}}  default settings for new studies (app/studies/base.py)
     watch_columns   {list kind: [column ids]}    each watch list type's default columns (app/watch_fields.py)
     paper_accounts  {name: account}          the named paper accounts (app/paper/accounts.py)
-    paper           {"defaults": {...}}      a new paper account's starting cash and settings
+    paper           {"defaults": {...},      a new paper account's starting cash and settings,
+                     "backtest": {...}}      and what a new backtest starts with
     paper_rules     {name: {"id", "rule"}}   the named paper trading rules (app/paper/rules.py)
 
 One job: read and change sections, safely across the server's worker processes (a lock file), with the file
