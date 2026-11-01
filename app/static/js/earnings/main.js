@@ -1,5 +1,6 @@
 /* Starts the earnings page (/earnings?symbol=NVDA): asks the server for the view, and when the daily prices or
    earnings dates aren't cached yet, asks the TWS collector for them and waits. */
+import { expose } from "../debug.js";
 import { EARNINGS_DAYS_KEY, EARNINGS_MODE_KEY, EARNINGS_SYMBOL_KEY } from "../keys.js";
 import { $, api, btn, cleanSymbol as cleanStock, load, orElse, setValue, store, submitted, trackEdits } from "../util.js";
 import { EarningsChart } from "./chart.js";
@@ -127,4 +128,4 @@ setMode(mode);
 const start = cleanSymbol(new URLSearchParams(location.search).get("symbol") || "") || load(EARNINGS_SYMBOL_KEY);
 if (start) show(start); else message("Type a stock symbol and press Enter.");
 
-window.__earnings = { chart, get view() { return view; }, get mode() { return mode; } };   // for the browser tests
+expose("earnings", { chart, get view() { return view; }, get mode() { return mode; } });   // for the browser tests (debug.js)
