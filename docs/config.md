@@ -38,6 +38,20 @@ study's settings puts back.
 Studies already on charts keep their own settings: the defaults apply to studies added afterwards. Values that
 aren't allowed (a length out of range, say) are brought within range, as in a study's own settings.
 
+## Paper accounts
+
+Accounts for practising trades in Replay and for backtests. They're simulated on the NAS from the cached bars and
+never talk to TWS or your IBKR account.
+
+- **New account** makes "Paper N" with the defaults; names are unique across the app.
+- **Rename** keeps the account's history. **Reset** puts the balance back to the starting cash; the trades before it
+  stay in the history. **Delete** asks first; the history file is kept aside on the NAS (`.deleted`).
+- **Settings**, for new accounts (the defaults) or one account: starting cash; commission per share, minimum per
+  order and at most a % of the trade's value (IBKR Fixed by default: $0.005, $1.00, 1%); slippage per share on
+  market and stop fills; and whether short selling is allowed (on by default).
+
+Each account's history is in `data/user/paper/<id>.json`.
+
 ## The file
 
 `data/user/config.json` has one section per part of this page:
@@ -47,7 +61,11 @@ aren't allowed (a length out of range, say) are brought within range, as in a st
  "watchlists": {"Core": {"id": "29905c4e259c", "source": "symbols", "symbols": ["QQQ", "SPY"]},
                 "Holdings": {"id": "cbdf586dbe13", "source": "holdings"}},
  "watch_columns": {"quote": ["symbol", "last", "change", "pct", "gap_pct"]},
- "studies": {"sma": {"length": 21, "sma_color": "#ff9800"}}
+ "studies": {"sma": {"length": 21, "sma_color": "#ff9800"}},
+ "paper_accounts": {"Morning practice": {"id": "4be1c0d2a9f3", "start_cash": 25000.0, "created": 1793539200,
+                    "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
+                                 "slippage": 0.01, "shorting": true}}},
+ "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}}}
 }
 ```
 

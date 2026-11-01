@@ -1,7 +1,9 @@
-/* The Config page: the application config (data/user/config.json, /api/config). Three sections:
-   the named watch lists (rename, delete), each watch list type's default columns (which, and their order), and
-   every study's default settings and colours. Changes are saved as they're made. */
+/* The Config page: the application config (data/user/config.json, /api/config). Four sections:
+   the named watch lists (rename, delete), each watch list type's default columns (which, and their order),
+   every study's default settings and colours, and the paper accounts (config/paper.js). Changes are saved as
+   they're made. */
 import { fillForm, readForm } from "../settings-form.js";
+import { initPaper, loadPaper } from "./paper.js";
 import { $, api, btn, el, load, store } from "../util.js";
 
 const TAB_KEY = "intraday-charts:config-tab";
@@ -16,6 +18,7 @@ async function reload() {
   $("cfgPath").textContent = cfg.path;
   renderLists(); renderColumns(); renderStudyList();
   if (study) showStudy(study);
+  await loadPaper(say);
 }
 
 // ---------------------------------------------------------------- watch lists
@@ -193,5 +196,6 @@ $("cfgStudyReset").onclick = resetStudy;
 $("cfgStudyForm").onsubmit = (e) => { e.preventDefault(); saveStudy(); };
 $("sec-studies").querySelector(".cfg-sform").hidden = true;
 
-showSection(["lists", "columns", "studies"].includes(load(TAB_KEY)) ? load(TAB_KEY) : "lists");
+initPaper(say);
+showSection(["lists", "columns", "studies", "paper"].includes(load(TAB_KEY)) ? load(TAB_KEY) : "lists");
 reload().catch((e) => say("cfgStatus", "Error: " + e.message, true));

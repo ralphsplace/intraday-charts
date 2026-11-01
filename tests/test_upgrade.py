@@ -112,3 +112,11 @@ def test_a_broken_file_is_left_alone(user):
     saved.path("views").write_text('{"V": {"style": "hollow"},')                                   # a typo by hand
     assert upgrade.run() == []
     assert saved.path("views").read_text() == '{"V": {"style": "hollow"},'
+
+
+def test_a_broken_config_never_stops_the_server_starting(user):
+    write(user / "watchlists.json", {"Old": ["QQQ"]})
+    (user / "config.json").write_text('{"watchlists": {},')
+    done = upgrade.run()
+    assert any(line.startswith("skipped: config.json") for line in done)
+    assert (user / "watchlists.json").exists() and (user / "config.json").read_text() == '{"watchlists": {},'

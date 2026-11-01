@@ -19,7 +19,7 @@ from __future__ import annotations
 import copy
 import logging
 
-from . import app_config, jsonfile, saved, store, watchlists
+from . import app_config, jsonfile, named, saved, store, watchlists
 
 log = logging.getLogger("intraday-charts")
 
@@ -33,7 +33,12 @@ _checking = False      # while only checking whether a file needs upgrading: cha
 
 def run() -> list[str]:
     """Upgrade everything; what changed, one line each (also logged)."""
-    done = _watchlists_file() + _list_shapes() + _saved_layouts()
+    done = []
+    for part in (_watchlists_file, _list_shapes, _saved_layouts):
+        try:
+            done += part()
+        except jsonfile.BrokenFile as e:                    # a hand edit to fix first: start anyway, say so
+            done.append(f"skipped: {e}")
     for line in done:
         log.warning("upgrade: %s", line)
     return done
@@ -57,9 +62,9 @@ def _watchlists_file() -> list[str]:
 def _list_shape(v) -> dict | None:
     """A list in the current shape, or None when it already is."""
     if isinstance(v, list):
-        return {"id": watchlists.new_id(), "source": "symbols", "symbols": [str(s) for s in v][:watchlists.MAX_SYMBOLS]}
+        return {"id": named.new_id(), "source": "symbols", "symbols": [str(s) for s in v][:watchlists.MAX_SYMBOLS]}
     if isinstance(v, dict) and not v.get("id"):
-        return {**v, "id": watchlists.new_id()}
+        return {**v, "id": named.new_id()}
     return None
 
 
@@ -119,7 +124,7 @@ def _tab(t: dict, panel_name: str | None) -> bool:
 def _watch_panel(c: dict) -> bool:
     changed = False
     if not (isinstance(c.get("tabs"), list) and c["tabs"]):
-        c["tabs"] = [{"id": watchlists.new_id(), "list": c.get("list") or "", "symbols": c.get("symbols") or [],
+        c["tabs"] = [{"id": named.new_id(), "list": c.get("list") or "", "symbols": c.get("symbols") or [],
                       "feed": c.get("feed"), "columns": None}]
         changed = True
     for t in c["tabs"]:

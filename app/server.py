@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from . import envcheck, jsonfile, security, upgrade
-from .api import charts, config, dashboards, earnings, expected_move, options, pages, saved, watch
+from .api import charts, config, dashboards, earnings, expected_move, options, pages, paper, saved, watch
 from .api.common import ROOT
 from .api.pages import STATIC_VERSION, Revalidated  # noqa: F401  (STATIC_VERSION: read by the tests)
 
@@ -50,7 +50,7 @@ def broken_file(_request, e: jsonfile.BrokenFile):
     return JSONResponse({"detail": str(e)}, status_code=409)
 
 
-for area in (charts, watch, saved, config, dashboards, earnings, expected_move, options):
+for area in (charts, watch, saved, config, dashboards, earnings, expected_move, options, paper):
     app.include_router(area.router)
 app.mount("/static", Revalidated(directory=ROOT / "static"), name="static")
 app.include_router(pages.router)                                # last: it ends with /{name}
