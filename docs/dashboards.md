@@ -1,14 +1,15 @@
 # Dashboards
 
-![The Manage dashboards page: two dashboards (NAS2 the default, SPY), creating one, and the environment check with every item OK](img/managedDashboardsView.png)
+![The Dashboards section of the Config page: two dashboards (NAS2 the default, SPY), creating one, and the environment check with every item OK](img/managedDashboardsView.png)
 
 A dashboard is a named window of charts with its own address: `http://<your-nas>:8050/<name>` (any letter
 case). The drop-down at the top left of every page switches between them, and its last entry,
-**Manage dashboards…**, opens `/dashboards`.
+**Manage dashboards…**, opens the **Dashboards** section of the [Config page](config.md)
+(`/config?tab=dashboards`; the old address `/dashboards` still leads there).
 
 ## Managing dashboards
 
-On `/dashboards` you can:
+In Config, Dashboards, you can:
 
 - **Create** a dashboard: give it a name (it becomes the address). It starts as one QQQ chart with no
   studies, from one of your saved window layouts, from "Top and bottom rows of charts…" (any number of charts
@@ -16,7 +17,7 @@ On `/dashboards` you can:
 - **Rename** a dashboard, **duplicate** it, or **delete** it (you're asked to confirm).
 - **Make default:** choose which dashboard opens at the plain address `/`.
 
-The page also shows the **environment check** ([Purpose and security model](security.md)): one line per check,
+The section also shows the **environment check** ([Purpose and security model](security.md)): one line per check,
 with what to do about any that need attention.
 
 ## What is kept where

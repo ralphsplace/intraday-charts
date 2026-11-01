@@ -1,8 +1,9 @@
-/* The Config page: the application config (data/user/config.json, /api/config). Four sections:
-   the named watch lists (rename, delete), each watch list type's default columns (which, and their order),
-   every study's default settings and colours, and the paper accounts (config/paper.js). Changes are saved as
-   they're made. */
+/* The Config page: everything set up once and kept on the NAS. Sections: the dashboards (config/dashboards.js,
+   with the environment check), the named watch lists (rename, delete), each watch list type's default columns,
+   every study's default settings and colours, and paper trading's accounts and rules (config/paper.js,
+   paper/rules.js). Changes are saved as they're made. */
 import { fillForm, readForm } from "../settings-form.js";
+import { initDashboards } from "./dashboards.js";
 import { initPaper, loadPaper } from "./paper.js";
 import { $, api, btn, el, load, store } from "../util.js";
 
@@ -197,5 +198,10 @@ $("cfgStudyForm").onsubmit = (e) => { e.preventDefault(); saveStudy(); };
 $("sec-studies").querySelector(".cfg-sform").hidden = true;
 
 initPaper(say);
-showSection(["lists", "columns", "studies", "paper"].includes(load(TAB_KEY)) ? load(TAB_KEY) : "lists");
+initDashboards();
+// the section asked for in the address (?tab=dashboards), else the last one shown in this browser
+const SECTIONS = [...document.querySelectorAll(".cfg-tabs button")].map((b) => b.dataset.sec);
+const asked = new URLSearchParams(location.search).get("tab");
+showSection(SECTIONS.includes(asked) ? asked : SECTIONS.includes(load(TAB_KEY)) ? load(TAB_KEY) : "dashboards");
+if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();   // e.g. #environment: shown now
 reload().catch((e) => say("cfgStatus", "Error: " + e.message, true));

@@ -110,8 +110,7 @@ app/named.py            app-wide named things (watch lists, paper accounts): uni
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks
-app/envcheck.py         the startup environment check (Dashboards page)
-app/static/dashboards.html  the dashboards page (/dashboards)
+app/envcheck.py         the startup environment check (Config, Dashboards)
 app/static/dash.js      the dashboard drop-down on every page
 app/templates.py        built-in starting layouts for dashboards (Market internals)
 app/earnings.py         earnings view: reports, reaction days, the % windows (no network)
@@ -149,7 +148,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   tools/                one module per drawing tool (alert, horizontal line, trend line)
   styles.js             line types, dash patterns, colours
   params.js             settings parameters (the shape the settings dialog takes)
-  keys.js               this browser's storage keys (also used by the dashboards page)
+  keys.js               this browser's storage keys (also used by config/dashboards.js)
   pricetypes.js         price types: candles, Heikin-Ashi, OHLC bars, line, area, current price line
   primitives.js         canvas drawings: volume profile, extended-hours shading, zones, fills between lines, trend lines
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
@@ -162,7 +161,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   watchlist-editor.js   its editor: a list's symbols, or a FinViz address
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
-  config/               the Config page: watch lists, watch list columns, study defaults
+  config/               the Config page: dashboards and the environment check, watch lists, watch list
+                        columns, study defaults, paper accounts
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status
@@ -175,7 +175,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   dialogs/              the Studies, settings and Load data dialogs, and opening/closing dialogs
 app/static/vendor/      TradingView Lightweight Charts 5.2.1 (Apache 2.0), bundled for offline use. Its logo on the
                         charts is replaced by "RP" (to do: link it to the git repository once it exists); the library is
-                        credited on the /dashboards page and in [Licence and thanks](about.md)
+                        credited in Config, Dashboards, and in [Licence and thanks](about.md)
 tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history and live streaming (read-only)
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT

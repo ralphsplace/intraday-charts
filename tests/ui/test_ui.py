@@ -572,7 +572,7 @@ def test_switcher_and_addresses(tab):
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
                                                                  "Option chain", "Paper trading", "Config", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
-    p.wait_for_url("**/dashboards")
+    p.wait_for_url("**/config?tab=dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
     assert p.locator("table.dash tbody tr").count() == 2          # QQQs and the built-in Internals
     assert p.locator("#newType").count() == 0                    # one kind of dashboard: no type to pick
@@ -584,7 +584,7 @@ def test_create_rename_default_duplicate_delete(tab):
     p = tab.goto("/QQQs")
     p.select_option("#layout", "3x1")                         # this browser's QQQs window, to be duplicated
     p.wait_for_timeout(1200)
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.fill("#newName", "two words")
     p.click("button:has-text('Create and open')")
     p.wait_for_timeout(500)
@@ -592,7 +592,7 @@ def test_create_rename_default_duplicate_delete(tab):
     p.fill("#newName", "Swing")
     p.click("button:has-text('Create and open')")
     p.wait_for_url("**/Swing")
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.locator("tr:has-text('QQQs') button:has-text('Duplicate')").click()
     p.wait_for_timeout(800)
     copy = next(i for i in p.evaluate("fetch('/api/dashboards').then((r) => r.json())")["items"] if i["name"] == "QQQs-2")
@@ -600,7 +600,7 @@ def test_create_rename_default_duplicate_delete(tab):
     assert stored[1] and stored[1] == stored[0]                # the dashboards page copied this browser's window
     p = tab.goto("/QQQs-2", 2000)
     assert p.locator("#layout").input_value() == "3x1"
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.locator("tr:has-text('QQQs-2') button:has-text('Rename')").click()
     p.fill("input.rename", "Scalp")
     p.press("input.rename", "Enter")
@@ -618,10 +618,10 @@ def test_create_rename_default_duplicate_delete(tab):
 
 
 def test_charts_dashboard_from_saved_layout(tab):
-    p = tab.goto("/dashboards", 500)
+    p = tab.goto("/config?tab=dashboards", 500)
     p.evaluate("""fetch('/api/saved/layouts/Solo', {method: 'PUT', headers: {'Content-Type': 'application/json'},
                   body: JSON.stringify({layout: '1x1', configs: [{symbol: 'SPY', tf: 15, days: 1, studies: [{type: 'vwap'}]}]})})""")
-    p = tab.goto("/dashboards", 800)
+    p = tab.goto("/config?tab=dashboards", 800)
     p.fill("#newName", "Solo")
     p.select_option("#newStart", "layout:Solo")
     p.click("button:has-text('Create and open')")
@@ -639,7 +639,7 @@ def test_unknown_dashboard_page_is_escaped(tab):
 
 # ---------------------------------------------------------------- environment check
 def test_environment_check_on_the_dashboards_page(tab):
-    p = tab.goto("/dashboards", 1200)
+    p = tab.goto("/config?tab=dashboards", 1200)
     rows = p.locator("#env .pill")
     assert rows.count() >= 6
     names = p.locator("#env div:nth-child(3n+2)").all_inner_texts()
@@ -652,7 +652,7 @@ def test_environment_check_on_the_dashboards_page(tab):
 
 def test_checks_needing_attention_are_linked_from_every_page(tab):
     tab.page.set_viewport_size({"width": WIDE, "height": 850})
-    for path in ("/QQQs", "/dashboards"):          # no collector in the tests: TWS connection is "Check"
+    for path in ("/QQQs", "/config?tab=dashboards"):          # no collector in the tests: TWS connection is "Check"
         p = tab.goto(path, 1500)
         assert p.evaluate("document.querySelector('header.toolbar').offsetHeight") < 60, path   # one line on Ralph's screen
         # how many need attention depends on the machine (e.g. running as root here, not on GitHub's runners)
@@ -660,7 +660,7 @@ def test_checks_needing_attention_are_linked_from_every_page(tab):
         link = p.locator(".dashnav a.envwarn")
         assert n >= 1 and link.count() == 1 and link.get_attribute("aria-label").startswith(f"Environment check: {n}"), path
     link.click()
-    p.wait_for_url("**/dashboards#environment")
+    p.wait_for_url("**/config?tab=dashboards#environment")
 
 
 def test_charts_added_with_layout_open_on_qqq_without_studies(tab):
@@ -1308,7 +1308,7 @@ def test_the_config_page_edits_lists_columns_and_study_defaults(tab, data):
     p = tab.goto("/QQQs", 1500)
     layout_action(p, 0, "watchlist-right")
     p.wait_for_function("document.querySelector('.panel.wl button.wltab')?.textContent === 'Watch list 1'")
-    p = tab.goto("/config", 1500)
+    p = tab.goto("/config?tab=lists", 1500)
     assert p.locator(".dashsel").input_value() == "\u0000config"
     # watch lists: rename and delete
     row = p.locator("#cfgLists tr[data-name='Watch list 1']")
@@ -1526,7 +1526,7 @@ def test_internals_dashboard(tab):
 
 
 def test_dashboard_from_the_internals_template(tab):
-    p = tab.goto("/dashboards", 1500)
+    p = tab.goto("/config?tab=dashboards", 1500)
     assert "Market internals" in " ".join(p.locator("#newStart option").all_inner_texts())
     p.fill("#newName", "Breadth")
     p.select_option("#newStart", "template:internals")
@@ -1537,7 +1537,7 @@ def test_dashboard_from_the_internals_template(tab):
 
 
 def test_dashboard_from_top_and_bottom_counts(tab):
-    p = tab.goto("/dashboards", 1500)
+    p = tab.goto("/config?tab=dashboards", 1500)
     assert p.locator("#rowsWrap").is_hidden()
     p.fill("#newName", "Wide")
     p.select_option("#newStart", "rows:")

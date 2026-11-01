@@ -23,7 +23,7 @@
                     "\u0000options": ["Option chain", "/options"],
                     "\u0000paper": ["Paper trading", "/paper"],
                     "\u0000config": ["Config", "/config"],
-                    "\u0000manage": ["Manage dashboards…", "/dashboards"] };
+                    "\u0000manage": ["Manage dashboards…", "/config?tab=dashboards"] };
     for (const [v, [text, path]] of Object.entries(pages)) {
       const o = document.createElement("option");
       o.value = v; o.textContent = text;
@@ -38,7 +38,7 @@
       const bad = env.checks.filter((c) => c.status !== "ok");
       if (bad.length) {
         const a = document.createElement("a");
-        a.href = "/dashboards#environment";
+        a.href = "/config?tab=dashboards#environment";
         a.className = "envwarn";
         a.textContent = `\u26A0 ${bad.length}`;
         a.setAttribute("aria-label", `Environment check: ${bad.length} to look at`);

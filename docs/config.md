@@ -4,7 +4,13 @@
 
 **What it's for:** the settings that belong to the whole app rather than to one chart or dashboard. They are kept
 in the **application config**, one file on the NAS (`data/user/config.json`), so every dashboard, browser and device
-uses the same ones. Changes are saved as you make them.
+uses the same ones (the list of dashboards is its own file, `data/user/dashboards.json`). Changes are saved as you
+make them. The page opens on the section you used last; `/config?tab=<section>` opens one directly.
+
+## Dashboards
+
+Create, rename, duplicate and delete dashboards, choose the default, and read the environment check: see
+[Dashboards](dashboards.md).
 
 ## Watch lists
 
