@@ -30,7 +30,9 @@ def test_default_is_one_qqq_chart_with_no_studies(tab):
     assert p.locator("#day").input_value() == LAST
     assert app_state(p, "a.panels[0].view.bars.length > 100")
     assert p.locator(".panel .leg").count() == 0                                 # nothing drawn but the price
-    assert p.locator(".brand").first.inner_text() == "RP"
+    brand = p.locator(".brand").first                                            # the mark: a link to the repository
+    assert brand.inner_text() == "RP" and brand.get_attribute("target") == "_blank"
+    assert brand.get_attribute("href") == "https://github.com/ralphsplace/intraday-charts"
     assert p.locator("a[href*='tradingview']").count() == 0          # the library's logo is off
 
 
