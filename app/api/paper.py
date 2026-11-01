@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts, engine, practice, rules
+from ..paper import accounts, engine, jobs, practice, rules
 from .common import one_symbol, valid_date
 
 router = APIRouter()
@@ -164,3 +164,63 @@ def paper_rule_rename(name: str, req: RenameBody):
 def paper_rule_delete(name: str):
     rules.RULES.delete(name)
     return {"rules": rules.all_rules()}
+
+
+# ---------------------------------------------------------------- backtests (app/paper/backtest.py, jobs.py)
+class BacktestBody(BaseModel):
+    rule: dict | None = None                # the rule itself, or
+    rule_name: str | None = None            # a saved rule by name
+    symbol: str
+    start: str
+    end: str
+    missing: str = "stop"                   # days without cached bars: "stop" or "skip"
+    account: str | None = None              # whose starting cash and settings (else the defaults for new accounts)
+    baseline_runs: int = Field(5, ge=0, le=20)
+
+
+class SaveBody(BaseModel):
+    account: str = Field(max_length=200)
+
+
+@router.post("/api/paper/backtests")
+def paper_backtest_start(req: BacktestBody):
+    """Start a backtest in the background; follow it with GET /api/paper/backtests/{id}."""
+    if req.rule is None and not req.rule_name:
+        raise HTTPException(400, "Give a rule, or the name of a saved one")
+    rule, name = req.rule, req.rule_name or "(unsaved rule)"
+    if rule is None:
+        item = rules.all_rules().get(req.rule_name)
+        if not item:
+            raise HTTPException(404, f'No rule called "{req.rule_name}"')
+        rule = item["rule"]
+    if req.missing not in ("stop", "skip"):
+        raise HTTPException(400, "missing is stop or skip")
+    a = _call(accounts.find, req.account)[1] if req.account else accounts.defaults()
+    return _call(jobs.start, rule, name, one_symbol(req.symbol, demo_ok=True), valid_date(req.start), valid_date(req.end),
+                 req.missing, a["start_cash"], a["settings"], req.baseline_runs)
+
+
+@router.get("/api/paper/backtests")
+def paper_backtests():
+    return {"runs": jobs.listing()}
+
+
+@router.get("/api/paper/backtests/{run_id}")
+def paper_backtest(run_id: str):
+    return _call(jobs.read, run_id)
+
+
+@router.delete("/api/paper/backtests/{run_id}")
+def paper_backtest_delete(run_id: str):
+    _call(jobs.delete, run_id)
+    return {"runs": jobs.listing()}
+
+
+@router.post("/api/paper/backtests/{run_id}/save")
+def paper_backtest_save(run_id: str, req: SaveBody):
+    """A finished backtest's days into a paper account, as sessions that open on a chart."""
+    run = _call(jobs.read, run_id)
+    if run.get("status") != "done":
+        raise HTTPException(409, "The backtest hasn't finished")
+    n = _call(practice.save_backtest, req.account, run["report"], run_id)
+    return {"saved_days": n, "accounts": accounts.all_accounts()}

@@ -104,6 +104,8 @@ app/paper/engine.py     paper trading's market model: orders and 1-minute bars t
 app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
 app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
 app/paper/rules.py      rules as data: checked, evaluated bar by bar at the close; refuses studies that repaint
+app/paper/backtest.py   a rule over many days with the paper engine; trades, stats, the random baseline
+app/paper/jobs.py       backtests as background runs, followed by id (progress and results in files)
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)

@@ -153,3 +153,26 @@ def rewind(account: str, symbol: str, day: str, cursor: int) -> dict:
             s["actions"] = [a for a in s["actions"] if a["minute"] <= cursor]
             s["cursor"] = min(s.get("cursor", cursor), cursor)
     return view(name, symbol, day, cursor)
+
+
+def save_backtest(account: str, report: dict, run_id: str) -> int:
+    """A backtest's days as practice sessions of the account (one per day, already at the day's end), so each can be
+    opened on a chart and replayed. The account's balance then counts them. Returns the number of days saved."""
+    name, item = accounts.find(account)
+    n = 0
+    with accounts.editing_history(item) as h:
+        h.setdefault("sessions", [])
+        h.setdefault("resets", [])
+        for s in h["sessions"]:
+            if s["symbol"] == report["symbol"] and s["day"] in report["actions"]:
+                s["archived"] = True                     # an earlier session that day steps aside
+        cash = accounts.balance(item)
+        for day in report["days"]:
+            acts = report["actions"].get(day) or []
+            st, _, _ = replay(report["symbol"], day, cash, item["settings"], acts, RTH_END + 1)
+            h["sessions"].append({"id": uuid.uuid4().hex[:10], "symbol": report["symbol"], "day": day, "actions": acts,
+                                  "started": time.time(), "cash": cash, "settings": item["settings"], "cursor": RTH_END + 1,
+                                  "state": st, "backtest": run_id})
+            cash = st["cash"]
+            n += 1
+    return n
