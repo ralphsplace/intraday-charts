@@ -103,6 +103,7 @@ app/upgrade.py          at server start, once: what older versions saved, brough
 app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
 app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
 app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
+app/paper/rules.py      rules as data: checked, evaluated bar by bar at the close; refuses studies that repaint
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)

@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts, engine, practice
+from ..paper import accounts, engine, practice, rules
 from .common import one_symbol, valid_date
 
 router = APIRouter()
@@ -134,3 +134,33 @@ def paper_practice_act(req: OrderBody):
 def paper_practice_rewind(req: PracticeBody):
     """The replay stepped back: drop what was done after the cursor (the page asks first)."""
     return _call(practice.rewind, *_where(req))
+
+
+# ---------------------------------------------------------------- rules (app/paper/rules.py)
+class RuleBody(BaseModel):
+    name: str | None = Field(None, max_length=200)
+    rule: dict
+
+
+@router.get("/api/paper/rules")
+def paper_rules():
+    return {"rules": rules.all_rules(), "ops": rules.OPS, "prices": rules.PRICES, "tfs": rules.TFS}
+
+
+@router.post("/api/paper/rules")
+def paper_rule_save(req: RuleBody):
+    """A new rule (under its name, or "Rule N"), or new contents for the rule of that name."""
+    name, item = _call(rules.save, req.name, req.rule)
+    return {"name": name, "item": item, "rules": rules.all_rules()}
+
+
+@router.post("/api/paper/rules/{name}/rename")
+def paper_rule_rename(name: str, req: RenameBody):
+    _call(rules.RULES.rename, name, req.to)
+    return {"name": req.to.strip(), "rules": rules.all_rules()}
+
+
+@router.delete("/api/paper/rules/{name}")
+def paper_rule_delete(name: str):
+    rules.RULES.delete(name)
+    return {"rules": rules.all_rules()}
