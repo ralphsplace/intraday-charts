@@ -33,6 +33,7 @@ def bar_at(minute):
 def test_a_market_order_fills_on_the_first_bar_not_yet_shown(acct):
     v = practice.view(acct, "QQQ-DEMO", DAY, 600)
     assert v["equity"]["position"] == 0 and v["equity"]["cash"] == 100_000
+    assert v["price"] == bar_at(599)["close"]                             # the last price shown: the trade panel's
     practice.act(acct, "QQQ-DEMO", DAY, 600, {"kind": "order", "order": {"side": "buy", "qty": 10, "type": "market"}})
     v = practice.view(acct, "QQQ-DEMO", DAY, 601)
     assert [round(f["price"], 4) for f in v["fills"]] == [round(bar_at(600)["open"] + 0.01, 4)]

@@ -124,6 +124,7 @@ export class Panel {
     this.symbol = sym; this.fitSymbolBox(); this.fitted = false; this.layoutSig = ""; this.view = null;
     save(); updateBanner();
     if (!linked) publish(this, sym);
+    if (app.active === this) for (const c of app.cells) if (!c.link && c !== this) c.activeChanged?.();   // cells following the active chart
     if (app.live) requestData([sym]);
     if (!app.live && fillDays()) refreshAll(); else this.refresh();
   }

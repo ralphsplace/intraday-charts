@@ -1740,6 +1740,47 @@ def test_replay_practice_on_a_chart(tab, data):
     assert bar.is_hidden()
 
 
+def test_a_trade_panel_buys_and_sells_in_a_paper_account_with_the_charts(tab):
+    """A trade panel next to the chart: it follows the active chart's symbol, trades the account at the replay cursor
+    (a bracket buy), shows the fills and working orders, and a chart in the same account shows the same orders."""
+    p = tab.goto("/QQQs", 2000)
+    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+               "body: JSON.stringify({name: 'Desk', start_cash: 100000})})")
+    layout_action(p, 0, "trade-right")
+    tp = p.locator(".panel.tp")
+    assert tp.count() == 1 and tp.locator(".tpsym").inner_text() == "QQQ"
+    assert "Pick a paper account" in tp.inner_text() and tp.locator("button.tpbuy").is_disabled()
+    acct = p.evaluate("[...document.querySelectorAll('.tpacct option')].find((o) => o.text.startsWith('Desk')).value")
+    p.select_option(".tpacct", acct)
+    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 630;
+                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
+    p.wait_for_function("document.querySelector('.panel.tp .tpinfo')?.innerText.includes('at 10:30')")
+    assert "Flat" in tp.locator(".tpinfo").inner_text()
+    # a bracket buy of 20: the entry works until the next bar, then fills; the stop and target wait on it
+    tp.locator(".tpqty input").fill("20")
+    tp.locator(".tpbracket input").check()
+    tp.locator("button.tpbuy").click()
+    p.wait_for_function("document.querySelectorAll('.panel.tp .tporders tr[data-id]').length === 3")
+    p.click("#stepFwd")
+    p.wait_for_function("document.querySelector('.panel.tp .tpinfo').innerText.includes('Long 20 @')")
+    assert tp.locator(".tpfills td", has_text="BUY").count() == 1 and tp.locator(".tporders tr[data-id]").count() == 2
+    # the chart in the same account shows the same orders; cancelling one in the panel takes it off the chart too
+    p.locator(".panel").first.locator(".viewsbtn").click()
+    p.wait_for_selector("#savedMenu select.paperacctsel option:nth-child(2)", state="attached")
+    p.select_option("#savedMenu select.paperacctsel", acct)
+    p.keyboard.press("Escape")
+    p.wait_for_function("document.querySelectorAll('.panel .paperbar .paperorder').length === 2")
+    tp.locator(".tporders .paperx").first.click()
+    p.wait_for_function("document.querySelectorAll('.panel .paperbar .paperorder').length === 1")
+    assert tp.locator(".tporders tr[data-id]").count() == 1
+    # it's kept with the window, and removed like any cell
+    p = tab.goto("/QQQs", 2000)
+    assert app_state(p, f"a.configs.some((c) => c.kind === 'trade' && c.account === '{acct}')")      # read back from storage
+    assert p.locator(".panel.tp .tpacct").input_value() == acct
+    layout_action(p, 1, "remove")
+    assert p.locator(".panel.tp").count() == 0
+
+
 def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
     p = tab.goto("/paper", 1500)
     p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "

@@ -28,6 +28,8 @@ Each chart's **≡** menu has a **Layout** section:
   press Enter.
 - **+ Row below** adds a new row with one chart under this chart's row.
 - **+ Watch list left / + Watch list right** adds a [watch list](#the-watch-list) instead.
+- **+ Trade panel left / + Trade panel right** adds a paper [trade panel](paper.md#the-trade-panel): Buy and Sell
+  in a practice account, in Replay.
 - **Remove this chart** closes it up; a row left empty goes away. **Undo** on the message that follows brings
   it back.
 

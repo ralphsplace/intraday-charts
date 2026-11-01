@@ -36,9 +36,11 @@ export function newConfig() {
   return { symbol: defaultSymbol(), tf: 3, days: 1, studies: normStudies(clone(app.defaults)) };
 }
 
-// the window's cells in reading order: charts (app.panels holds just these) and watch lists; app.configs[i] is
-// cell i's settings, each with a stable id (a watch list's linked chart is found by it)
-export const isWatchlist = (cfg) => cfg?.kind === "watchlist";
+// the window's cells in reading order: charts (app.panels holds just these), watch lists and trade panels;
+// app.configs[i] is cell i's settings, each with a stable id. A chart's config has no "kind"; every other kind of
+// cell says which it is (grid.js makes each kind, layout-actions.js adds them).
+export const cellKind = (cfg) => cfg?.kind || "chart";
+export const isChart = (cfg) => cellKind(cfg) === "chart";
 
 export function save() {
   app.configs = app.configs.map((c, i) => app.cells[i] ? app.cells[i].config() : c);

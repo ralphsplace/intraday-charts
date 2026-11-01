@@ -123,7 +123,8 @@ def view(account: str, symbol: str, day: str, cursor: int) -> dict:
     return {"account": name, "session": s["id"], "symbol": symbol, "day": day, "cursor": cursor,
             "orders": st["orders"], "fills": [e for e in events if e["event"] == "fill"], "new_fills": new,
             "refused": refused, "closed": st["closed"], "later_actions": len(later),
-            "equity": engine.equity(st, last_price(day_bars, cursor)), "settings": s["settings"],
+            "equity": engine.equity(st, last_price(day_bars, cursor)), "price": last_price(day_bars, cursor),
+            "settings": s["settings"],
             "demo": symbol.endswith("-DEMO")}
 
 

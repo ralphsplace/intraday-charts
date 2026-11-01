@@ -7,7 +7,7 @@ import { addCell, cantAdd, removeCell } from "./layout-edit.js";
 import { toast, toastAction } from "./notify.js";
 import { applyLayout, closeMenu, layoutSnapshot } from "./saved.js";
 import * as lists from "./lists.js";
-import { app, isWatchlist, newConfig, save } from "./state.js";
+import { app, cellKind, isChart, newConfig, save } from "./state.js";
 import { btn, clone, el, uid } from "./util.js";
 import { tabConfig } from "./watch-tab.js";
 
@@ -21,10 +21,20 @@ async function newWatchlistConfig() {
   } catch (e) { toast(e.message, true); return null; }
 }
 
+// a new trade panel: no account yet (it asks), following the active chart
+const newTradeConfig = () => ({ kind: "trade", id: uid(), link: "", account: "" });
+
+// the kinds of cell the Layout section adds: their names, and how a new one starts
+const KINDS = {
+  chart: { name: "chart", Name: "Chart", make: (cell) => copyOf(cell) },
+  watchlist: { name: "watch list", Name: "Watch list", make: () => newWatchlistConfig() },
+  trade: { name: "trade panel", Name: "Trade panel", make: () => newTradeConfig() },
+};
+
 // a new chart is a copy of the chart it was added from (same duration, range, price type and studies)
 // a copy starts unlinked, so typing its new symbol doesn't change the chart it was copied from
 function copyOf(cell) {
-  if (isWatchlist(cell.config())) return { ...newConfig(), id: uid() };
+  if (!isChart(cell.config())) return { ...newConfig(), id: uid() };
   const c = clone(cell.config());
   return { ...c, id: uid(), link: "", studies: (c.studies || []).map((s) => ({ ...s, uid: uid() })) };
 }
@@ -40,7 +50,7 @@ function apply(r) {
 
 export async function addNext(cell, where, kind) {
   save();
-  const cfg = kind === "watchlist" ? await newWatchlistConfig() : copyOf(cell);
+  const cfg = await KINDS[kind].make(cell);
   if (!cfg) return null;
   const i = app.cells.indexOf(cell);
   if (i < 0) return null;                                  // removed while the list was being made
@@ -48,7 +58,7 @@ export async function addNext(cell, where, kind) {
   if (r.error) { toast(r.error, true); return null; }
   apply(r);
   const added = app.cells[r.index];
-  if (kind !== "watchlist") {
+  if (kind === "chart") {
     setActive(added);
     if (app.live) requestData([added.symbol]);
     added.symIn.focus();                                  // type the new chart's symbol straight away (selected)
@@ -62,7 +72,8 @@ export function removeHere(cell) {
   const before = layoutSnapshot();
   const r = removeCell({ layout: app.layout, configs: app.configs, sizes: gridSizes() }, app.cells.indexOf(cell));
   if (r.error) { toast(r.error, true); return; }
-  const what = isWatchlist(cell.config()) ? "Watch list" : `${cell.symbol} chart`;
+  const k = cellKind(cell.config());
+  const what = k === "chart" ? `${cell.symbol} chart` : KINDS[k].Name;
   apply(r);
   refreshAll();
   toastAction(`${what} removed.`, "Undo", () => applyLayout(before));
@@ -81,12 +92,13 @@ export function layoutSection(cell) {
     b.dataset.action = `${kind}-${where}`;
     return b;
   };
-  const what = isWatchlist(cell.config()) ? "watch list" : "chart";
+  const what = KINDS[cellKind(cell.config())].name;
   const rm = btn(`Remove this ${what}`, () => { closeMenu(); removeHere(cell); });
   rm.dataset.action = "remove";
   if (app.cells.length <= 1) { rm.disabled = true; rm.title = "The last chart can't be removed"; }
   grid.append(add("+ Chart left", "left", "chart"), add("+ Chart right", "right", "chart"), add("+ Row below", "below", "chart"),
-              add("+ Watch list left", "left", "watchlist"), add("+ Watch list right", "right", "watchlist"), rm);
+              add("+ Watch list left", "left", "watchlist"), add("+ Watch list right", "right", "watchlist"), el("span"),
+              add("+ Trade panel left", "left", "trade"), add("+ Trade panel right", "right", "trade"), rm);
   box.appendChild(grid);
   return box;
 }

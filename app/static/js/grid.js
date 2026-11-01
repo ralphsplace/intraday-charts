@@ -4,9 +4,13 @@ import { setTools } from "./drawings.js";
 import { Panel } from "./panel.js";
 import { LAYOUTS, layoutLabel, shape } from "./layouts.js";
 import { paintAll } from "./links.js";
-import { app, isWatchlist, newConfig, save } from "./state.js";
+import { app, cellKind, newConfig, save } from "./state.js";
+import { TradePanel } from "./trade-panel.js";
 import { WatchList } from "./watchlist.js";
 import { $, el } from "./util.js";
+
+// the kinds of cell besides charts, by their config's "kind"
+const CELLS = { watchlist: WatchList, trade: TradePanel };
 
 // ================================================================ layout
 export function setActive(p) {
@@ -29,7 +33,8 @@ export function buildGrid() {
   const boxes = sh.uniform ? [] : sh.rows.map(() => grid.appendChild(el("div", "gridrow")));
   for (let i = 0; i < n; i++) {
     const cfg = app.configs[i];
-    const p = isWatchlist(cfg) ? new WatchList(cfg, i) : new Panel(cfg, i);
+    const Kind = CELLS[cellKind(cfg)] || Panel;
+    const p = new Kind(cfg, i);
     (sh.uniform ? grid : boxes[sh.rowOf(i)]).appendChild(p.root);
     app.cells.push(p);
     if (p instanceof Panel) { p.fillSymbols(); app.panels.push(p); }
@@ -37,6 +42,7 @@ export function buildGrid() {
   paintAll();
   applyGridSizes();
   setActive(app.panels[0]);
+  for (const c of app.cells) if (c instanceof TradePanel) c.follow();   // after the charts have their symbols
   updateBanner();
   fillDays();
   if (app.tool) setTools(app.tool);           // a tool armed in the top bar stays armed on the new charts
