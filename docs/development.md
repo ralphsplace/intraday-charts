@@ -154,6 +154,9 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
+  trade-panel.js        the trade panel cell: a paper account's Buy / Sell for its link group's symbol, at the
+                        replay cursor (the same practice session as the charts' strips)
+  trade-ticket.js       the trade panel's order form: builds the order or bracket it sends
   watchlist.js          the watch list cell: its tabs and link group, picking a row; built from the parts below
   watchlist-tabs.js     its tabs and list menu: show, add, close, rename; pick, make or delete a list
   watchlist-columns.js  its column chooser, with heat shading

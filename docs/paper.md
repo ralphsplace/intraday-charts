@@ -36,6 +36,22 @@ whether to remove those trades. Remove them to trade again from there; or step f
 **The end of the day.** At the last regular-hours bar, working orders are cancelled and any position is closed at
 that bar's close. Positions are never held overnight.
 
+## The trade panel
+
+A Buy / Sell panel of its own in the window, next to the charts: on any cell's **≡** menu, **+ Trade panel left** or
+**+ Trade panel right**.
+
+- Pick the **account** in its header. It trades the symbol of its [link group](layouts.md) (the coloured square),
+  or of the active chart when it isn't linked, at the replay cursor.
+- It shows the position, unrealized and realized P/L, equity and the last price; then the order form: **Market**,
+  **Limit**, **Stop** or **Trailing stop**, the shares, and **Stop and target** as dollar distances (a bracket),
+  then **Buy**, **Sell** or **Flatten**. Orders at a study line are placed from a chart's own ticket, where its
+  studies are.
+- Below: the **working orders** (× cancels one) and **today's fills**, with why each filled.
+- It is the same practice session as a chart's strip: a chart of that symbol in the same account shows the same
+  orders and position, and a change in either shows in the other.
+- If you step back before trades you made, it says how many and offers **Remove them**.
+
 ## Rules
 
 Write rules on the [Config page](config.md#paper-rules), **Paper rules**, in a form, no code. Conditions compare a

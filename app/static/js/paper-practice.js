@@ -92,12 +92,14 @@ export class PaperPractice {
   async paperAct(action) {
     this.closeTicket();
     try { this.showPaper(await api("/api/paper/practice/act", { ...this.where(), ...action })); }
-    catch (e) { toast("Paper: " + e.message, true); }
+    catch (e) { toast("Paper: " + e.message, true); return; }
+    paperChanged(this, this.paper, this.symbol);
   }
 
   async paperRewind() {
     try { this.showPaper(await api("/api/paper/practice/rewind", this.where())); toast("Removed the later trades."); }
-    catch (e) { toast("Paper: " + e.message, true); }
+    catch (e) { toast("Paper: " + e.message, true); return; }
+    paperChanged(this, this.paper, this.symbol);
   }
 
   // ---------------------------------------------------------------- the order ticket
@@ -177,6 +179,15 @@ export class PaperPractice {
   paperConfig() { return this.paper ? { paper: this.paper } : {}; }
 }
 
+// one cell traded: every other chart strip and trade panel on the same account and symbol shows it
+export function paperChanged(from, account, symbol) {
+  for (const c of app.cells) {
+    if (c === from || c.symbol !== symbol) continue;
+    if (c.paper === account && c.view) c.paperRefresh(c.view);
+    else if (c.account === account && c.loadAccounts) c.refresh();
+  }
+}
+
 // a study line's latest value in the chart's view
 function levelNow(studies, spec) {
   for (const r of Object.values(studies || {})) {
@@ -200,7 +211,7 @@ export async function paperSection(panel) {
   sel.value = Object.values(accts).some((a) => a.id === panel.paper) ? panel.paper : "";
   sel.onchange = () => panel.setPaperAccount(sel.value);
   const link = el("a", "small", Object.keys(accts).length ? "Accounts…" : "Make an account…");
-  link.href = "/config"; link.target = "_blank";
+  link.href = "/config?tab=paper"; link.target = "_blank";
   box.append(sel, link);
   return box;
 }

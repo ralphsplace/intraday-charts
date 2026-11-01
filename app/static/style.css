@@ -556,6 +556,35 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
 .paperticket b.buy { color: var(--bull); } .paperticket b.sell { color: var(--bear); }
 .paperticket input, .paperticket select { background: #0f1318; color: var(--text); border: 1px solid var(--line);
   border-radius: 5px; padding: 3px 6px; color-scheme: dark; }
+/* ---------------------------------------------------------------- trade panel cell (trade-panel.js) */
+.panel.tp .phead .tptitle { font-size: 11px; margin: 0 4px; color: var(--amber); letter-spacing: .04em; text-transform: uppercase; }
+.panel.tp .phead .tpsym { font-size: 13px; margin-right: 4px; }
+.panel.tp .phead .tpacct { max-width: 170px; }
+.panel.tp .wlgrow { flex: 1; }
+.tpinfo { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 6px 8px 2px; font-size: 12px;
+  font-variant-numeric: tabular-nums; }
+.tpinfo .tppos { font-weight: 600; }
+.tpinfo .up, .tp .wltable .up { color: var(--bull); } .tpinfo .down, .tp .wltable .down { color: var(--bear); }
+.tpnotice { padding: 0 8px; }
+.tpnotice:empty { display: none; }
+.tpnotice button { padding: 0 8px; font-size: 11px; margin-left: 4px; }
+.tpform[hidden], .tpbody[hidden] { display: none; }
+.tpform { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px 8px; padding: 6px 8px 8px;
+  font-size: 11px; border-bottom: 1px solid var(--line); }
+.tpform label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
+.tpform label[hidden] { display: none; }
+.tpform label.papercheck { flex-direction: row; align-items: center; gap: 5px; align-self: end; padding-bottom: 4px; }
+.tpform input, .tpform select { background: #0f1318; color: var(--text); border: 1px solid var(--line); border-radius: 5px;
+  padding: 3px 6px; font-size: 12px; color-scheme: dark; min-width: 0; }
+.tpform .tpbtns { grid-column: 1 / -1; display: flex; gap: 6px; }
+.tpform .tpbtns button { flex: 1; padding: 4px 8px; font-size: 13px; font-weight: 600; }
+.tpform button.tpbuy { background: #12312d; border-color: var(--bull); color: #c9fff3; }
+.tpform button.tpsell { background: #3a1717; border-color: var(--bear); color: #ffd6d4; }
+.tpform button.tpflat { flex: 0 0 auto; font-weight: 500; }
+.tpform button:disabled { opacity: .4; cursor: not-allowed; }
+.tpbody { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
+.tpbody .tpsub { padding: 6px 8px 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.tp .wltable .paperx { padding: 0 6px; border: none; background: none; }
 .mpaper { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .mpaper a { color: #8cc4ff; }
 
