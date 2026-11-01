@@ -12,7 +12,7 @@ import { PriceTypes as PT } from "./pricetypes.js";
 import { app, defaultSymbol, defaultsFor, normStudies, save } from "./state.js";
 import { StudyLayers, attachOutputs } from "./study-layers.js";
 import { COLORS } from "./styles.js";
-import { $, LWC, api, cleanSymbol, clone, el, uid } from "./util.js";
+import { $, LWC, api, cleanSymbol, clone, el, mixParts, uid } from "./util.js";
 import { defaultSpan, findTf, isPeriod } from "./timeframes.js";
 
 export class Panel {
@@ -273,6 +273,4 @@ export class Panel {
 }
 
 // the parts of a chart kept in their own modules
-for (const part of [PanelHeader, StudyLayers, Legends, DrawingTools]) {
-  for (const k of Object.getOwnPropertyNames(part.prototype)) if (k !== "constructor") Panel.prototype[k] = part.prototype[k];
-}
+mixParts(Panel, PanelHeader, StudyLayers, Legends, DrawingTools);

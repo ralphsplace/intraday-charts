@@ -133,6 +133,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   study-layers.js       draws a chart's studies by running the output modules' hooks
   outputs/              one module per kind of study output (lines, levels, profile, box, event lines, ...)
   legends.js            the legend on each pane, with Settings / Hide / Remove
+                        (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart
   tools/                one module per drawing tool (alert, horizontal line, trend line)
@@ -144,7 +145,11 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
-  watchlist.js          the watch list cell: tabs, the table, the column chooser, picking a row
+  watchlist.js          the watch list cell: its tabs and link group, picking a row; built from the parts below
+  watchlist-tabs.js     its tabs and list menu: show, add, close, rename; pick, make or delete a list
+  watchlist-columns.js  its column chooser, with heat shading
+  watchlist-table.js    its table and footer: rows, sorting, dragging a column, the selected row
+  watchlist-editor.js   its editor: a list's symbols, or a FinViz address
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
   config/               the Config page: watch lists, watch list columns, study defaults
