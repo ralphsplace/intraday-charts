@@ -84,7 +84,16 @@ app/indicators.py       indicator maths (SMA/EMA/WMA, RSI, MACD, Bollinger, ATR,
 app/studies/base.py     the study interface: @study, settings, plots, run_study, catalog
 app/studies/outputs.py  what a study may return; every result is checked against it
 app/studies/*.py        one module per family: overlays, volume, profiles, oscillators, levels, internals
-app/server.py           web server: the pages (/, /<dashboard>, /dashboards) and the /api endpoints
+app/server.py           web server: builds the app from app/api/, the startup check, home-network-only access
+app/api/                the endpoints, one module per area of the app, each with its own APIRouter:
+  common.py             shared checks of symbols, dates and expiries; the deployment config file
+  charts.py             meta, fetch and live requests, collector status, study catalog, the chart view
+  watch.py              watch list rows and columns, study values, Holdings, FinViz sources, named lists
+  saved.py              saved views, layouts and structures
+  config.py             the Config page: study defaults, each list kind's default columns
+  dashboards.py         create, rename, change, delete, default dashboard
+  earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
+  pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
 app/sessions.py         US trading days and holidays
