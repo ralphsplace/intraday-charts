@@ -1781,6 +1781,28 @@ def test_a_trade_panel_buys_and_sells_in_a_paper_account_with_the_charts(tab):
     assert p.locator(".panel.tp").count() == 0
 
 
+def test_a_rule_reads_the_opening_range_high(tab, data):
+    """Levels by name in the rule form: Close crosses above Session levels' OR high, with a 5-minute range."""
+    p = tab.goto("/config?tab=rules", 1500)
+    p.select_option("#ppRule", "\u0000new")
+    p.locator("#ppRuleForm button.pp-add").first.click()
+    b = p.locator("#ppRuleForm .pp-operand").nth(1)
+    b.locator("select").nth(1).select_option("session_levels")
+    b = p.locator("#ppRuleForm .pp-operand").nth(1)
+    assert b.locator("select").nth(2).locator("option").all_inner_texts()[:4] == ["OR high", "OR low", "PM high", "PM low"]
+    assert b.locator("select").nth(2).input_value() == "level:OR high"
+    b.get_by_label("Session levels (premarket, opening range, HOD/LOD, profile) Opening range length").select_option("5")
+    assert b.locator("input.pp-num").count() == 0                       # no settings that don't change the level
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
+    name = p.inner_text("#ppRuleMsg").split('"')[1]
+    st = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["rule"]["long"][0]["b"]["study"]
+    assert st["type"] == "session_levels" and st["output"] == "level:OR high" and st["params"]["or_minutes"] == "5"
+    p.locator("#ppRuleDelete").click()
+    p.locator("#ppRuleDelete").click()                                     # tidy up for the tests after
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
+
+
 def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
     p = tab.goto("/paper", 1500)
     p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "

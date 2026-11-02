@@ -100,9 +100,42 @@ def study(type, name, category, pane, params, label, description="", plots=(), w
         REGISTRY[type] = {"type": type, "name": name, "category": category, "pane": pane,
                           "params": list(params) + style_params(plots), "plots": plots,
                           "label": label, "description": description, "warmup": warmup, "intraday": intraday,
-                          "compute": fn}
+                          "levels": None, "rule_settings": None, "compute": fn}
         return fn
     return deco
+
+
+def rule_levels(type: str, *levels: tuple, settings: tuple = ()) -> None:
+    """The levels of a level study (horizontal prices, not a line through every bar) that paper trading rules can
+    read, as (name, plot id, the on/off setting that draws it or None): the name is the level's label without its
+    note in brackets ("OR high (building)" is "OR high"). settings: the ones that change the levels, offered in the
+    rule form (the opening range's length...). With no levels, the study has nothing a rule can read."""
+    REGISTRY[type]["levels"] = [lv if len(lv) == 3 else (*lv, None) for lv in levels]
+    REGISTRY[type]["rule_settings"] = list(settings)
+
+
+def rule_params(type: str, output: str, params: dict) -> dict:
+    """A study's settings as a rule reads one of its levels: that level drawn, and nothing else the study can switch
+    off (it's worked out at every bar, so the rest would only cost time); never hidden for being far away."""
+    spec = REGISTRY[type]
+    lv = next((x for x in spec.get("levels") or [] if "level:" + x[0] == output), None)
+    out = dict(params)
+    for p in spec["params"]:
+        if p["type"] == "bool" and p["section"] != "Style":
+            out[p["key"]] = bool(lv and p["key"] == lv[2])
+    return out
+
+
+def level_name(label: str) -> str:
+    """A level's name from its label: "OR high (15m)" and "PM low (flipped)" are "OR high" and "PM low"."""
+    return label.split(" (")[0].strip()
+
+
+def rule_outputs(spec: dict) -> list[dict]:
+    """What a paper trading rule can read from a study: its declared levels ("level:<name>"), or else its lines."""
+    if spec.get("levels") is not None:
+        return [{"id": "level:" + name, "label": name, "plot": plot} for name, plot, _ in spec["levels"]]
+    return [{"id": pl["id"], "label": pl["label"]} for pl in spec.get("plots", [])]
 
 
 def coerce(spec: dict, raw: dict) -> dict:
@@ -203,7 +236,8 @@ def catalog(user: bool = True) -> list[dict]:
         params = [{**p, "factory": p["default"], "default": mine.get(p["key"], p["default"])} for p in s["params"]]
         out.append({**{k: v for k, v in s.items() if k in ("type", "name", "category", "pane", "description")},
                     "params": params, "customized": sorted(mine),
-                    "lines": [{"id": pl["id"], "label": pl["label"]} for pl in s.get("plots", [])]})
+                    "lines": [{"id": o["id"], "label": o["label"]} for o in rule_outputs(s)],
+                    "rule_settings": s.get("rule_settings")})
     return out
 
 

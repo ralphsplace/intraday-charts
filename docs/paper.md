@@ -55,8 +55,16 @@ A Buy / Sell panel of its own in the window, next to the charts: on any cell's *
 ## Rules
 
 Write rules on the [Config page](config.md#paper-rules), **Paper rules**, in a form, no code. Conditions compare a
-price (open, high, low, close), a number or a study line (with its settings): *crosses above*, *crosses below*, *is
-above*, *is below*. A rule has long and/or short entry conditions (all of them must hold, on the same bar or within
+price (open, high, low, close), a number, or a study's line or level (with its settings): *crosses above*,
+*crosses below*, *is above*, *is below*.
+
+**Levels** come from the level studies, by name: **Session levels** (OR high, OR low, PM high, PM low, HOD, LOD, POC,
+VAH, VAL, with the opening range's length), **Prior day** (PH, PL, PC, PO, PW high, PW low), **Initial balance** (IB
+high, IB low, IB mid), **Support / resistance** (Pivot, R1, R2, S1, S2), **ATR levels**, **Daily range meter**,
+**Volume profile** and **TPO**. Each bar reads the level as it was when the bar started, and only once it's
+finished: the 15-minute opening range high exists from 09:45, and *Close crosses above HOD* means the bar closed
+above the high of the day before it. Levels count in regular hours only. A level is worked out for the rule even if
+the study's defaults hide it on the charts. A rule has long and/or short entry conditions (all of them must hold, on the same bar or within
 N bars of each other); the entry order (market, a limit or stop a distance from the close, or at a study line); the
 shares; the exits (a stop, target or trailing distance from the signal bar's close, conditions that close a long or
 a short, and reversing on the opposite signal); and the hours new trades may start. Rules are saved by name. A study
@@ -91,7 +99,8 @@ The same rules for practice and for backtests:
 - **Within one bar**, stops are checked before limits: a bar that touches both your stop and your target exits at the
   stop. Results are never better than they could have been.
 - **Trailing stops** move with a bar's best price only after that bar has been checked for a fill.
-- **Study lines** use the study's value at the close of the previous bar.
+- **Study lines** use the study's value at the close of the previous bar; **levels**, the level as it was before
+  the bar.
 - **A bracket's exits** start working on the bar after the entry fills.
 - **Commissions**: IBKR Fixed by default: $0.005 a share, at least $1.00, at most 1% of the trade's value.
 

@@ -51,7 +51,8 @@ def test_rules_are_checked_with_reasons():
     for bad, why in (({}, "entry conditions"), ({"long": [{"a": CLOSE, "op": "near", "b": CLOSE}]}, "op is one of"),
                      ({"long": [{"a": {"price": "mid"}, "op": "above", "b": CLOSE}]}, "price is one of"),
                      ({"long": [{"a": {"study": {"type": "nope"}}, "op": "above", "b": CLOSE}]}, "unknown study"),
-                     ({"long": [{"a": {"study": {"type": "sma", "output": "x"}}, "op": "above", "b": CLOSE}]}, "has the lines"),
+                     ({"long": [{"a": {"study": {"type": "sma", "output": "x"}}, "op": "above", "b": CLOSE}]}, "pick one of"),
+                     ({"long": [{"a": {"study": {"type": "events"}}, "op": "above", "b": CLOSE}]}, "no line or level"),
                      ({"long": [{"a": CLOSE, "op": "above", "b": CLOSE}], "tf": 4}, "tf is one of"),
                      ({"long": [{"a": CLOSE, "op": "above", "b": CLOSE}], "exits": {"stop": 1, "trail": 1}}, "not both"),
                      ({"long": [{"a": CLOSE, "op": "above", "b": CLOSE}], "hours": {"from": 900, "to": 600}}, "hours")):
@@ -114,3 +115,82 @@ def test_rule_endpoints(tmp_path, monkeypatch):
     assert c.post("/api/paper/rules", json={"rule": {}}).status_code == 400
     assert c.post("/api/paper/rules/Rule 1/rename", json={"to": "VWAP pullback"}).json()["name"] == "VWAP pullback"
     assert c.delete("/api/paper/rules/VWAP pullback").json()["rules"] == {}
+
+
+# ---------------------------------------------------------------- levels (#65): opening range high, PH, IB high...
+def level_rule(study, output, op="crosses_above", **params):
+    return R.check({"tf": 3, "long": [{"a": CLOSE, "op": op, "b": {"study": {"type": study, "params": params, "output": output}}}]})
+
+
+def test_every_level_a_rule_offers_is_one_the_study_draws(demo, monkeypatch):
+    """The names in the rule form match the levels the charts draw (with every part of the study switched on)."""
+    from app import engine
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    ctx = engine.DayContext("QQQ-DEMO", DAY, 3, None)
+    offered = 0
+    for t, spec in studies_base.REGISTRY.items():
+        if spec["levels"] is None:
+            continue
+        for name, plot, _ in spec["levels"]:
+            params = studies_base.rule_params(t, "level:" + name, studies_base.effective_params(t, {}))   # as a rule runs it
+            drawn = {studies_base.level_name(lv["label"]) for lv in studies_base.run_study(ctx, t, params).get("levels") or []}
+            assert name in drawn, f"{t}: '{name}' isn't one of {sorted(drawn)}"
+            assert plot in [p["id"] for p in spec["plots"]], (t, plot)
+            offered += 1
+    assert offered >= 30
+    cat = {s["type"]: s for s in studies_base.catalog(user=False)}
+    assert [x["id"] for x in cat["session_levels"]["lines"]][:2] == ["level:OR high", "level:OR low"]
+    assert cat["events"]["lines"] == [] and cat["vwap"]["lines"][0]["id"] == "vwap"     # lines as before
+    assert cat["session_levels"]["rule_settings"] == ["or_minutes"] and cat["vwap"]["rule_settings"] is None
+
+
+def test_the_opening_range_high_is_read_once_its_complete_and_never_ahead(demo, monkeypatch):
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    from app.paper import practice
+    r = level_rule("session_levels", "level:OR high", or_minutes="15")
+    s = R.day_series("QQQ-DEMO", DAY, 3, r)
+    orh = s[R._key(r["long"][0]["b"]["study"])]
+    first = next(i for i, v in enumerate(orh) if v is not None)
+    assert s["bars"][first]["start"] == 9 * 60 + 45                       # the first bar after the 15-minute range
+    want = max(b["high"] for b in practice.bars("QQQ-DEMO", DAY) if 570 <= b["minute"] < 585)
+    assert orh[first] == pytest.approx(want) and all(v == orh[first] for v in orh[first:] if v is not None)
+    R.check_no_repaint("QQQ-DEMO", DAY, 3, r)
+    for x in R.signals(r, s):                                             # each long: the close above the range, not before
+        i = x["bar"]
+        assert s["bars"][i]["close"] > orh[i] and (orh[i - 1] is None or s["bars"][i - 1]["close"] <= orh[i - 1])
+
+
+def test_a_level_is_the_one_the_bar_traded_against(demo, monkeypatch):
+    """HOD read at a bar is the high before it, so "close crosses above HOD" can happen (the bar's own high would
+    always be above its close)."""
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    r = level_rule("session_levels", "level:HOD")
+    s = R.day_series("QQQ-DEMO", DAY, 3, r)
+    hod = s[R._key(r["long"][0]["b"]["study"])]
+    for i in range(len(s["bars"])):
+        if hod[i] is not None:
+            assert hod[i] == pytest.approx(max(x["high"] for x in s["bars"][:i] if x["start"] >= 570))
+    assert all(v is None for b, v in zip(s["bars"], hod, strict=True) if not 570 <= b["start"] < 960)
+
+
+def test_a_level_is_drawn_for_the_rule_whatever_the_charts_show():
+    """The study defaults may hide a level on the charts (or show only near ones): a rule reading it still gets it."""
+    p = level_rule("session_levels", "level:POC", profile=False, near_only=True)["long"][0]["b"]["study"]["params"]
+    assert p["profile"] is True and p["near_only"] is False and p["or_minutes"] == "15"
+
+
+def test_level_rules_saved_before_levels_were_named_still_work():
+    r = level_rule("session_levels", "orl")                               # the plot id, as saved before #65
+    assert r["long"][0]["b"]["study"]["output"] == "level:OR high"
+    assert level_rule("prior_day", "")["long"][0]["b"]["study"]["output"] == "level:PH"
+
+
+def test_a_level_rule_backtests(demo, monkeypatch):
+    from app.paper import backtest
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    r = R.check({"tf": 3, "long": [{"a": CLOSE, "op": "crosses_above", "b": {"study": {"type": "session_levels", "output": "level:OR high"}}}],
+                 "short": [{"a": CLOSE, "op": "crosses_below", "b": {"study": {"type": "session_levels", "output": "level:OR low"}}}],
+                 "qty": 10, "exits": {"stop": 0.5, "target": 1.0}})
+    days = store.list_days("QQQ-DEMO")[:4]
+    rep = backtest.run(r, "QQQ-DEMO", days, 100_000, backtest.engine.DEFAULT_SETTINGS, baseline_runs=1)
+    assert rep["stats"]["trades"] >= 1 and all(t["entry_minute"] > 585 for t in rep["trades"])

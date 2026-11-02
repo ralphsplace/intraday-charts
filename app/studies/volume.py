@@ -7,7 +7,7 @@ import pandas as pd
 
 from .. import engine as en
 from .. import indicators as ind
-from .base import P, color, plot, study, ln, hl, bars_for, AMBER, GRAY, RED, GREEN
+from .base import P, color, plot, study, ln, hl, bars_for, AMBER, GRAY, RED, GREEN, rule_levels
 
 
 @study("volume", "Volume", "Volume", "volume",
@@ -106,3 +106,6 @@ def _cvd_estimate(ctx, p):
     return {"lines": [ln("cvd", "CVD est.", ctx.points(v, v["cvd"], 0), last_value=True, format="volume")],
             "hlines": [hl(0, "zero")],
             "note": "estimated from 1-minute bars, not exchange order flow"}
+
+
+rule_levels("rvol")          # bars against their usual volume: nothing a paper trading rule can read

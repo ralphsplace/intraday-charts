@@ -15,16 +15,22 @@ A rule:
     hours       {"from": minute, "to": minute}: new trades start only between (default 09:30 to 15:50)
 A condition: {"a": operand, "op": "crosses_above" | "crosses_below" | "above" | "below", "b": operand}
 An operand: {"price": "open" | "high" | "low" | "close"} | {"value": number}
-            | {"study": {"type", "params", "output": a line id}} (settings default to the user's study defaults)
+            | {"study": {"type", "params", "output": a line id, or "level:<name>"}} (settings default to the user's
+              study defaults)
 
-A study whose past values change as new bars arrive can't be traded on without looking ahead: such a study is
-refused, after a check that computes its line at earlier cursors and compares.
+A level ("level:OR high", "level:PH"...) is the one each bar traded against: computed from the bars before the bar
+(study_values.py, as Replay practice reads it), and only once it's finished: the opening range high appears once
+the opening range is complete, and "close crosses above HOD" means the bar closed above the high of the day before
+it. A study whose past values change as new bars arrive can't be traded on
+without looking ahead: such a study's line is refused, after a check that computes it at earlier cursors and
+compares.
 """
 from __future__ import annotations
 
 import math
 
 from .. import engine as day_engine
+from .. import study_values
 from ..named import Named
 from ..studies import base as studies_base
 
@@ -53,12 +59,18 @@ def _operand(x, where: str) -> dict:
         spec = studies_base.REGISTRY.get(s.get("type"))
         if not spec:
             raise ValueError(f"{where}: unknown study '{s.get('type')}'")
-        lines = [p["id"] for p in spec.get("plots", [])]
-        out = s.get("output") or (lines[0] if lines else None)
-        if lines and out not in lines:
-            raise ValueError(f"{where}: {spec['name']} has the lines " + ", ".join(lines))
-        return {"study": {"type": s["type"], "params": studies_base.effective_params(s["type"], s.get("params") or {}),
-                          "output": out}}
+        outs = studies_base.rule_outputs(spec)
+        if not outs:
+            raise ValueError(f"{where}: {spec['name']} has no line or level a rule can read")
+        out = s.get("output") or outs[0]["id"]
+        legacy = next((o["id"] for o in outs if o.get("plot") == out), None)      # a level study's plot, saved before #65
+        out = legacy or out
+        if out not in [o["id"] for o in outs]:
+            raise ValueError(f"{where}: {spec['name']} has no '{out}': pick one of " + ", ".join(o["label"] for o in outs))
+        params = studies_base.effective_params(s["type"], s.get("params") or {})
+        if out.startswith("level:"):
+            params = studies_base.rule_params(s["type"], out, params)
+        return {"study": {"type": s["type"], "params": params, "output": out}}
     raise ValueError(f"{where}: an operand is a price, a value or a study line")
 
 
@@ -152,6 +164,9 @@ def day_series(symbol: str, day: str, tf: int, rule: dict) -> dict:
     out = {"bars": bars}
     by_ct = {b["ct"]: i for i, b in enumerate(bars)}
     for spec in studies_in(rule):
+        if is_level(spec):
+            out[_key(spec)] = _level_series(symbol, day, tf, spec, bars)
+            continue
         res = studies_base.run_study(ctx, spec["type"], dict(spec["params"]))
         vals = [None] * len(bars)
         for ln in res.get("lines") or []:
@@ -164,6 +179,18 @@ def day_series(symbol: str, day: str, tf: int, rule: dict) -> dict:
     return out
 
 
+def is_level(spec: dict) -> bool:
+    return spec["output"].startswith("level:")
+
+
+def _level_series(symbol: str, day: str, tf: int, spec: dict, bars: list[dict]) -> list:
+    """The level each regular-hours bar traded against: as it was when the bar started (none until it's finished;
+    none outside regular hours, when no trade is open)."""
+    q = {"type": spec["type"], "params": spec["params"], "output": spec["output"], "tf": tf}
+    return [study_values.value(symbol, day, q, cursor=b["start"])["value"]
+            if day_engine.RTH_START <= b["start"] < day_engine.RTH_END else None for b in bars]
+
+
 def check_no_repaint(symbol: str, day: str, tf: int, rule: dict) -> None:
     """Refuse a study whose past values change as new bars arrive: its line, computed with the day cut at two
     earlier cursors, must match the whole day's line before them."""
@@ -174,7 +201,7 @@ def check_no_repaint(symbol: str, day: str, tf: int, rule: dict) -> None:
     for frac in (0.4, 0.7):
         cut = full["bars"][int(n * frac)]["start"]
         ctx = day_engine.DayContext(symbol, day, tf, cut)
-        for spec in studies_in(rule):
+        for spec in [x for x in studies_in(rule) if not is_level(x)]:       # levels are read as they were: nothing to check
             res = studies_base.run_study(ctx, spec["type"], dict(spec["params"]))
             line = next((ln for ln in res.get("lines") or [] if ln.get("id") == spec["output"]), None)
             if line is None:

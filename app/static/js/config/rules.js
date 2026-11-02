@@ -11,7 +11,7 @@ let meta = null, catalog = [], rule = null, current = NEW;
 
 const blank = () => ({ tf: 3, qty: 100, within: 1, long: [], short: [], order: { type: "market" },
                        exits: { stop: 0.5, target: 1.0, exit_long: [], exit_short: [], reverse: false }, hours: { from: 570, to: 950 } });
-const lined = () => catalog.filter((s) => s.lines.length);          // studies with lines a rule can read
+const lined = () => catalog.filter((s) => s.lines.length);          // studies with lines or levels a rule can read
 
 export async function loadRules(say) {
   [meta, catalog] = await Promise.all([api("/api/paper/rules"), api("/api/studies").then((c) => c.studies)]);
@@ -96,11 +96,11 @@ function firstLine() {
   return { type: s.type, params: {}, output: s.lines[0].id };
 }
 
-// an operand: a price, a number, or a study line with its numeric settings
+// an operand: a price, a number, or a study's line or level (OR high, PH...) with its main settings
 function studyPicker(x, set, say, studyOnly = false) {
   const box = el("span", "pp-operand");
   const kind = el("select");
-  const kinds = studyOnly ? [["study", "Study line"]] : [...meta.prices.map((p) => [p, p[0].toUpperCase() + p.slice(1)]), ["value", "Number"], ["study", "Study line"]];
+  const kinds = studyOnly ? [["study", "Study line or level"]] : [...meta.prices.map((p) => [p, p[0].toUpperCase() + p.slice(1)]), ["value", "Number"], ["study", "Study line or level"]];
   for (const [k, t] of kinds) { const o = el("option", null, t); o.value = k; kind.appendChild(o); }
   kind.value = "study" in x ? "study" : "value" in x ? "value" : x.price;
   kind.onchange = () => { set(kind.value === "study" ? { study: firstLine() } : kind.value === "value" ? { value: 0 } : { price: kind.value }); render(say); };
@@ -117,16 +117,32 @@ function studyPicker(x, set, say, studyOnly = false) {
     st.value = spec.type;
     st.onchange = () => { const c = catalog.find((q) => q.type === st.value); set({ study: { type: c.type, params: {}, output: c.lines[0].id } }); render(say); };
     box.appendChild(st);
+    if (!spec.lines.some((l) => l.id === s.output)) s.output = spec.lines[0].id;   // e.g. saved before levels were named
     if (spec.lines.length > 1) {
       const ln = el("select");
+      ln.setAttribute("aria-label", `${spec.name}: which line or level`);
       for (const l of spec.lines) { const o = el("option", null, l.label); o.value = l.id; ln.appendChild(o); }
-      ln.value = s.output || spec.lines[0].id; ln.onchange = () => { s.output = ln.value; };
+      ln.value = s.output; ln.onchange = () => { s.output = ln.value; };
       box.appendChild(ln);
     }
-    for (const p of spec.params.filter((q) => (q.type === "int" || q.type === "float") && q.section !== "Style").slice(0, 3)) {
-      const i = el("input"); Object.assign(i, { type: "number", value: s.params?.[p.key] ?? p.default, step: p.type === "int" ? 1 : p.step || 0.1 });
-      i.className = "pp-num"; i.title = p.label; i.setAttribute("aria-label", `${spec.name} ${p.label}`);
-      i.oninput = () => { s.params = { ...(s.params || {}), [p.key]: p.type === "int" ? parseInt(i.value, 10) : parseFloat(i.value) }; };
+    // the settings that change it: a level study names them (the opening range's length...); a line study, its first
+    // few numbers and choices (an SMA's length...)
+    const shown = spec.rule_settings ? spec.params.filter((q) => spec.rule_settings.includes(q.key))
+      : spec.params.filter((q) => ["int", "float", "choice"].includes(q.type) && q.section !== "Style").slice(0, 3);
+    for (const p of shown) {
+      const cur = s.params?.[p.key] ?? p.default;
+      let i;
+      if (p.type === "choice") {
+        i = el("select");
+        for (const v of p.options) { const o = el("option", null, String(v)); o.value = v; i.appendChild(o); }
+        i.value = cur;
+        i.onchange = () => { s.params = { ...(s.params || {}), [p.key]: i.value }; };
+      } else {
+        i = el("input"); Object.assign(i, { type: "number", value: cur, step: p.type === "int" ? 1 : p.step || 0.1 });
+        i.className = "pp-num";
+        i.oninput = () => { s.params = { ...(s.params || {}), [p.key]: p.type === "int" ? parseInt(i.value, 10) : parseFloat(i.value) }; };
+      }
+      i.title = p.label; i.setAttribute("aria-label", `${spec.name} ${p.label}`);
       box.append(el("span", "muted small", p.label.toLowerCase()), i);
     }
   }
