@@ -585,6 +585,33 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
 .tpbody { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
 .tpbody .tpsub { padding: 6px 8px 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .tp .wltable .paperx { padding: 0 6px; border: none; background: none; }
+/* a backtest's report: progress, the Trades and Log tabs, and a day's chart over the page (paper/report.js) */
+.pp-progress { height: 6px; background: #1a2028; border-radius: 3px; overflow: hidden; max-width: 520px; }
+.pp-progress > div { height: 100%; background: var(--teal); transition: width .4s; }
+.pp-tabs { margin: 14px 0 0; }
+.pp-pane { border: 1px solid var(--line); border-top: none; padding: 8px; }
+button.pp-daylink { background: none; border: none; padding: 0; color: #8cc4ff; text-decoration: underline; cursor: pointer; font: inherit; }
+.pp-log { max-height: 460px; overflow: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+.pp-logline { display: flex; gap: 12px; padding: 0 4px; }
+.pp-logline.first { border-top: 1px solid #1d232b; margin-top: 2px; padding-top: 2px; }
+.pp-logline .pp-logday { width: 90px; flex: none; color: var(--muted); }
+.pp-logline.day .pp-logtext { color: #c9d1d9; font-weight: 600; }
+.pp-logline.warn .pp-logtext { color: var(--amber); }
+.pp-logline.error .pp-logtext { color: var(--bear); }
+#ppRuns tr.on td { background: #16202a; }
+.pp-review { position: fixed; inset: 3vh 3vw; z-index: 50; display: flex; flex-direction: column; background: var(--panel);
+  border: 1px solid #3a4552; border-radius: 8px; box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+.pp-review-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.pp-review-head a { color: #8cc4ff; font-size: 12px; }
+.pp-review-head .wlgrow { flex: 1; }
+.pp-review-frame { flex: 1; border: 0; width: 100%; border-radius: 0 0 8px 8px; }
+
+/* the chart page's review mode (review.js) */
+body.review label:has(#layout), body.review label:has(#day), body.review #layoutsBtn, body.review #openData, body.review #modeLive { display: none; }
+.reviewbar { padding: 4px 10px; font-size: 12px; border-bottom: 1px solid var(--line); background: #10151b; }
+.reviewbar code { font-size: 11px; color: #c9d1d9; }
+.reviewbar a { color: #8cc4ff; }
+.reviewbar .up { color: var(--bull); } .reviewbar .down { color: var(--bear); }
 .mpaper { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .mpaper a { color: #8cc4ff; }
 

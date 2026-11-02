@@ -26,6 +26,9 @@ def _write(run_id: str, **fields) -> None:
         d.update(fields)
 
 
+MAX_LOG = 20_000
+
+
 def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, missing: str, cash: float, settings: dict,
           baseline_runs: int = 5) -> dict:
     """Check everything now (so mistakes come back at once), then run on a thread. missing: "stop" or "skip".
@@ -42,8 +45,20 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
     head = {"id": run_id, "strategy_name": name, "strategy": rule, "symbol": symbol, "start": start_day, "end": end_day,
             "skipped": gaps, "status": "running", "done": 0, "total": len(days) * (1 + baseline_runs),
             "started": time.time()}
+    lines: list[dict] = []
+
+    def log(day, text, level="info"):
+        """A line of the run's log: {"t": seconds since it started, "day", "level": info | warn | day | error, "text"}."""
+        if len(lines) < MAX_LOG:
+            lines.append({"t": round(time.time() - head["started"], 1), "day": day, "level": level, "text": text})
+        elif len(lines) == MAX_LOG:
+            lines.append({"t": round(time.time() - head["started"], 1), "day": None, "level": "warn",
+                          "text": f"the log keeps the first {MAX_LOG} lines; the run carries on"})
+    log(None, f'"{name}" on {symbol}, {len(days)} day(s) from {days[0]} to {days[-1]}, ${cash:,.0f} to start')
+    if gaps:
+        log(None, f"skipped {len(gaps)} day(s) without cached bars: {', '.join(gaps[:20])}" + (" …" if len(gaps) > 20 else ""), "warn")
     folder().mkdir(parents=True, exist_ok=True)
-    _write(run_id, **head)
+    _write(run_id, **head, log=lines)
 
     def work():
         last = [0.0]
@@ -51,12 +66,14 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
         def progress(done, total):
             if time.time() - last[0] > 0.5 or done == total:
                 last[0] = time.time()
-                _write(run_id, done=done, total=total)
+                _write(run_id, done=done, total=total, log=lines)
         try:
-            report = backtest.run(rule, symbol, days, cash, settings, baseline_runs=baseline_runs, progress=progress)
-            _write(run_id, status="done", report=report, finished=time.time())
+            report = backtest.run(rule, symbol, days, cash, settings, baseline_runs=baseline_runs, progress=progress, log=log)
+            log(None, f"done: {report['stats']['trades']} trade(s), P/L {report['stats']['total']:+,.2f}")
+            _write(run_id, status="done", report=report, finished=time.time(), log=lines)
         except Exception as e:  # noqa: BLE001  (any failure: the run says so, the server carries on)
-            _write(run_id, status="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-2000:])
+            log(None, f"failed: {type(e).__name__}: {e}", "error")
+            _write(run_id, status="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-2000:], log=lines)
     threading.Thread(target=work, name=f"backtest-{run_id}", daemon=True).start()
     return head
 

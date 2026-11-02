@@ -126,6 +126,22 @@ on them, with the same results.
   many. Tick runs to **compare** them side by side; **Save** puts a run's trades into an account, as sessions that
   open on a chart and fill the same.
 
+### A run's report
+
+A run shows as soon as it starts, with its progress, and fills in when it's done. Below the numbers, two tabs:
+
+- **Trades**: each trade. **Click its day** to see that day on a chart, over the page: the trades' entries and exits
+  as **arrows** (green up for a buy, red down for a sell or cover, labelled with the trade's number, price, why it
+  left and its P/L), at the strategy's timeframe, with the studies its rules read (an opening range rule shows
+  Session levels with its opening range). Add studies there with **f(x)** to see what would make the rule better;
+  they stay for the next day you look at, while the rules' own studies follow the run. **Open in a new tab** keeps
+  the chart; Esc or × closes it. Then change the rules in Config and run again. These arrows are the backtest's own
+  trades: they appear only on this review chart, never on the dashboards' charts.
+- **Log**: what the run did, day by day, live while it runs: each signal it acted on and the order it placed, each
+  fill and why (stop, target, market), entries the account couldn't afford, signals not taken (while in a trade,
+  outside the hours, against a trade it doesn't reverse), and a line a day with its trades, P/L and cash. **Show**
+  narrows it to a line a day, or to what was refused and skipped. Click a day to see it on a chart.
+
 ## How fills work
 
 The same rules for practice and for backtests:

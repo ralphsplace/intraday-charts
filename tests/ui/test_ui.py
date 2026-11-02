@@ -1904,6 +1904,32 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     p.click("#ppRun button[type=submit]")
     p.wait_for_selector("#ppReport .pp-stats", timeout=120000)
     assert "Random entries (1 runs)" in p.inner_text("#ppReport") and p.locator("#ppReport .pp-trades tr").count() > 1
+    # the run's log: what it did, day by day
+    p.click("#ppReport .pp-tabs button[data-tab=log]")
+    assert "long signal" in p.inner_text("#ppReport .pp-log") and "filled: BUY" in p.inner_text("#ppReport .pp-log")
+    assert p.locator("#ppReport .pp-logline.day").count() == len(days)
+    p.select_option("#ppReport .pp-pane select", "day")
+    assert p.locator("#ppReport .pp-logline").count() == len(days)
+    # a trade's day on a chart: its entries and exits as arrows, with the rule's study (VWAP); a study added there
+    # stays for the next day reviewed
+    p.click("#ppReport .pp-tabs button[data-tab=trades]")
+    first_day = p.locator("#ppReport button.pp-daylink").first.inner_text()
+    p.locator("#ppReport button.pp-daylink").first.click()
+    frame = p.wait_for_selector(".pp-review iframe").content_frame()
+    frame.wait_for_function(f"window.__intraday?.chart?.panels?.[0]?.view?.day === '{first_day}'", timeout=20000)
+    a = "window.__intraday.chart.panels[0]"
+    assert frame.evaluate(f"{a}.markers.length") >= 2 and frame.evaluate(f"{a}.markerApi.markers().length") >= 2
+    assert frame.evaluate(f"{a}.markers[0].shape") == "arrowUp" and frame.evaluate(f"{a}.studies.map((s) => s.type)") == ["vwap"]
+    assert "Backtest review" in frame.inner_text(".reviewbar") and frame.locator("#layoutsBtn").is_hidden()
+    frame.evaluate(f"{a}.addStudy('rsi')")
+    frame.wait_for_timeout(500)
+    p.keyboard.press("Escape")
+    assert p.locator(".pp-review").count() == 0
+    p.locator("#ppReport button.pp-daylink").last.click()
+    frame = p.wait_for_selector(".pp-review iframe").content_frame()
+    frame.wait_for_function("window.__intraday?.chart?.panels?.[0]?.view && window.__intraday.chart.panels[0].studies.length === 2", timeout=20000)
+    assert frame.evaluate(f"{a}.studies.map((s) => s.type)") == ["vwap", "rsi"]
+    p.click(".pp-review-x")
     p.select_option("#ppReport select", "Tests")
     p.click("#ppReport button.pp-save")
     p.wait_for_function("document.querySelector('#ppRunMsg').textContent.startsWith('Saved')")

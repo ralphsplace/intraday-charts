@@ -86,6 +86,13 @@ def config_page():
     return _page("config.html")
 
 
+@router.get("/review")
+def review_page():
+    """A backtest's day on one chart, with its entries and exits and the studies its rules read (?run=&day=): the
+    chart page in review mode, kept apart from the dashboards (its own window in each browser)."""
+    return _page("index.html", {"id": "review", "name": "Backtest review", "type": "charts", "settings": {"review": True}})
+
+
 @router.get("/")
 def index():
     d = dashboards.default()

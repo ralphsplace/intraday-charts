@@ -83,11 +83,33 @@ def _entry(rule: dict, side: str, close: float, minute: int) -> dict:
     return {"kind": "order", "order": order, "minute": minute}
 
 
+def _hm(minute: int) -> str:
+    return f"{minute // 60:02d}:{minute % 60:02d}"
+
+
+def _says(a: dict) -> str:
+    """An action in words, for the log."""
+    if a["kind"] == "flatten":
+        return "flatten"
+    o = a["order"]
+    out = f"{o['side']} {o['qty']} {o['type']}" + (f" {o['price']:.2f}" if o.get("price") is not None else "")
+    if o["type"] == "level":
+        out += f" at {o['level']['spec']['type']} {o['level']['spec']['output']} as a {o['level']['as']}"
+    for k in ("stop", "target"):
+        x = a.get(k)
+        if x:
+            out += f", {k} " + (f"{x['price']:.2f}" if "price" in x else f"trailing {x['trail']['amount']:.2f}")
+    return out
+
+
 def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entries: list[dict] | None = None,
-            series: dict | None = None) -> dict:
+            series: dict | None = None, log=None) -> dict:
     """One day: the actions the rule takes (or the given entries, for the random baseline), the engine's fills
     and the closing cash. Entries given: {"minute", "what": "long" | "short", "close"}. series: the day's
-    rules.day_series, when it's already been worked out (the baseline reuses the rule's)."""
+    rules.day_series, when it's already been worked out (the baseline reuses the rule's). log(text, level): what
+    happened, in words (signals acted on, refused or ignored, and fills)."""
+    say = log or (lambda text, level="info": None)
+    ignored = {"in a trade": 0, "outside the hours": 0, "an opposite trade (no reverse)": 0}
     s = series or rules.day_series(symbol, day, rule["tf"], strategies.studies(rule))
     sig = strategies.signals(rule, s) if entries is None else entries
     by_minute: dict[int, list[dict]] = {}
@@ -103,30 +125,43 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
         vals, idx = s.get(key), [i for i, b in enumerate(s["bars"]) if b["end"] <= cur_minute]
         return vals[idx[-1]] if vals and idx else None
 
-    def act(a):
+    def act(a, why):
         try:
             events.extend(practice._apply(st, a, practice.last_price(day_bars, a["minute"])))
             actions.append(a)
+            say(f"{_hm(a['minute'])} {why}: {_says(a)}")
         except engine.PaperError as e:                        # e.g. not enough buying power: skipped, and counted
             skipped.append(str(e))
+            say(f"{_hm(a['minute'])} {why}, refused: {e}", "warn")
 
     for b in day_bars:
         cur_minute = b["minute"]
         for x in by_minute.get(cur_minute, []):
             pos = st["position"]["qty"]
             if x["what"] == "exit_long" and pos > 0 or x["what"] == "exit_short" and pos < 0:
-                act({"kind": "flatten", "minute": cur_minute})
-            elif x["what"] in ("long", "short") and h["from"] <= cur_minute <= h["to"] and not st["closed"]:
+                act({"kind": "flatten", "minute": cur_minute}, f"{x['what'].replace('_', ' ')} signal (close {x['close']:.2f})")
+            elif x["what"] in ("long", "short") and not st["closed"]:
+                if not h["from"] <= cur_minute <= h["to"]:
+                    ignored["outside the hours"] += 1
+                    continue
                 want = 1 if x["what"] == "long" else -1
                 working = [o for o in st["orders"] if not o["exit"]]
                 if pos * want > 0 or working:
+                    ignored["in a trade"] += 1
                     continue                                  # already in, or an entry is working
                 if pos * want < 0:
                     if not rule["exits"]["reverse"]:
+                        ignored["an opposite trade (no reverse)"] += 1
                         continue
-                    act({"kind": "flatten", "minute": cur_minute})
-                act(_entry(rule, x["what"], x["close"], cur_minute))
-        events.extend({**e, "minute": cur_minute} for e in engine.step(st, b, level_of))
+                    act({"kind": "flatten", "minute": cur_minute}, f"{x['what']} signal, reversing")
+                act(_entry(rule, x["what"], x["close"], cur_minute), f"{x['what']} signal (close {x['close']:.2f})")
+        for e in engine.step(st, b, level_of):
+            events.append({**e, "minute": cur_minute})
+            if e["event"] == "fill":
+                say(f"{_hm(cur_minute)} filled: {e['side'].upper()} {e['qty']} @ {e['price']:.2f}" + (f" ({e['note']})" if e.get("note") else ""))
+    if any(ignored.values()):
+        say("signals not taken: " + ", ".join(f"{n} while {k}" if k == "in a trade" else f"{n} {k}" if k == "outside the hours"
+                                              else f"{n} against {k}" for k, n in ignored.items() if n))
     return {"day": day, "actions": actions, "fills": [e for e in events if e["event"] == "fill"], "cash": st["cash"],
             "start_cash": cash, "state": st, "skipped": skipped, "series": s}
 
@@ -185,17 +220,20 @@ def _random_entries(rule: dict, symbol: str, day: str, n: int, rng: random.Rando
 
 
 def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, seed: int = 1, baseline_runs: int = 5,
-        progress=None) -> dict:
-    """The rule over `days`, then the baseline. progress(done, total) is called after each day."""
+        progress=None, log=None) -> dict:
+    """The rule over `days`, then the baseline. progress(done, total) is called after each day; log(day, text,
+    level) with what happened (run_day), a line a day, and the baseline."""
     total = len(days) * (1 + baseline_runs)
     done = 0
+    note = log or (lambda day, text, level="info": None)
     results, trades, equity, bal, skipped, series = [], [], [], cash, [], {}
     for d in days:
-        r = run_day(rule, symbol, d, bal, settings)
+        r = run_day(rule, symbol, d, bal, settings, log=lambda text, level="info", d=d: note(d, text, level))
         series[d] = r["series"]
         skipped += r["skipped"]
-        bal = r["cash"]
         t = trades_of(d, r["fills"])
+        note(d, f"{len(t)} trade(s), P/L {sum(x['pnl'] for x in t):+,.2f}, cash {r['cash']:,.2f}", "day")
+        bal = r["cash"]
         trades += t
         equity.append({"day": d, "equity": round(bal, 2)})
         results.append({"day": d, "actions": r["actions"], "trades": len(t)})
@@ -204,6 +242,8 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
             progress(done, total)
     rng = random.Random(seed)
     base_trades = []
+    if baseline_runs:
+        note(None, f"random entries with the same exits: {baseline_runs} run(s) over the same days")
     random_rule = {**rule, "order": {"type": "market"}}
     for _ in range(baseline_runs):
         for res in results:
@@ -214,6 +254,8 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
             if progress:
                 progress(done, total)
     base = stats(base_trades, len(days) * baseline_runs) if baseline_runs else None
+    if base:
+        note(None, f"random entries: {base['trades']} trade(s), P/L {base['total']:+,.2f}")
     return {"symbol": symbol, "days": days, "start_cash": cash, "end_cash": round(bal, 2), "trades": trades,
             "equity": equity, "stats": stats(trades, len(days)), "baseline": base, "baseline_runs": baseline_runs,
             "actions": {res["day"]: res["actions"] for res in results}, "demo": symbol.endswith("-DEMO"),
