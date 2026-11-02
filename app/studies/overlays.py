@@ -6,7 +6,7 @@ import pandas as pd
 from .. import engine as en
 from .. import indicators as ind
 from .base import (P, src_param, color, plot, with_alpha, study, ln, bars_for, level, fill_params, fill_between,
-                   channel_fill, rule_levels, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
+                   channel_fill, rule_levels, rule_settings, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
 
 
 @study("sma", "Simple moving average (SMA)", "Overlays", "price",
@@ -269,3 +269,4 @@ def _ma_cloud(ctx, p):
 
 
 rule_levels("trend_channel")     # redrawn as each bar arrives: a rule would be looking ahead (rules.py refuses it)
+rule_settings("psar", "step", "max")     # dots or a line doesn't change what a rule reads

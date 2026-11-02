@@ -114,6 +114,12 @@ def rule_levels(type: str, *levels: tuple, settings: tuple = ()) -> None:
     REGISTRY[type]["rule_settings"] = list(settings)
 
 
+def rule_settings(type: str, *keys: str) -> None:
+    """The settings of a line study that change what a rule reads, offered in the rule form (the rest only change
+    how it's drawn: dots or a line, its colours)."""
+    REGISTRY[type]["rule_settings"] = list(keys)
+
+
 def rule_params(type: str, output: str, params: dict) -> dict:
     """A study's settings as a rule reads one of its levels: that level drawn, and nothing else the study can switch
     off (it's worked out at every bar, so the rest would only cost time); never hidden for being far away."""

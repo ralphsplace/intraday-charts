@@ -636,6 +636,7 @@ body.review label:has(#layout), body.review label:has(#day), body.review #layout
 .pp-conds { flex: 1 1 auto; min-width: 0; }
 .pp-conds:empty { flex: 0 0 0; }
 .pp-cond { flex-wrap: nowrap; width: max-content; max-width: 100%; }
+.pp-rule input.pp-ago { width: 52px; }
 .pp-cond .pp-letter { width: 18px; text-align: center; color: var(--amber); }
 /* a true / false expression: typed, and as nested groups (config/expr-editor.js) */
 .xed { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 980px; }

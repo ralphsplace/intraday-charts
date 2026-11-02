@@ -5,7 +5,9 @@
    study are its levels by name, and its "rule_settings"). */
 import { btn, el } from "../util.js";
 
-export const OP_LABEL = { crosses_above: "crosses above", crosses_below: "crosses below", above: "is above", below: "is below" };
+export const OP_LABEL = { crosses_above: "crosses above", crosses_below: "crosses below", above: "is above", below: "is below",
+                          rising: "is rising", falling: "is falling" };
+const TRENDS = ["rising", "falling"];                    // against itself some bars before: no second operand
 
 // meta: { prices, ops, catalog }
 export const lined = (meta) => meta.catalog.filter((s) => s.lines.length);       // studies with a line or level to read
@@ -25,7 +27,9 @@ export function describe(c, meta) {
     const short = (spec?.name || x.study.type).replace(/ \(.*\)$/, "");
     return line && spec.lines.length > 1 && line.label !== short ? `${short}: ${line.label}` : short;
   };
-  return `${side(c.a)} ${OP_LABEL[c.op] || c.op} ${side(c.b)}`;
+  const at = (x) => side(x) + (x.ago ? ` ${x.ago} bar${x.ago > 1 ? "s" : ""} ago` : "");
+  if (TRENDS.includes(c.op)) return `${at(c.a)} ${OP_LABEL[c.op]}` + ((c.bars || 1) > 1 ? ` over ${c.bars} bars` : "");
+  return `${at(c.a)} ${OP_LABEL[c.op] || c.op} ${at(c.b)}`;
 }
 
 // an operand; set(x) replaces it, redraw() draws the form again after a change of kind
@@ -43,6 +47,15 @@ export function operand(x, set, redraw, meta, studyOnly = false) {
     i.oninput = () => set({ value: +i.value });
     box.appendChild(i);
   }
+  // a price's or study's value some bars before (blank: this bar), e.g. VZO 1 bar ago
+  const agoBox = () => {
+    const i = el("input", "pp-ago"); Object.assign(i, { type: "number", min: 0, max: 50, step: 1, value: x.ago || "", placeholder: "now" });
+    i.title = "Its value this many bars before (blank: this bar)"; i.setAttribute("aria-label", "Bars ago");
+    i.oninput = () => { const n = parseInt(i.value, 10); if (n > 0) x.ago = Math.min(50, n); else delete x.ago; };
+    i.onchange = redraw;                                  // its description in the expression's menus
+    return [i, el("span", "muted small", "bars ago")];
+  };
+  if ("price" in x && !studyOnly) box.append(...agoBox());
   if ("study" in x) {
     const s = x.study, spec = meta.catalog.find((c) => c.type === s.type) || lined(meta)[0];
     const st = el("select");
@@ -61,7 +74,7 @@ export function operand(x, set, redraw, meta, studyOnly = false) {
     // the settings that change it: a level study names them (the opening range's length...); a line study, its first
     // few numbers and choices (an SMA's length...)
     const shown = spec.rule_settings ? spec.params.filter((q) => spec.rule_settings.includes(q.key))
-      : spec.params.filter((q) => ["int", "float", "choice"].includes(q.type) && q.section !== "Style").slice(0, 3);
+      : spec.params.filter((q) => ["int", "float", "choice"].includes(q.type) && !["Style", "Fill"].includes(q.section)).slice(0, 3);
     for (const p of shown) {
       const cur = s.params?.[p.key] ?? p.default;
       let i;
@@ -77,6 +90,7 @@ export function operand(x, set, redraw, meta, studyOnly = false) {
       i.title = p.label; i.setAttribute("aria-label", `${spec.name} ${p.label}`);
       box.append(el("span", "muted small", p.label.toLowerCase()), i);
     }
+    if (!studyOnly) box.append(...agoBox());
   }
   return box;
 }
@@ -88,8 +102,20 @@ export function conditionRow(c, letter, remove, redraw, meta) {
   const op = el("select");
   op.setAttribute("aria-label", `Condition ${letter}: how it compares`);
   for (const k of meta.ops) { const o = el("option", null, OP_LABEL[k]); o.value = k; op.appendChild(o); }
-  op.value = c.op; op.onchange = () => { c.op = op.value; redraw(); };
-  r.append(el("b", "pp-letter", letter), operand(c.a, (x) => { c.a = x; }, redraw, meta), op, operand(c.b, (x) => { c.b = x; }, redraw, meta),
-           btn("×", remove, `Remove condition ${letter}`, "pp-x"));
+  op.value = c.op;
+  op.onchange = () => {
+    c.op = op.value;
+    if (TRENDS.includes(c.op)) { delete c.b; c.bars ||= 1; if ("value" in c.a) c.a = { price: "close" }; }     // its direction
+    else { delete c.bars; c.b ||= { value: 0 }; }
+    redraw();
+  };
+  r.append(el("b", "pp-letter", letter), operand(c.a, (x) => { c.a = x; }, redraw, meta), op);
+  if (TRENDS.includes(c.op)) {                           // than it was N bars before
+    const n = el("input", "pp-num"); Object.assign(n, { type: "number", min: 1, max: 50, step: 1, value: c.bars || 1 });
+    n.title = "Compared with its value this many bars before (1: the previous bar)"; n.setAttribute("aria-label", `Condition ${letter}: over how many bars`);
+    n.oninput = () => { c.bars = Math.max(1, Math.min(50, parseInt(n.value, 10) || 1)); };
+    r.append(el("span", "muted small", "than"), n, el("span", "muted small", "bar(s) before"));
+  } else r.appendChild(operand(c.b, (x) => { c.b = x; }, redraw, meta));
+  r.appendChild(btn("×", remove, `Remove condition ${letter}`, "pp-x"));
   return r;
 }
