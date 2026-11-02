@@ -188,6 +188,7 @@ export class Panel {
     }
     this.bg.set({ bars: v.bars, future: v.future, shade: app.prefs.extShade, separators: v.days > 1 && !v.period });
     this.renderDrawings();
+    this.renderMarkers();
     this.checkAlerts(v);
     const opened = this.preFit && v.bars.some((b) => b.session === "rth");   // 09:30 arrived in Live
     if (!this.fitted || opened) { this.defaultView(v); this.fitted = true; }
@@ -202,6 +203,15 @@ export class Panel {
     this.watermark.applyOptions({ lines: [{ text: v.symbol.replace("-DEMO", " (synthetic)"), color: "rgba(255,255,255,0.05)", fontSize: 44 }] });
     requestAnimationFrame(() => { this.drawOverlay(); this.drawLegends(); });
     this.paperRefresh(v);
+  }
+
+  // arrows at bars (a backtest's entries and exits, review.js): this.markers, [{time, position, shape, color, text}]
+  renderMarkers() {
+    if (!this.markers && !this.markerApi) return;
+    this.markerApi ??= LWC.createSeriesMarkers(this.candles, []);
+    const have = new Set(this.times);
+    this.markerApi.setMarkers((this.markers || []).filter((m) => have.has(m.time))
+      .map(({ time, position, shape, color, text }) => ({ time, position, shape, color, text })));
   }
 
   defaultView(v) {

@@ -1,9 +1,9 @@
 /* The Paper page's Backtests section: run a saved strategy over a symbol's cached days in the background, follow its
    progress, read the report (the strategy against random entries with the same exits), compare runs side by side, and
    save a run's trades into an account to open them on a chart. Data: /api/paper/backtests. */
-import { dollars, fmtMin } from "../format.js";
+import { dollars } from "../format.js";
 import { $, api, btn, el, load, store } from "../util.js";
-import { equityChart } from "./equity.js";
+import { renderReport } from "./report.js";
 
 const KEY = "intraday-charts:paper-backtest";
 const enc = encodeURIComponent;
@@ -45,7 +45,7 @@ export async function loadRuns(say) {
   const t = $("ppRuns");
   t.innerHTML = "";
   const head = el("tr");
-  for (const h of ["", "Rule", "Symbol", "Days", "Trades", "P/L", "Winners", "Random entries", ""]) head.appendChild(el("th", null, h));
+  for (const h of ["", "Strategy", "Symbol", "Days", "Trades", "P/L", "Winners", "Random entries", ""]) head.appendChild(el("th", null, h));
   t.appendChild(head);
   if (!runs.length) { const td = el("td", "muted", "No backtests yet."); td.colSpan = 9; t.appendChild(el("tr")).appendChild(td); }
   for (const r of runs) {
@@ -59,7 +59,7 @@ export async function loadRuns(say) {
               el("td", null, s ? String(s.trades) : status), el("td", s && s.total >= 0 ? "up" : "down", s ? money(s.total) : ""),
               el("td", null, s ? pct(s.win_rate) : ""), el("td", "muted small", b ? `${money(b.per_day)} a day, ${pct(b.win_rate)} winners` : ""));
     const acts = el("td", "cfg-acts");
-    acts.append(btn("Report", () => showReport(r.id, say), `Show the report of ${r.strategy_name}`, "pp-report-btn"),
+    acts.append(btn("Report", () => { showReport(r.id, say); loadRuns(say); }, `Show the report of ${r.strategy_name}`, "pp-report-btn"),
                 btn("Delete", async (e) => {
                   const me = e.currentTarget;
                   if (me.dataset.sure !== "1") { me.dataset.sure = "1"; me.textContent = "Delete? Yes"; return; }
@@ -70,50 +70,17 @@ export async function loadRuns(say) {
     tr.appendChild(acts);
     t.appendChild(tr);
   }
+  for (const tr of t.querySelectorAll("tr[data-id]")) tr.classList.toggle("on", tr.dataset.id === shown);
   if (runs.some((r) => r.status === "running")) { clearTimeout(poll); poll = setTimeout(() => loadRuns(say), 1000); }
-  else if (shown && runs.some((r) => r.id === shown)) showReport(shown, say, true);
+  if (shown && runs.some((r) => r.id === shown)) showReport(shown, say, true);       // live while it runs, then done
 }
 
 async function showReport(id, say, quiet = false) {
   shown = id;
   let run;
   try { run = await api(`/api/paper/backtests/${id}`); } catch (e) { say(e.message, true); return; }
-  const box = $("ppReport");
-  box.innerHTML = "";
-  box.appendChild(el("h3", null, `${run.strategy_name} · ${run.symbol} · ${run.start} to ${run.end}` + (run.report?.demo ? " (synthetic data)" : "")));
-  if (run.status === "running") { box.appendChild(el("p", "muted", `Running: ${run.done} of ${run.total} days…`)); return; }
-  if (run.status === "failed") { box.appendChild(el("p", "bad", run.error)); return; }
-  const rep = run.report;
-  if (rep.skipped?.count) box.appendChild(el("p", "bad", `${rep.skipped.count} entry signal${rep.skipped.count === 1 ? " was" : "s were"} skipped: ${rep.skipped.first}` +
-                                            ". Use fewer shares, or an account with more cash."));
-  if (run.skipped?.length) box.appendChild(el("p", "muted small", `Skipped ${run.skipped.length} day(s) without cached bars: ${run.skipped.join(", ")}`));
-  box.appendChild(statsTable([["This strategy", rep.stats], [`Random entries (${rep.baseline_runs} runs)`, rep.baseline]].filter(([, s]) => s)));
-  const eq = el("div", "pp-equity"); box.appendChild(eq);
-  equityChart(eq, rep.equity.map((e) => ({ value: e.equity, label: e.day })), rep.start_cash);
-  // save into an account
-  const save = el("div", "cfg-row");
-  const sel = el("select"); sel.setAttribute("aria-label", "Account to save the trades into");
-  for (const n of Object.keys(accountsNow).sort()) { const o = el("option", null, n); o.value = n; sel.appendChild(o); }
-  save.append(el("span", null, "Save the trades into"), sel,
-              btn("Save", async () => {
-                try { const r = await api(`/api/paper/backtests/${id}/save`, { account: sel.value }); say(`Saved ${r.saved_days} day(s) into "${sel.value}": see Trades.`); document.dispatchEvent(new Event("paper:accounts")); }
-                catch (e) { say(e.message, true); }
-              }, "Save these trades into the account, as sessions that open on a chart", "pp-save"),
-              el("span", "muted small", "each day then opens on a chart (Trades, Open on the chart)"));
-  if (!sel.options.length) save.replaceChildren(el("span", "muted small", "Make an account (Config, Paper accounts) to save these trades into."));
-  box.appendChild(save);
-  const t = el("table", "cfg-table pp-trades");
-  const head = el("tr");
-  for (const h of ["Day", "Side", "Shares", "In", "Out", "P/L", "Exit"]) head.appendChild(el("th", null, h));
-  t.appendChild(head);
-  for (const x of rep.trades.slice(0, 500)) {
-    t.appendChild(el("tr")).append(el("td", null, x.day), el("td", x.side === "long" ? "up" : "down", x.side), el("td", null, String(x.qty)),
-      el("td", null, `${fmtMin(x.entry_minute)} @ ${x.entry.toFixed(2)}`), el("td", null, `${fmtMin(x.exit_minute)} @ ${x.exit.toFixed(2)}`),
-      el("td", x.pnl >= 0 ? "up" : "down", money(x.pnl)), el("td", "muted small", x.why || ""));
-  }
-  if (rep.trades.length > 500) box.appendChild(el("p", "muted small", `The first 500 of ${rep.trades.length} trades.`));
-  box.appendChild(t);
-  if (!quiet) box.scrollIntoView({ block: "start" });
+  if (shown !== id) return;
+  renderReport($("ppReport"), run, { say, accounts: accountsNow, statsTable, money, quiet });
 }
 
 function statsTable(cols) {

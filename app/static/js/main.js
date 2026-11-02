@@ -6,6 +6,7 @@ import { openData } from "./dialogs/load-data.js";
 import { buildGrid, showLayout } from "./grid.js";
 import { isLayout } from "./layouts.js";
 import { showCursor } from "./replay.js";
+import { reviewWindow, reviewing, showReview } from "./review.js";
 import { layoutKey } from "./keys.js";
 import { DASH, KEY, app, defaultConfigs, normStudies, save } from "./state.js";
 import { $, api, load, orElse } from "./util.js";
@@ -41,6 +42,11 @@ expose("priceTypes", PT);
               prefs: { ...(start.prefs || {}) } };
     if (start.sizes) saved.prefs.sizes = { [start.layout]: start.sizes };
   }
+  let review = null;
+  if (reviewing()) {                                     // a backtest's day (review.js): its own chart, whatever was kept
+    try { review = await reviewWindow(saved); saved = review.window; }
+    catch (e) { document.body.prepend(Object.assign(document.createElement("p"), { className: "reviewbar bad", textContent: "Review: " + e.message })); }
+  }
   if (saved && Array.isArray(saved.configs)) {
     app.layout = isLayout(saved.layout) ? saved.layout : "1x1";
     app.configs = saved.configs;
@@ -52,7 +58,7 @@ expose("priceTypes", PT);
   $("fitLevels").checked = app.prefs.fitLevels; $("extShade").checked = app.prefs.extShade; $("syncCrosshair").checked = app.prefs.sync;
   buildGrid();
   save();
-  openAt(new URLSearchParams(location.search));
+  if (review) showReview(review.view); else openAt(new URLSearchParams(location.search));
   if (firstRun) {
     app.day = meta.calendar.last_session; app.extraDays.add(app.day); fillDays();
     openData("No market data is cached yet. Pick the symbols and the day to load from TWS. " +
@@ -60,7 +66,7 @@ expose("priceTypes", PT);
   }
   await refreshAll();
   showCursor();
-  await replay.restoreMode();              // Live, if this tab was in Live on the dashboard or page before
+  if (!review) await replay.restoreMode();  // Live, if this tab was in Live on the dashboard or page before
 })();
 
 // an address that opens the first chart at a symbol, day and replay time, practising in a paper account (the Paper

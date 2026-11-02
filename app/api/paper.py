@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts, backtest, engine, expr, jobs, practice, rules, strategies
+from ..paper import accounts, backtest, engine, expr, jobs, practice, review, rules, strategies
 from .common import one_symbol, valid_date
 
 router = APIRouter()
@@ -292,6 +292,13 @@ def paper_backtests():
 @router.get("/api/paper/backtests/{run_id}")
 def paper_backtest(run_id: str):
     return _call(jobs.read, run_id)
+
+
+@router.get("/api/paper/backtests/{run_id}/review")
+def paper_backtest_review(run_id: str, day: str):
+    """A finished backtest's day for a chart: its symbol, timeframe, the studies its rules read, and its trades as
+    entry and exit markers (the chart page's review mode, /review)."""
+    return _call(review.day_view, _call(jobs.read, run_id), valid_date(day))
 
 
 @router.delete("/api/paper/backtests/{run_id}")

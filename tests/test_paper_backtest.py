@@ -105,6 +105,12 @@ def test_a_background_run_end_to_end(on_demo):
         time.sleep(0.1)
     assert run["status"] == "done", run.get("error")
     assert run["done"] == run["total"] and run["report"]["stats"]["trades"] >= 1
+    assert run["log"][0]["text"].startswith('"Crosses" on QQQ-DEMO, 5 day(s)') and run["log"][-1]["text"].startswith("done:")
+    day = run["report"]["trades"][0]["day"]
+    v = c.get(f"/api/paper/backtests/{r['id']}/review", params={"day": day}).json()
+    assert v["strategy_name"] == "Crosses" and v["markers"] and v["when"]["buy"] == '"Cross up"'
+    assert c.get(f"/api/paper/backtests/{r['id']}/review", params={"day": "2020-01-02"}).status_code == 404
+    assert "review" in c.get("/review").text.lower() and '"review": true' in c.get("/review").text
     assert c.get("/api/paper/backtests").json()["runs"][0]["id"] == r["id"]
     # saved into an account: each day opens as a practice session with the same fills
     name, _ = accounts.create("Backtests", start_cash=100_000)
@@ -143,3 +149,34 @@ def test_backtest_defaults_are_kept_in_the_config_and_used_when_a_run_leaves_the
                                          "missing": "stop", "baseline_runs": 3})
     assert seen == {"missing": "stop", "runs": 3}                         # the run's own
     assert c.delete("/api/paper/backtest-defaults").json() == backtest.BUILT_IN_DEFAULTS
+
+
+def test_a_run_logs_what_it_did_and_shows_a_day_for_a_chart(on_demo):
+    """The log: each signal acted on (or why not), each fill, a line a day. A day for a chart: the studies the rules
+    read, and each trade's entry and exit as arrows on the chart bars they filled in."""
+    from app.paper import review
+    days = store.list_days("QQQ-DEMO")[:4]
+    lines = []
+    rep = backtest.run(cross_rule(), "QQQ-DEMO", days, 100_000, engine.DEFAULT_SETTINGS, baseline_runs=1,
+                       log=lambda day, text, level="info": lines.append((day, level, text)))
+    assert [x for x in lines if x[1] == "day"] == [(d, "day", x[2]) for d, x in zip(days, [y for y in lines if y[1] == "day"], strict=True)]
+    fills = [x for x in lines if "filled:" in x[2]]
+    assert len(fills) == 2 * len(rep["trades"])                              # every entry and exit
+    assert any("long signal" in x[2] or "short signal" in x[2] for x in lines) and lines[-1][0] is None   # the baseline last
+    run = {"id": "x", "status": "done", "strategy_name": "Crosses", "strategy": cross_rule(), "report": rep}
+    day = rep["trades"][0]["day"]
+    v = review.day_view(run, day)
+    assert v["symbol"] == "QQQ-DEMO" and v["tf"] == 3 and [s["type"] for s in v["studies"]] == ["sma"]
+    n = len([t for t in rep["trades"] if t["day"] == day])
+    assert len(v["markers"]) == 2 * n and v["markers"] == sorted(v["markers"], key=lambda m: m["time"])
+    first = v["trades"][0]
+    entry = next(m for m in v["markers"] if m["trade"] == 1 and m["price"] == first["entry"])
+    assert entry["shape"] == ("arrowUp" if first["side"] == "long" else "arrowDown")
+    from app import engine as day_engine
+    ctx = day_engine.DayContext("QQQ-DEMO", day, 3, None)
+    bar = ctx.shown[ctx.shown["bucket"] == first["entry_minute"] - first["entry_minute"] % 3]
+    assert entry["time"] == int(bar["ct"].iloc[0])                           # on the bar the entry filled in
+    with pytest.raises(KeyError):
+        review.day_view(run, "2020-01-02")
+    with pytest.raises(ValueError, match="hasn't finished"):
+        review.day_view({**run, "status": "running"}, day)
