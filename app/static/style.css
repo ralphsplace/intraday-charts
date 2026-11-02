@@ -609,6 +609,25 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
 .pp-conds { flex: 1 1 auto; min-width: 0; }
 .pp-conds:empty { flex: 0 0 0; }
 .pp-cond { flex-wrap: nowrap; width: max-content; max-width: 100%; }
+.pp-cond .pp-letter { width: 18px; text-align: center; color: var(--amber); }
+/* a true / false expression: typed, and as nested groups (config/expr-editor.js) */
+.xed { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 980px; }
+.xed input.xed-text { width: 100%; max-width: none; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; padding: 5px 8px; }
+.xed-msg:empty { display: none; }
+.xed-msg.bad { color: var(--bear); }
+.xed-group { display: flex; flex-direction: column; gap: 4px; padding: 6px 8px; border: 1px solid var(--line); border-left: 3px solid #3a6ea5;
+  border-radius: 6px; background: rgba(255,255,255,.015); }
+.xed-group.or { border-left-color: var(--amber); }
+.xed-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.xed-head select.xed-op { font-size: 12px; }
+.xed-groups > .pp-add, .pp-rule > .pp-add { align-self: flex-start; }
+.xed-part { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.xed-part > .xed-group { flex: 1 1 auto; }
+.xed-not { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); }
+.pp-rule input.xed-within { width: 52px; }
+.xed-adds { display: flex; gap: 6px; }
+.pp-when { align-items: flex-start; }
+.pp-when > .pp-label { padding-top: 6px; }
 .pp-run { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 8px; }
 .pp-run label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
 .pp-run label.papercheck { flex-direction: row; align-items: center; }

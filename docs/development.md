@@ -103,8 +103,11 @@ app/upgrade.py          at server start, once: what older versions saved, brough
 app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
 app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
 app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
-app/paper/rules.py      rules as data: checked, evaluated bar by bar at the close; refuses studies that repaint
-app/paper/backtest.py   a rule over many days with the paper engine; trades, stats, the random baseline
+app/paper/expr.py       true / false expressions: text to a tree and back ((A OR B) AND NOT "Rule 3"), with where it's wrong
+app/paper/rules.py      rules as data: conditions and an expression of them and other rules; checked, expanded (no
+                        loops), evaluated bar by bar at the close; refuses studies that repaint
+app/paper/strategies.py strategies: buy / short / exit expressions of rules, the order, exits, hours; prepared for a run
+app/paper/backtest.py   a strategy over many days with the paper engine; trades, stats, the random baseline
 app/paper/jobs.py       backtests as background runs, followed by id (progress and results in files)
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
@@ -165,8 +168,9 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
   config/               the Config page: dashboards and the environment check, watch lists, watch list
-                        columns, study defaults, paper accounts, rules.js (the rule form), backtests.js
-                        (backtest defaults)
+                        columns, study defaults, paper accounts, rules.js and strategies.js (their forms, on
+                        expr-editor.js: an expression typed or in groups, conditions.js, named-menu.js),
+                        backtests.js (backtest defaults)
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
   columns.js            how each kind of watch list column is written or drawn (the columns come from the server)
   feed.js               a watch list's outside source (FinViz): fetched, refreshed, its status

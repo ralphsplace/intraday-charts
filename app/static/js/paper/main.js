@@ -1,6 +1,6 @@
 /* The Paper page (/paper): Trades and Backtests, each in its own module; this one switches the sections and keeps
-   them in step. Accounts, rules and backtest defaults are set up on the Config page, so they're read again whenever
-   this page comes back into view (after editing a rule in another tab, say). */
+   them in step. Accounts, rules, strategies and backtest defaults are set up on the Config page, so they're read
+   again whenever this page comes back into view (after editing a strategy in another tab, say). */
 import { $, api, load, store } from "../util.js";
 import { fillRunForm, initBacktests, loadRuns } from "./backtests.js";
 import { loadTrades } from "./trades.js";
@@ -10,13 +10,13 @@ const SECTIONS = ["trades", "backtests"];
 const say = (text, bad) => { $("cfgStatus").textContent = text || ""; $("cfgStatus").classList.toggle("bad", !!bad); };
 const sayIn = (id) => (text, bad) => { $(id).textContent = text || ""; $(id).classList.toggle("bad", !!bad); };
 
-let accounts = {}, ruleNames = [], defaults = null, section = "trades";
+let accounts = {}, names = [], defaults = null, section = "trades";
 
 async function refresh() {
-  const [a, r, d] = await Promise.all([api("/api/paper/accounts"), api("/api/paper/rules"), defaults || api("/api/paper/backtest-defaults")]);
+  const [a, r, d] = await Promise.all([api("/api/paper/accounts"), api("/api/paper/strategies"), defaults || api("/api/paper/backtest-defaults")]);
   accounts = a.accounts; defaults = d;
-  ruleNames = Object.keys(r.rules).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
-  fillRunForm(ruleNames, accounts, defaults);
+  names = Object.keys(r.strategies).sort((x, y) => x.localeCompare(y, undefined, { numeric: true }));
+  fillRunForm(names, accounts, defaults);
 }
 
 function showSection(sec) {

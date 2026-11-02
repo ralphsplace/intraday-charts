@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 
 import synthetic
 from app import store
-from app.paper import accounts, backtest, engine, practice, rules
+from app.paper import accounts, backtest, engine, practice, rules, strategies
+from paper_help import strategy
 from test_backtest import write_random_walk
 
 CLOSE = {"price": "close"}
@@ -32,9 +33,14 @@ def on_demo(demo, monkeypatch):
 
 
 def cross_rule(**kw):
-    return rules.check({"tf": 3, "long": [{"a": CLOSE, "op": "crosses_above", "b": SMA}],
-                        "short": [{"a": CLOSE, "op": "crosses_below", "b": SMA}], "qty": 10,
-                        "exits": {"stop": 0.6, "target": 1.0}, **kw})
+    """Long when the close crosses above its 20-bar SMA, short when below (a prepared strategy)."""
+    return strategy(long=[{"a": CLOSE, "op": "crosses_above", "b": SMA}], short=[{"a": CLOSE, "op": "crosses_below", "b": SMA}],
+                    **{"tf": 3, "qty": 10, "exits": {"stop": 0.6, "target": 1.0}, **kw})
+
+
+def save_cross_strategy():
+    rules.save("Cross up", {"conditions": [{"a": CLOSE, "op": "crosses_above", "b": SMA}]})
+    return {"buy": '"Cross up"', "qty": 10, "exits": {"stop": 0.6, "target": 1.0}}
 
 
 def test_a_backtest_fills_exactly_as_replay_practice(on_demo):
@@ -85,11 +91,13 @@ def test_a_background_run_end_to_end(on_demo):
     from app.server import app
     c = TestClient(app, client=("192.168.1.20", 50000))
     have = store.list_days("QQQ-DEMO")
-    rule = {"tf": 3, "long": [{"a": CLOSE, "op": "crosses_above", "b": SMA}], "qty": 10, "exits": {"stop": 0.6, "target": 1.0}}
-    r = c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": "2026-12-31"})
+    st = save_cross_strategy()
+    r = c.post("/api/paper/backtests", json={"strategy": st, "symbol": "QQQ-DEMO", "start": have[0], "end": "2026-12-31"})
     assert r.status_code == 400 and "No cached bars" in r.json()["detail"]
-    r = c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": have[4],
+    strategies.save("Crosses", st)
+    r = c.post("/api/paper/backtests", json={"strategy_name": "Crosses", "symbol": "QQQ-DEMO", "start": have[0], "end": have[4],
                                              "baseline_runs": 1}).json()
+    assert r["strategy_name"] == "Crosses" and r["strategy"]["when"]["long"]["c"]["op"] == "crosses_above"   # what the rule said
     for _ in range(200):
         run = c.get(f"/api/paper/backtests/{r['id']}").json()
         if run["status"] != "running":
@@ -106,7 +114,7 @@ def test_a_background_run_end_to_end(on_demo):
     want = [(t["entry"], t["exit"]) for t in run["report"]["trades"] if t["day"] == day]
     fills = [f["price"] for f in v["fills"]]
     assert [(fills[i], fills[i + 1]) for i in range(0, len(fills), 2)] == want
-    assert c.post("/api/paper/backtests", json={"rule_name": "nope", "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]}).status_code == 404
+    assert c.post("/api/paper/backtests", json={"strategy_name": "nope", "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]}).status_code == 404
     assert c.delete(f"/api/paper/backtests/{r['id']}").json()["runs"] == []
 
 
@@ -128,10 +136,10 @@ def test_backtest_defaults_are_kept_in_the_config_and_used_when_a_run_leaves_the
     seen = {}
     monkeypatch.setattr("app.paper.jobs.start", lambda *a: seen.update(missing=a[5], runs=a[8]) or {"id": "x"})
     have = store.list_days("QQQ-DEMO")
-    rule = {"tf": 3, "long": [{"a": CLOSE, "op": "crosses_above", "b": SMA}], "qty": 10, "exits": {"stop": 0.6}}
-    c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]})
+    st = save_cross_strategy()
+    c.post("/api/paper/backtests", json={"strategy": st, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1]})
     assert seen == {"missing": "skip", "runs": 0}                         # the defaults
-    c.post("/api/paper/backtests", json={"rule": rule, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1],
+    c.post("/api/paper/backtests", json={"strategy": st, "symbol": "QQQ-DEMO", "start": have[0], "end": have[1],
                                          "missing": "stop", "baseline_runs": 3})
     assert seen == {"missing": "stop", "runs": 3}                         # the run's own
     assert c.delete("/api/paper/backtest-defaults").json() == backtest.BUILT_IN_DEFAULTS

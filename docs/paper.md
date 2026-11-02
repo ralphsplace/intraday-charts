@@ -1,6 +1,6 @@
 # Paper trading
 
-Practise trades in Replay, and test rules on past days, with a paper account. Paper accounts are **simulated on
+Practise trades in Replay, and test strategies on past days, with a paper account. Paper accounts are **simulated on
 the NAS from the cached bars**: they never talk to TWS or your IBKR account, and nothing here places a real order.
 Results are only as good as the model below: read its limits before trusting a number.
 
@@ -54,9 +54,33 @@ A Buy / Sell panel of its own in the window, next to the charts: on any cell's *
 
 ## Rules
 
-Write rules on the [Config page](config.md#paper-rules), **Paper rules**, in a form, no code. Conditions compare a
-price (open, high, low, close), a number, or a study's line or level (with its settings): *crosses above*,
-*crosses below*, *is above*, *is below*.
+A **rule** is a true / false condition, read at each bar's close. Write rules on the [Config page](config.md#paper-rules),
+**Paper rules**, in a form, no code.
+
+**Conditions.** A rule has up to 26 conditions, lettered **A**, **B**, **C**… Each compares a price (open, high, low,
+close), a number, or a study's line or level (with its settings): *crosses above*, *crosses below*, *is above*,
+*is below*. For example *A: Close crosses above Session levels: OR high*.
+
+**True when.** How the conditions (and other rules) combine, typed or built in groups; both stay in step:
+
+| Write | Means |
+| --- | --- |
+| `A AND B`, `A && B`, `A & B` | both |
+| `A OR B`, `A \|\| B`, `A \| B` | either |
+| `NOT A`, `!A` | not |
+| `( … )` | grouping, nested as deep as you like |
+| `WITHIN 3 A` | A was true on one of the last 3 bars (this one included) |
+| `Trend`, `"Rule 1"` | another saved rule, by name (in quotes if the name has spaces, or is one capital letter) |
+
+So `(A OR B) AND NOT (C OR (D AND E))` and `"Above VWAP" AND NOT ("Rule 3" OR WITHIN 5 A)` are both rules. NOT and
+WITHIN bind tightest, then AND, then OR, so `A OR B AND C` is `A OR (B AND C)`; the form always writes the brackets.
+A new rule is true when all its conditions are (`A AND B AND …`) until you change that. In the groups, each box is
+**All of these (AND)** or **Any of these (OR)**; each part can be **NOT**, and **within N bars**; **+ group** nests
+one box inside another.
+
+As you type, the expression is checked and a mistake says where (`Expected ')', found the end (at character 9)`).
+A rule can't use itself, directly or through other rules. Renaming a rule renames it in every rule and strategy
+that uses it; a rule that something uses can't be deleted until that's changed.
 
 **Levels** come from the level studies, by name: **Session levels** (OR high, OR low, PM high, PM low, HOD, LOD, POC,
 VAH, VAL, with the opening range's length), **Prior day** (PH, PL, PC, PO, PW high, PW low), **Initial balance** (IB
@@ -64,11 +88,27 @@ high, IB low, IB mid), **Support / resistance** (Pivot, R1, R2, S1, S2), **ATR l
 **Volume profile** and **TPO**. Each bar reads the level as it was when the bar started, and only once it's
 finished: the 15-minute opening range high exists from 09:45, and *Close crosses above HOD* means the bar closed
 above the high of the day before it. Levels count in regular hours only. A level is worked out for the rule even if
-the study's defaults hide it on the charts. A rule has long and/or short entry conditions (all of them must hold, on the same bar or within
-N bars of each other); the entry order (market, a limit or stop a distance from the close, or at a study line); the
-shares; the exits (a stop, target or trailing distance from the signal bar's close, conditions that close a long or
-a short, and reversing on the opposite signal); and the hours new trades may start. Rules are saved by name. A study
-whose past values change as new bars arrive is refused: trading on it would look ahead.
+the study's defaults hide it on the charts. A study whose past values change as new bars arrive is refused: trading
+on it would look ahead.
+
+## Strategies
+
+A **strategy** trades on rules. Write strategies on the Config page, **Paper strategies**:
+
+- **Buy if**, **Sell short if**, **Close a long if**, **Close a short if**: each an expression of saved rules, with
+  the same AND, OR, NOT, brackets and WITHIN, e.g. **Buy if** `("Rule 1" AND NOT "Rule 3") OR Rule5`. Leave Sell short
+  if blank to only buy; leave the Close ones blank to leave a trade only by its stop, target or the end of the day.
+  Conditions themselves live in rules: a strategy uses rules by name.
+- **Bars**: the timeframe its rules are read on (1, 2, 3, 5 or 15 minutes).
+- **Shares**, the **entry order** (market, a limit or stop a distance from the close, or at a study line or level),
+  the **exits** (a stop, target or trailing distance from the signal bar's close, and reversing on the opposite
+  signal) and the **hours** new trades may start.
+
+A backtest keeps what the rules said when it ran, so changing a rule later doesn't change an old report.
+
+Rules from before strategies were added are upgraded when the server starts: each one's long, short and exit
+conditions become rules (*Rule 1 long*, *Rule 1 short*, *Rule 1 exit long*…), and a strategy of the old name trades
+on them, with the same results.
 
 ## The Paper page
 
@@ -77,11 +117,11 @@ whose past values change as new bars arrive is refused: trading on it would look
 - **Trades**: an account's trades since its last reset, from Replay practice and from saved backtests. Filter by
   symbol and day; see the totals and the equity after each session; write a note on any trade; **Open on the chart**
   opens the default dashboard's first chart at that day, just after the entry, practising in that account.
-- **Backtests**: run a saved rule on a symbol's cached days, with an account's cash and costs. The form starts with
+- **Backtests**: run a saved strategy on a symbol's cached days, with an account's cash and costs. The form starts with
   the defaults set in Config, **Backtests** (symbol, account, random runs, skipping days without bars). It runs in
   the background (you can leave the page). The report has the trades, the equity by day, win rate, average win and
   loss, profit factor, the largest drawdown, trades a day and longs and shorts apart, next to **random entries with
-  the same exits** (several runs): a rule that doesn't beat them has no edge. Days without cached bars stop the run,
+  the same exits** (several runs): a strategy that doesn't beat them has no edge. Days without cached bars stop the run,
   or are skipped if you tick that. Entry signals the account can't afford are skipped, and the report says how
   many. Tick runs to **compare** them side by side; **Save** puts a run's trades into an account, as sessions that
   open on a chart and fill the same.
