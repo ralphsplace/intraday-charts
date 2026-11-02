@@ -1,12 +1,13 @@
 /* The Config page: everything set up once and kept on the NAS. Sections: the dashboards (config/dashboards.js,
    with the environment check), the named watch lists (rename, delete), each watch list type's default columns,
-   every study's default settings and colours, and paper trading's accounts, rules and backtest defaults
-   (config/paper.js, rules.js, backtests.js). Changes are saved as they're made. */
+   every study's default settings and colours, and paper trading's accounts, rules, strategies and backtest
+   defaults (config/paper.js, rules.js, strategies.js, backtests.js). Changes are saved as they're made. */
 import { fillForm, readForm } from "../settings-form.js";
 import { initBacktestDefaults, loadBacktestDefaults } from "./backtests.js";
 import { initDashboards } from "./dashboards.js";
 import { initPaper, loadPaper } from "./paper.js";
 import { initRules, loadRules } from "./rules.js";
+import { initStrategies, loadStrategies } from "./strategies.js";
 import { $, api, btn, el, load, store } from "../util.js";
 
 const TAB_KEY = "intraday-charts:config-tab";
@@ -16,13 +17,14 @@ const SOURCES = { symbols: "Symbols", finviz: "FinViz", holdings: "Holdings (IBK
 let cfg = null, kind = "quote", study = null;
 const say = (id, t, bad) => { $(id).textContent = t || ""; $(id).classList.toggle("bad", !!bad); };
 const sayRule = (t, bad) => say("ppRuleMsg", t, bad);
+const sayStrat = (t, bad) => say("ppStratMsg", t, bad);
 
 async function reload() {
   cfg = await api("/api/config");
   $("cfgPath").textContent = cfg.path;
   renderLists(); renderColumns(); renderStudyList();
   if (study) showStudy(study);
-  await Promise.all([loadPaper(say), loadRules(sayRule), loadBacktestDefaults(say)]);
+  await Promise.all([loadPaper(say), loadRules(sayRule), loadStrategies(sayStrat), loadBacktestDefaults(say)]);
 }
 
 // ---------------------------------------------------------------- watch lists
@@ -106,17 +108,20 @@ function renderColumns() {
     li.dataset.id = id;
     li.appendChild(el("span", "cfg-col-name", c.label));
     if (id !== "symbol") {
-      const move = (d) => setColumns(swap(chosen, i, i + d));
+      const move = (d) => {                                   // from the order now: clicks can come faster than saves
+        const now = cfg.watch_columns.defaults[kind], at = now.indexOf(id);
+        if (at > 0 && at + d >= 1 && at + d < now.length) setColumns(swap(now, at, at + d));
+      };
       const up = btn("▲", () => move(-1), `Move ${c.label} left`, "cfg-up"); up.disabled = i <= 1;
       const down = btn("▼", () => move(1), `Move ${c.label} right`, "cfg-down"); down.disabled = i === chosen.length - 1;
-      li.append(up, down, btn("×", () => setColumns(chosen.filter((x) => x !== id)), `Remove ${c.label}`, "cfg-remove"));
+      li.append(up, down, btn("×", () => setColumns(cfg.watch_columns.defaults[kind].filter((x) => x !== id)), `Remove ${c.label}`, "cfg-remove"));
     }
     ol.appendChild(li);
   });
   const avail = $("cfgAvail");
   avail.innerHTML = "";
   for (const c of cfg.watch_columns.columns.filter((x) => canShow(x) && !chosen.includes(x.id))) {
-    const b = btn("+ " + c.label, () => setColumns([...chosen, c.id]), c.tip || c.label, "cfg-add");
+    const b = btn("+ " + c.label, () => setColumns([...cfg.watch_columns.defaults[kind], c.id]), c.tip || c.label, "cfg-add");
     b.dataset.id = c.id;
     avail.appendChild(b);
   }
@@ -125,12 +130,20 @@ function renderColumns() {
 
 const swap = (a, i, j) => { const b = [...a]; [b[i], b[j]] = [b[j], b[i]]; return b; };
 
-async function setColumns(ids) {
-  try {
-    cfg.watch_columns = await api(`/api/config/watch-columns/${kind}`, ids.filter((x) => x !== "symbol"), "PUT");
-    say("cfgColsMsg", "Saved.");
-  } catch (e) { say("cfgColsMsg", e.message, true); }
+// shown at once, saved in order: each save waits for the one before, so the last click is what's kept
+let saving = Promise.resolve();
+function setColumns(ids) {
+  const k = kind;
+  cfg.watch_columns = { ...cfg.watch_columns, defaults: { ...cfg.watch_columns.defaults, [k]: ids } };
   renderColumns();
+  saving = saving.then(async () => {
+    try {
+      const r = await api(`/api/config/watch-columns/${k}`, ids.filter((x) => x !== "symbol"), "PUT");
+      if (cfg.watch_columns.defaults[k] === ids) { cfg.watch_columns = r; renderColumns(); }   // nothing newer since
+      say("cfgColsMsg", "Saved.");
+    } catch (e) { say("cfgColsMsg", e.message, true); }
+  });
+  return saving;
 }
 
 // ---------------------------------------------------------------- study defaults
@@ -203,6 +216,8 @@ $("sec-studies").querySelector(".cfg-sform").hidden = true;
 
 initPaper(say);
 initRules(sayRule);
+initStrategies(sayStrat);
+for (const a of document.querySelectorAll("a[data-goto]")) a.onclick = (e) => { e.preventDefault(); showSection(a.dataset.goto); };
 initBacktestDefaults(say);
 initDashboards();
 // the section asked for in the address (?tab=dashboards), else the last one shown in this browser

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts, backtest, engine, jobs, practice, rules
+from ..paper import accounts, backtest, engine, expr, jobs, practice, rules, strategies
 from .common import one_symbol, valid_date
 
 router = APIRouter()
@@ -32,7 +32,7 @@ def _call(fn, *a):
     except KeyError as e:
         raise HTTPException(404, str(e.args[0])) from None
     except ValueError as e:
-        raise HTTPException(409 if "already" in str(e) else 400, str(e)) from None
+        raise HTTPException(409 if "already" in str(e) or "is used by" in str(e) else 400, str(e)) from None
 
 
 @router.get("/api/paper/accounts")
@@ -138,40 +138,99 @@ def paper_practice_rewind(req: PracticeBody):
     return _call(practice.rewind, *_where(req))
 
 
-# ---------------------------------------------------------------- rules (app/paper/rules.py)
+# ---------------------------------------------------------------- rules and strategies (app/paper/rules.py, strategies.py)
 class RuleBody(BaseModel):
     name: str | None = Field(None, max_length=200)
     rule: dict
 
 
+class StrategyBody(BaseModel):
+    name: str | None = Field(None, max_length=200)
+    strategy: dict
+
+
+class ExprBody(BaseModel):
+    text: str | None = Field(None, max_length=expr.MAX_TEXT)      # typed, or
+    tree: dict | None = None                                     # from the group editor
+
+
+def _rules_view() -> dict:
+    """The saved rules, each with its expression as a tree too (for the group editor)."""
+    return {n: {**v, "tree": expr.parse(v["when"])} for n, v in rules.all_rules().items()}
+
+
+def _strategies_view() -> dict:
+    return {n: {**v, "trees": {k: expr.parse(v[k]) if v.get(k) else None for k, _ in strategies.SIGNALS}}
+            for n, v in strategies.all_strategies().items()}
+
+
 @router.get("/api/paper/rules")
 def paper_rules():
-    return {"rules": rules.all_rules(), "ops": rules.OPS, "prices": rules.PRICES, "tfs": rules.TFS}
+    return {"rules": _rules_view(), "ops": rules.OPS, "prices": rules.PRICES, "tfs": rules.TFS,
+            "letters": rules.MAX_CONDITIONS}
+
+
+@router.post("/api/paper/expr")
+def paper_expr(req: ExprBody):
+    """An expression checked and turned into its other form: text to a tree, a tree to text. 400 says what's wrong
+    and where ("pos", 0-based)."""
+    try:
+        tree = expr.valid_tree(req.tree) if req.tree is not None else expr.parse(req.text or "")
+    except expr.ExprError as e:
+        raise HTTPException(400, {"message": str(e), "pos": e.pos}) from None
+    letters, names = expr.refs(tree)
+    return {"tree": tree, "text": expr.text(tree), "letters": letters, "rules": names}
 
 
 @router.post("/api/paper/rules")
 def paper_rule_save(req: RuleBody):
     """A new rule (under its name, or "Rule N"), or new contents for the rule of that name."""
     name, item = _call(rules.save, req.name, req.rule)
-    return {"name": name, "item": item, "rules": rules.all_rules()}
+    return {"name": name, "item": item, "rules": _rules_view()}
 
 
 @router.post("/api/paper/rules/{name}/rename")
 def paper_rule_rename(name: str, req: RenameBody):
-    _call(rules.RULES.rename, name, req.to)
-    return {"name": req.to.strip(), "rules": rules.all_rules()}
+    """A new name; the rules and strategies that use it say the new one."""
+    _call(rules.rename, name, req.to)
+    return {"name": req.to.strip(), "rules": _rules_view(), "strategies": _strategies_view()}
 
 
 @router.delete("/api/paper/rules/{name}")
 def paper_rule_delete(name: str):
-    rules.RULES.delete(name)
-    return {"rules": rules.all_rules()}
+    """409 when a rule or strategy uses it."""
+    _call(rules.delete, name)
+    return {"rules": _rules_view()}
+
+
+@router.get("/api/paper/strategies")
+def paper_strategies():
+    return {"strategies": _strategies_view(), "rules": sorted(rules.all_rules()), "tfs": rules.TFS}
+
+
+@router.post("/api/paper/strategies")
+def paper_strategy_save(req: StrategyBody):
+    """A new strategy (under its name, or "Strategy N"), or new contents for the strategy of that name."""
+    name, item = _call(strategies.save, req.name, req.strategy)
+    return {"name": name, "item": item, "strategies": _strategies_view()}
+
+
+@router.post("/api/paper/strategies/{name}/rename")
+def paper_strategy_rename(name: str, req: RenameBody):
+    _call(strategies.STRATEGIES.rename, name, req.to)
+    return {"name": req.to.strip(), "strategies": _strategies_view()}
+
+
+@router.delete("/api/paper/strategies/{name}")
+def paper_strategy_delete(name: str):
+    strategies.STRATEGIES.delete(name)
+    return {"strategies": _strategies_view()}
 
 
 # ---------------------------------------------------------------- backtests (app/paper/backtest.py, jobs.py)
 class BacktestBody(BaseModel):
-    rule: dict | None = None                # the rule itself, or
-    rule_name: str | None = None            # a saved rule by name
+    strategy: dict | None = None            # the strategy itself, or
+    strategy_name: str | None = None        # a saved strategy by name
     symbol: str
     start: str
     end: str
@@ -187,21 +246,20 @@ class SaveBody(BaseModel):
 @router.post("/api/paper/backtests")
 def paper_backtest_start(req: BacktestBody):
     """Start a backtest in the background; follow it with GET /api/paper/backtests/{id}."""
-    if req.rule is None and not req.rule_name:
-        raise HTTPException(400, "Give a rule, or the name of a saved one")
-    rule, name = req.rule, req.rule_name or "(unsaved rule)"
-    if rule is None:
-        item = rules.all_rules().get(req.rule_name)
-        if not item:
-            raise HTTPException(404, f'No rule called "{req.rule_name}"')
-        rule = item["rule"]
+    if req.strategy is None and not req.strategy_name:
+        raise HTTPException(400, "Give a strategy, or the name of a saved one")
+    st, name = req.strategy, req.strategy_name or "(unsaved strategy)"
+    if st is None:
+        st = strategies.all_strategies().get(req.strategy_name)
+        if not st:
+            raise HTTPException(404, f'No strategy called "{req.strategy_name}"')
     d = backtest.defaults()
     missing = req.missing or d["missing"]
     if missing not in ("stop", "skip"):
         raise HTTPException(400, "missing is stop or skip")
     runs = d["baseline_runs"] if req.baseline_runs is None else req.baseline_runs
     a = _call(accounts.find, req.account)[1] if req.account else accounts.defaults()
-    return _call(jobs.start, rule, name, one_symbol(req.symbol, demo_ok=True), valid_date(req.start), valid_date(req.end),
+    return _call(jobs.start, st, name, one_symbol(req.symbol, demo_ok=True), valid_date(req.start), valid_date(req.end),
                  missing, a["start_cash"], a["settings"], runs)
 
 

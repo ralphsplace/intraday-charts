@@ -1,7 +1,9 @@
-"""Rule backtests (#44): a rule run over a symbol's cached days with the paper engine, bar by bar, exactly as Replay
-practice would trade it; a report of the trades; and the same exits on random entries as a baseline.
+"""Strategy backtests (#44, #67): a strategy run over a symbol's cached days with the paper engine, bar by bar, exactly
+as Replay practice would trade it; a report of the trades; and the same exits on random entries as a baseline.
 
-Each day: the rule's signals (rules.py, read at each bar's close) become orders at the minute after; the engine
+"rule" below is a prepared strategy (strategies.prepare): its rules expanded down to their conditions.
+
+Each day: the strategy's signals (strategies.signals, read at each bar's close) become orders at the minute after; the engine
 fills them on 1-minute bars (engine.py); what was done is kept as the same actions a practice session keeps
 (practice.py), so a day of a backtest can be saved into an account and opened on a chart, where it fills the same.
 Stops, targets and trails are measured from the signal bar's close. One position at a time; a new entry signal
@@ -14,7 +16,7 @@ import random
 import statistics
 
 from .. import app_config, sessions, store
-from . import engine, practice, rules
+from . import engine, practice, rules, strategies
 
 MAX_DAYS = 260
 BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "stop"}
@@ -81,11 +83,13 @@ def _entry(rule: dict, side: str, close: float, minute: int) -> dict:
     return {"kind": "order", "order": order, "minute": minute}
 
 
-def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entries: list[dict] | None = None) -> dict:
+def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entries: list[dict] | None = None,
+            series: dict | None = None) -> dict:
     """One day: the actions the rule takes (or the given entries, for the random baseline), the engine's fills
-    and the closing cash. Entries given: {"minute", "what": "long" | "short", "close"}."""
-    s = rules.day_series(symbol, day, rule["tf"], rule)
-    sig = rules.signals(rule, s) if entries is None else entries
+    and the closing cash. Entries given: {"minute", "what": "long" | "short", "close"}. series: the day's
+    rules.day_series, when it's already been worked out (the baseline reuses the rule's)."""
+    s = series or rules.day_series(symbol, day, rule["tf"], strategies.studies(rule))
+    sig = strategies.signals(rule, s) if entries is None else entries
     by_minute: dict[int, list[dict]] = {}
     for x in sig:
         by_minute.setdefault(x["minute"], []).append(x)
@@ -124,7 +128,7 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
                 act(_entry(rule, x["what"], x["close"], cur_minute))
         events.extend({**e, "minute": cur_minute} for e in engine.step(st, b, level_of))
     return {"day": day, "actions": actions, "fills": [e for e in events if e["event"] == "fill"], "cash": st["cash"],
-            "start_cash": cash, "state": st, "skipped": skipped}
+            "start_cash": cash, "state": st, "skipped": skipped, "series": s}
 
 
 def trades_of(day: str, fills: list[dict]) -> list[dict]:
@@ -171,7 +175,7 @@ def stats(trades: list[dict], days: int) -> dict:
 
 def _random_entries(rule: dict, symbol: str, day: str, n: int, rng: random.Random) -> list[dict]:
     """n market entries at random minutes in the rule's hours, on the sides the rule trades."""
-    sides = [x for x in ("long", "short") if rule[x]]
+    sides = strategies.sides(rule)
     day_bars = [b for b in practice.bars(symbol, day) if rule["hours"]["from"] <= b["minute"] <= rule["hours"]["to"]]
     if not day_bars or not n:
         return []
@@ -185,9 +189,10 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
     """The rule over `days`, then the baseline. progress(done, total) is called after each day."""
     total = len(days) * (1 + baseline_runs)
     done = 0
-    results, trades, equity, bal, skipped = [], [], [], cash, []
+    results, trades, equity, bal, skipped, series = [], [], [], cash, [], {}
     for d in days:
         r = run_day(rule, symbol, d, bal, settings)
+        series[d] = r["series"]
         skipped += r["skipped"]
         bal = r["cash"]
         t = trades_of(d, r["fills"])
@@ -203,7 +208,7 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
     for _ in range(baseline_runs):
         for res in results:
             entries = _random_entries(rule, symbol, res["day"], res["trades"], rng)
-            r = run_day(random_rule, symbol, res["day"], cash, settings, entries)
+            r = run_day(random_rule, symbol, res["day"], cash, settings, entries, series[res["day"]])
             base_trades += trades_of(res["day"], r["fills"])
             done += 1
             if progress:

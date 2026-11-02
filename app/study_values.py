@@ -5,8 +5,8 @@ charts: the watch list's study columns today, and anything that later needs a st
 price taken from VWAP or an SMA). It runs the same study code as the charts, on the same cached bars, up to
 the same cursor, so a value here always matches the line on a chart with the same settings.
 
-A spec: {"type": a study in the catalog, "params": its settings (defaults fill the rest), "output": a line id
-or a level's plot id or label, "tf": chart timeframe in minutes (1, 2, 3, 5 or 15)}.
+A spec: {"type": a study in the catalog, "params": its settings (defaults fill the rest), "output": a line id,
+or a level's plot id, label or "level:<name>" (its label without the note in brackets, studies_base.level_name), "tf": chart timeframe in minutes (1, 2, 3, 5 or 15)}.
 """
 from __future__ import annotations
 
@@ -36,8 +36,11 @@ def _pick(result: dict, output: str) -> float | None:
         if line.get("id") == output:
             pts = [p["value"] for p in line.get("data") or [] if p.get("value") is not None]
             return float(pts[-1]) if pts else None
+    name = output[6:] if output.startswith("level:") else None
     for lv in result.get("levels") or []:
-        if lv.get("plot") == output or lv.get("label") == output:
+        if name and "(building)" in (lv.get("label") or ""):
+            continue                                       # by name: only once it's finished (a rule's level)
+        if (studies_base.level_name(lv.get("label") or "") == name) if name else (lv.get("plot") == output or lv.get("label") == output):
             return float(lv["price"])
     return None
 

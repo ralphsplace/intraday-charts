@@ -8,7 +8,8 @@ Sections (each optional; missing ones fall back to the built-in defaults):
     paper_accounts  {name: account}          the named paper accounts (app/paper/accounts.py)
     paper           {"defaults": {...},      a new paper account's starting cash and settings,
                      "backtest": {...}}      and what a new backtest starts with
-    paper_rules     {name: {"id", "rule"}}   the named paper trading rules (app/paper/rules.py)
+    paper_rules     {name: {"id", "conditions", "when"}}   the named paper trading rules (app/paper/rules.py)
+    paper_strategies {name: {"id", "buy", "short", ...}}   the named strategies on them (app/paper/strategies.py)
 
 One job: read and change sections, safely across the server's worker processes (a lock file), with the file
 read again only when it has changed. config.json next to the app (default symbol, default layout) stays as it
@@ -22,7 +23,7 @@ from pathlib import Path
 
 from . import jsonfile, store
 
-SECTIONS = ("watchlists", "studies", "watch_columns", "paper_accounts", "paper", "paper_rules")
+SECTIONS = ("watchlists", "studies", "watch_columns", "paper_accounts", "paper", "paper_rules", "paper_strategies")
 _cache: dict = {}
 
 

@@ -9,7 +9,7 @@ import pandas as pd
 
 from .. import engine as en
 from .. import indicators as ind
-from .base import P, color, plot, study, level, PINK, PURPLE
+from .base import P, color, plot, study, level, PINK, PURPLE, rule_levels
 
 ROW_MODES = ["Number of rows", "Tick size", "Custom price per row"]
 MAX_ROWS = 1500
@@ -200,3 +200,10 @@ def _tpo(ctx, p):
             if not any(((b["low"] <= poc) & (b["high"] >= poc)).any() for b in after if not b.empty):
                 lv.append(level(p, "naked", poc, f"nPOC {d[5:]}", ctx))
     return out
+
+
+# what paper trading rules can read (rules.py)
+rule_levels("volume_profile", ("POC", "poc_line", "lines"), ("VAH", "va_lines", "lines"), ("VAL", "va_lines", "lines"),
+            settings=("range", "va_pct"))
+rule_levels("tpo", ("TPO POC", "poc_line", "lines"), ("TPO VAH", "va_lines", "lines"), ("TPO VAL", "va_lines", "lines"),
+            ("pPOC", "prior", "prior"), ("pVAH", "prior", "prior"), ("pVAL", "prior", "prior"), settings=("range", "period", "va_pct"))

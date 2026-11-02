@@ -8,7 +8,7 @@ import pandas as pd
 
 from .. import engine as en
 from .. import indicators as ind
-from .base import P, color, plot, study, level, GRAY, PURPLE, TEAL, AMBER, ORANGE, RED, GREEN
+from .base import P, color, plot, study, level, GRAY, PURPLE, TEAL, AMBER, ORANGE, RED, GREEN, rule_levels
 
 
 FIB_RATIOS = (0.382, 0.5, 0.618)
@@ -352,3 +352,18 @@ def countdown(minutes: int) -> str:
     if minutes < 1:
         return "under a minute"
     return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
+
+
+# ---------------------------------------------------------------- what paper trading rules can read (rules.py)
+rule_levels("prior_day", ("PH", "ph", "ph"), ("PL", "pl", "pl"), ("PC", "pc", "pc"), ("PO", "po", "po"),
+            ("PW high", "pw", "pw"), ("PW low", "pw", "pw"))
+rule_levels("sr_ladder", ("Pivot", "pivot", "pivot"), ("R1", "r1", "resistance"), ("R2", "r2", "resistance"),
+            ("S1", "s1", "support"), ("S2", "s2", "support"), settings=("method",))
+rule_levels("session_levels", ("OR high", "orl", "opening_range"), ("OR low", "orl", "opening_range"),
+            ("PM high", "pm", "premarket"), ("PM low", "pm", "premarket"), ("HOD", "hl", "hod_lod"), ("LOD", "hl", "hod_lod"),
+            ("POC", "vp", "profile"), ("VAH", "vp", "profile"), ("VAL", "vp", "profile"), settings=("or_minutes",))
+rule_levels("initial_balance", ("IB high", "ib"), ("IB low", "ib"), ("IB mid", "mid", "mid"), settings=("minutes",))
+rule_levels("range_meter", ("Avg day \u2191", "target", "targets"), ("Avg day \u2193", "target", "targets"), settings=("length",))
+rule_levels("saty_atr", ("Prior close", "close"), ("Calls >", "calls"), ("Puts <", "puts"), ("+1 ATR", "atr_up"),
+            ("-1 ATR", "atr_dn"), settings=("atr_length", "trigger", "range_session"))
+rule_levels("events")

@@ -14,8 +14,9 @@
 <main class="cfg">
   <p class="muted small cfg-intro">Paper accounts are <b>simulated on the NAS from the cached bars</b>: they never talk to TWS
     or your IBKR account, and nothing here places a real order. How fills are modelled, and the limits: user guide, Paper trading.
-    Accounts, rules and backtest defaults are set up on the Config page:
+    Accounts, rules, strategies and backtest defaults are set up on the Config page:
     <a href="/config?tab=paper">Paper accounts</a>, <a href="/config?tab=rules">Paper rules</a>,
+    <a href="/config?tab=strategies">Paper strategies</a>,
     <a href="/config?tab=backtests">Backtests</a>.</p>
   <nav class="cfg-tabs" role="tablist" aria-label="Paper trading sections">
     <button type="button" role="tab" data-sec="trades">Trades</button>
@@ -36,7 +37,7 @@
   <section id="sec-backtests" class="cfg-sec" hidden>
     <h2>Backtests</h2>
     <form id="ppRun" class="pp-run" autocomplete="off">
-      <label>Rule <select id="ppRunRule"></select></label>
+      <label>Strategy <select id="ppRunRule"></select></label>
       <label>Symbol <input id="ppRunSymbol" value="QQQ" maxlength="12" spellcheck="false"></label>
       <label>From <input id="ppRunFrom" type="date"></label>
       <label>To <input id="ppRunTo" type="date"></label>
@@ -44,7 +45,7 @@
       <label>Random runs <input id="ppRunBase" type="number" min="0" max="20" value="5"></label>
       <label class="papercheck"><input id="ppRunSkip" type="checkbox"> Skip days without cached bars</label>
       <button type="submit" class="primary">Run</button>
-      <a class="small" href="/config?tab=rules">Edit rules in Config</a>
+      <a class="small" href="/config?tab=strategies">Edit strategies in Config</a>
     </form>
     <div id="ppRunMsg" class="muted small" role="status"></div>
     <table id="ppRuns" class="cfg-table"></table>
