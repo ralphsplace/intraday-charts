@@ -1808,6 +1808,42 @@ def test_a_rule_reads_the_opening_range_high(tab, data):
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
 
 
+def test_a_rule_says_vzo_is_above_minus_40_and_rising(tab, data):
+    """Direction in the rule form: A: VZO is above -40; B: VZO is rising (than 1 bar before); and a value some bars
+    ago on either side of a comparison."""
+    p = tab.goto("/config?tab=rules", 1500)
+    p.select_option("#ppRule", "\u0000new")
+    for _ in range(3):
+        p.click("#ppRuleForm button:has-text('+ condition')")
+    cond = lambda x: p.locator(f"#ppRuleForm .pp-cond[data-letter={x}]")   # noqa: E731  (drawn again after each change)
+    for x in "AB":
+        cond(x).locator(".pp-operand").nth(0).locator("select").first.select_option("study")
+        cond(x).locator(".pp-operand").nth(0).locator("select").nth(1).select_option("vzo")
+        assert cond(x).get_by_label("Volume Zone Oscillator (VZO) Length").count() == 1
+        assert cond(x).get_by_label("Volume Zone Oscillator (VZO) Draw as").count() == 0     # how it's drawn: not offered
+    cond("A").get_by_label("Condition A: how it compares").select_option("above")
+    cond("A").locator(".pp-operand").nth(1).locator("select").first.select_option("value")
+    cond("A").locator(".pp-operand").nth(1).locator("input.pp-num").fill("-40")
+    cond("B").get_by_label("Condition B: how it compares").select_option("rising")
+    assert cond("B").locator(".pp-operand").count() == 1 and cond("B").get_by_label("Condition B: over how many bars").input_value() == "1"
+    cond("C").get_by_label("Condition C: how it compares").select_option("above")          # Close above the previous high
+    cond("C").locator(".pp-operand").nth(1).locator("select").first.select_option("high")
+    cond("C").locator(".pp-operand").nth(1).get_by_label("Bars ago").fill("1")
+    cond("C").locator(".pp-operand").nth(1).get_by_label("Bars ago").press("Tab")
+    assert p.locator("#ppRuleForm select.xed-leaf option").all_inner_texts()[:3] == [
+        "A: Volume Zone Oscillator: VZO is above -40", "B: Volume Zone Oscillator: VZO is rising", "C: Close is above High 1 bar ago"]
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
+    name = p.inner_text("#ppRuleMsg").split('"')[1]
+    c = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["conditions"]
+    assert c[0]["op"] == "above" and c[0]["b"] == {"value": -40.0} and c[0]["a"]["study"]["type"] == "vzo"
+    assert c[1] == {"a": c[0]["a"], "op": "rising", "bars": 1}
+    assert c[2]["b"] == {"price": "high", "ago": 1}
+    p.click("#ppRuleDelete")
+    p.click("#ppRuleDelete")                                                 # tidy up for the tests after
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
+
+
 def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
     """(A OR B) AND NOT (C OR (A AND B)), typed; the groups show it; changing the groups changes the text; removing a
     condition takes it out and moves the letters after it up. Then a rule that uses rules, and a loop refused."""

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from .. import indicators as ind
-from .base import P, src_param, color, plot, study, ln, hl, bars_for, GRAY, PURPLE, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN, DIM
+from .base import P, src_param, color, plot, study, ln, hl, bars_for, rule_settings, GRAY, PURPLE, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN, DIM
 
 
 @study("rsi", "Relative Strength Index (RSI)", "Oscillators", "own",
@@ -194,3 +194,6 @@ def _dmi_stoch(ctx, p):
     v = ind.dmi_stochastic(w, p["length"], p["hl"], p["sums"])
     return {"lines": [ln("stoch", "Stoch", ctx.points(w, v, 2), last_value=True)],
             "hlines": [hl(p["overbought"], "ob"), hl(p["oversold"], "os")]}
+
+
+rule_settings("vzo", "length")           # dots or a line, and how it's coloured, don't change what a rule reads

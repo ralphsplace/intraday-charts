@@ -61,6 +61,18 @@ A **rule** is a true / false condition, read at each bar's close. Write rules on
 close), a number, or a study's line or level (with its settings): *crosses above*, *crosses below*, *is above*,
 *is below*. For example *A: Close crosses above Session levels: OR high*.
 
+**Direction.** *is rising* and *is falling* compare a price or study with itself a bar before (or N bars before:
+"than 3 bar(s) before"), so its slope is part of the rule. "VZO is above −40 and the current VZO is above the
+previous" is:
+
+- *A: VZO is above −40*
+- *B: VZO is rising*
+- True when `A AND B`
+
+Any price or study can also be read **bars ago** (the box next to it, blank for this bar): *Close is above High 1 bar
+ago* (a close above the previous bar's high), or *VZO is above VZO 3 bars ago*. The rule form only offers the
+settings that change a study's values (its length…), not how it's drawn.
+
 **True when.** How the conditions (and other rules) combine, typed or built in groups; both stay in step:
 
 | Write | Means |

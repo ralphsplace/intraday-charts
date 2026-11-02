@@ -300,3 +300,39 @@ def test_a_level_rule_backtests(demo, monkeypatch):
     days = store.list_days("QQQ-DEMO")[:4]
     rep = backtest.run(r, "QQQ-DEMO", days, 100_000, backtest.engine.DEFAULT_SETTINGS, baseline_runs=1)
     assert rep["stats"]["trades"] >= 1 and all(t["entry_minute"] > 585 for t in rep["trades"])
+
+
+# ---------------------------------------------------------------- direction: rising, falling, bars ago (#73)
+def test_rising_falling_and_values_bars_ago():
+    """VZO > -40 and current > previous, the way a rule says it: "is above -40" and "is rising"; "is above itself
+    1 bar ago" says the same; "over N bars" compares with N bars before."""
+    s = series([99, 101, 100.5, 102, 101, 103, 104])
+    rising = R.condition({"a": CLOSE, "op": "rising"}, "A")
+    assert rising == {"a": CLOSE, "op": "rising", "bars": 1}
+    assert [R._holds(rising, s, i) for i in range(7)] == [False, True, False, True, False, True, True]
+    falling = R.condition({"a": CLOSE, "op": "falling"}, "A")
+    assert [R._holds(falling, s, i) for i in range(7)] == [False, False, True, False, True, False, False]
+    vs_prev = R.condition({"a": CLOSE, "op": "above", "b": {**CLOSE, "ago": 1}}, "A")
+    assert [R._holds(vs_prev, s, i) for i in range(7)] == [R._holds(rising, s, i) for i in range(7)]
+    over3 = R.condition({"a": CLOSE, "op": "rising", "bars": 3}, "A")
+    assert [R._holds(over3, s, i) for i in range(7)] == [False, False, False, True, False, True, True]
+    up = R.check({"conditions": [above(100), {"a": CLOSE, "op": "rising"}], "when": "A AND B"}, {})
+    assert [x["bar"] for x in S.signals(S.prepare({"buy": "Up"}, {"Up": up}), s)] == [1, 3, 5, 6]
+    for bad, why in (({"a": {"value": 1}, "op": "rising"}, "never rising or falling"),
+                     ({"a": CLOSE, "op": "rising", "bars": 0}, "compares with 1 to 50 bars back"),
+                     ({"a": CLOSE, "op": "above", "b": {"value": 1, "ago": 2}}, "no value bars ago"),
+                     ({"a": {**CLOSE, "ago": 51}, "op": "above", "b": {"value": 1}}, "0 to 50 bars back")):
+        with pytest.raises(ValueError, match=why):
+            R.condition(bad, "A")
+    assert R.condition({"a": {**CLOSE, "ago": 0}, "op": "above", "b": {"value": 1}}, "A")["a"] == CLOSE   # 0: now
+
+
+def test_a_studys_direction_uses_its_own_line(demo, monkeypatch):
+    """VZO is rising: its value at each bar against the bar before, from the same line the chart draws."""
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    vzo = {"study": {"type": "vzo", "output": "vzo"}}
+    r = strategy(long=[{"a": vzo, "op": "above", "b": {"value": -40}}, {"a": vzo, "op": "rising"}])
+    s = R.day_series("QQQ-DEMO", DAY, 3, S.studies(r))
+    line = s[R._key(S.studies(r)[0])]
+    want = [i for i in range(1, len(line)) if line[i] is not None and line[i - 1] is not None and line[i] > -40 and line[i] > line[i - 1]]
+    assert [x["bar"] for x in S.signals(r, s)] == want and want
