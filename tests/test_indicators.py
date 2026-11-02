@@ -91,3 +91,21 @@ def test_dmi_stochastic_matches_thinkorswims_formula():
     assert v.dropna().between(0, 100).all()
     rising = ind.dmi_stochastic(bars(np.arange(60, dtype=float) ** 1.5), 10, 3, 3)    # DI+ widening: at the top
     assert rising.iloc[-1] == pytest.approx(100)
+
+
+def test_trend_channel_is_a_straight_line_with_every_bar_inside():
+    """On a rising line with noise, the mid is the least-squares line; the high and low are parallel to it and touch
+    the highest high and lowest low; nothing before the window."""
+    rng = np.random.default_rng(3)
+    close = 100 + 0.25 * np.arange(80) + rng.normal(0, 0.3, 80)
+    df = pd.DataFrame({"close": close, "high": close + 0.2, "low": close - 0.2})
+    mid, up, lo, slope = ind.trend_channel(df, df["close"], 50)
+    assert mid.iloc[:30].isna().all() and mid.iloc[30:].notna().all()
+    assert slope == pytest.approx(0.25, abs=0.03)
+    d = np.diff(mid.iloc[30:].to_numpy())
+    gap = (up - mid).iloc[30:]
+    assert np.allclose(d, d[0]) and np.allclose(gap, gap.iloc[-1])                     # straight, and parallel
+    assert (df["high"].iloc[30:] <= up.iloc[30:] + 1e-9).all() and (df["low"].iloc[30:] >= lo.iloc[30:] - 1e-9).all()
+    assert np.isclose((up - df["high"]).iloc[30:].min(), 0) and np.isclose((df["low"] - lo).iloc[30:].min(), 0)   # touching
+    short = ind.trend_channel(df.iloc[:1], df["close"].iloc[:1], 50)
+    assert short[3] is None and short[0].isna().all()
