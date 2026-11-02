@@ -81,6 +81,29 @@ def donchian(df: pd.DataFrame, n: int):
     return (hi + lo) / 2, hi, lo
 
 
+def trend_channel(df: pd.DataFrame, src: pd.Series, n: int):
+    """A straight trend channel over the last n bars: the least-squares line through src (mid), and the same line
+    moved up to touch the highest high and down to the lowest low (upper, lower), so every bar is inside.
+    NaN before the window. Returns (mid, upper, lower, slope per bar); all NaN, slope None, with fewer than 2 bars."""
+    m = len(df)
+    k = min(n, m)
+    nan = pd.Series(np.nan, index=df.index)
+    if k < 2:
+        return nan, nan.copy(), nan.copy(), None
+    y = pd.to_numeric(src.iloc[-k:], errors="coerce").to_numpy(dtype=float)
+    x = np.arange(k, dtype=float)
+    ok = ~np.isnan(y)
+    if ok.sum() < 2:
+        return nan, nan.copy(), nan.copy(), None
+    slope, icept = np.polyfit(x[ok], y[ok], 1)
+    line = icept + slope * x
+    up = float(np.nanmax(df["high"].to_numpy(dtype=float)[-k:] - line))
+    dn = float(np.nanmin(df["low"].to_numpy(dtype=float)[-k:] - line))
+    mid, upper, lower = nan.copy(), nan.copy(), nan.copy()
+    mid.iloc[-k:], upper.iloc[-k:], lower.iloc[-k:] = line, line + up, line + dn
+    return mid, upper, lower, float(slope)
+
+
 def stochastic(df: pd.DataFrame, k: int, smooth: int, d: int):
     lo = df["low"].rolling(k, min_periods=k).min()
     hi = df["high"].rolling(k, min_periods=k).max()

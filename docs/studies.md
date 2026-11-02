@@ -44,6 +44,11 @@ Drawn on price.
 - **Bollinger Bands**, **Keltner Channels** and **Donchian Channels**, with the space between the upper and lower
   bands filled. The fill has its own section in the study's settings: on or off, colour and transparency (85% by
   default). To change it for every new study, use the [Config page](config.md).
+- **Trend channel (straight: mid, high, low).** A straight channel over the last N bars (50 by default): the
+  **mid** is the best-fit line through the closes (or another source); the **high** and **low** are the same line
+  moved up to the highest high and down to the lowest low, so every bar in the window is inside. The legend says
+  its slope, a bar and over the window. It's redrawn as each bar arrives (the window moves), so paper trading rules
+  can't use it: a rule on it would be looking ahead.
 - Parabolic SAR
 
 - **Moving average cloud.** Two moving averages, each SMA or EMA with its own length, with the space

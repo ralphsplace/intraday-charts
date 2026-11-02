@@ -6,7 +6,7 @@ import pandas as pd
 from .. import engine as en
 from .. import indicators as ind
 from .base import (P, src_param, color, plot, with_alpha, study, ln, bars_for, level, fill_params, fill_between,
-                   channel_fill, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
+                   channel_fill, rule_levels, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
 
 
 @study("sma", "Simple moving average (SMA)", "Overlays", "price",
@@ -180,6 +180,24 @@ def _dc(ctx, p):
                       ln("lower", "DC lower", ctx.points(w, lo))], **channel_fill(w, up, lo, p)}
 
 
+@study("trend_channel", "Trend channel (straight: mid, high, low)", "Overlays", "price",
+       [P("length", "Length (bars)", "int", 50, min=5, max=500), src_param(), *fill_params(BLUE, "Fill between the high and low", 90)],
+       lambda p: f"Trend ({p['length']})",
+       "A straight channel over the last N bars: the mid is the best-fit (least-squares) line through the source; the "
+       "high and low are the same line moved up to the highest high and down to the lowest low, so every bar is "
+       "inside. It's redrawn as each bar arrives, so a paper trading rule can't read it.",
+       plots=[plot("upper", "High", BLUE), plot("mid", "Mid", BLUE, 1, "dashed"), plot("lower", "Low", BLUE)],
+       warmup=lambda p: p["length"])
+def _trend_channel(ctx, p):
+    w = bars_for(ctx, p["length"])
+    mid, up, lo, slope = ind.trend_channel(w, ind.source(w, p["source"]), p["length"])
+    out = {"lines": [ln("upper", "Trend high", ctx.points(w, up)), ln("mid", "Trend mid", ctx.points(w, mid)),
+                     ln("lower", "Trend low", ctx.points(w, lo))], **channel_fill(w, up, lo, p)}
+    if slope is not None:
+        out["note"] = f"slope {slope:+.3f} a bar, {slope * p['length']:+.2f} over {p['length']} bars"
+    return out
+
+
 @study("psar", "Parabolic SAR", "Overlays", "price",
        [P("step", "Step", "float", 0.02, min=0.001, max=0.2, step=0.001),
         P("max", "Maximum", "float", 0.2, min=0.01, max=1, step=0.01),
@@ -248,3 +266,6 @@ def _ma_cloud(ctx, p):
     if p["cloud"]:
         out["cloud"] = fill_between(w, m1, m2, up, down)
     return out
+
+
+rule_levels("trend_channel")     # redrawn as each bar arrives: a rule would be looking ahead (rules.py refuses it)
