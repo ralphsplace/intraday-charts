@@ -108,17 +108,20 @@ function renderColumns() {
     li.dataset.id = id;
     li.appendChild(el("span", "cfg-col-name", c.label));
     if (id !== "symbol") {
-      const move = (d) => setColumns(swap(chosen, i, i + d));
+      const move = (d) => {                                   // from the order now: clicks can come faster than saves
+        const now = cfg.watch_columns.defaults[kind], at = now.indexOf(id);
+        if (at > 0 && at + d >= 1 && at + d < now.length) setColumns(swap(now, at, at + d));
+      };
       const up = btn("▲", () => move(-1), `Move ${c.label} left`, "cfg-up"); up.disabled = i <= 1;
       const down = btn("▼", () => move(1), `Move ${c.label} right`, "cfg-down"); down.disabled = i === chosen.length - 1;
-      li.append(up, down, btn("×", () => setColumns(chosen.filter((x) => x !== id)), `Remove ${c.label}`, "cfg-remove"));
+      li.append(up, down, btn("×", () => setColumns(cfg.watch_columns.defaults[kind].filter((x) => x !== id)), `Remove ${c.label}`, "cfg-remove"));
     }
     ol.appendChild(li);
   });
   const avail = $("cfgAvail");
   avail.innerHTML = "";
   for (const c of cfg.watch_columns.columns.filter((x) => canShow(x) && !chosen.includes(x.id))) {
-    const b = btn("+ " + c.label, () => setColumns([...chosen, c.id]), c.tip || c.label, "cfg-add");
+    const b = btn("+ " + c.label, () => setColumns([...cfg.watch_columns.defaults[kind], c.id]), c.tip || c.label, "cfg-add");
     b.dataset.id = c.id;
     avail.appendChild(b);
   }
@@ -127,12 +130,20 @@ function renderColumns() {
 
 const swap = (a, i, j) => { const b = [...a]; [b[i], b[j]] = [b[j], b[i]]; return b; };
 
-async function setColumns(ids) {
-  try {
-    cfg.watch_columns = await api(`/api/config/watch-columns/${kind}`, ids.filter((x) => x !== "symbol"), "PUT");
-    say("cfgColsMsg", "Saved.");
-  } catch (e) { say("cfgColsMsg", e.message, true); }
+// shown at once, saved in order: each save waits for the one before, so the last click is what's kept
+let saving = Promise.resolve();
+function setColumns(ids) {
+  const k = kind;
+  cfg.watch_columns = { ...cfg.watch_columns, defaults: { ...cfg.watch_columns.defaults, [k]: ids } };
   renderColumns();
+  saving = saving.then(async () => {
+    try {
+      const r = await api(`/api/config/watch-columns/${k}`, ids.filter((x) => x !== "symbol"), "PUT");
+      if (cfg.watch_columns.defaults[k] === ids) { cfg.watch_columns = r; renderColumns(); }   // nothing newer since
+      say("cfgColsMsg", "Saved.");
+    } catch (e) { say("cfgColsMsg", e.message, true); }
+  });
+  return saving;
 }
 
 // ---------------------------------------------------------------- study defaults

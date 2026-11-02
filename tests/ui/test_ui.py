@@ -1325,8 +1325,13 @@ def test_the_config_page_edits_lists_columns_and_study_defaults(tab, data):
     p.wait_for_selector(".cfg-col[data-id=gap_pct]")
     for _ in range(6):
         p.click(".cfg-col[data-id=gap_pct] .cfg-up")
-    p.wait_for_function("document.querySelectorAll('.cfg-col')[1]?.dataset.id === 'gap_pct'")
-    assert json.loads((data / "user" / "config.json").read_text())["watch_columns"]["quote"][:2] == ["symbol", "gap_pct"]
+    p.wait_for_function("document.querySelectorAll('.cfg-col')[1]?.dataset.id === 'gap_pct'")       # at once
+    saved = lambda: json.loads((data / "user" / "config.json").read_text())["watch_columns"]["quote"][:2]   # noqa: E731
+    for _ in range(50):                                                    # the saves go one after another
+        if saved() == ["symbol", "gap_pct"]:
+            break
+        p.wait_for_timeout(100)
+    assert saved() == ["symbol", "gap_pct"]
     # study defaults: SMA length 21 for new studies
     p.click(".cfg-tabs button[data-sec=studies]")
     p.fill("#cfgFind", "simple")
