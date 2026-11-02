@@ -1832,7 +1832,7 @@ def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
     p.click("#ppRuleForm .xed-groups button:has-text('+ condition or rule')")
     p.locator("#ppRuleForm select.xed-leaf").select_option(label=f"Rule: {first}")
     p.click("#ppRuleSave")
-    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
+    p.wait_for_function(f"(t => t.startsWith('Saved') && !t.includes('{first}'))(document.querySelector('#ppRuleMsg').textContent)")
     second = p.inner_text("#ppRuleMsg").split('"')[1]
     assert json.loads((data / "user" / "config.json").read_text())["paper_rules"][second]["when"] == f'"{first}"'
     p.select_option("#ppRule", first)                                     # the first can't use the second: a loop
