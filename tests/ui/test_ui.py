@@ -1325,8 +1325,13 @@ def test_the_config_page_edits_lists_columns_and_study_defaults(tab, data):
     p.wait_for_selector(".cfg-col[data-id=gap_pct]")
     for _ in range(6):
         p.click(".cfg-col[data-id=gap_pct] .cfg-up")
-    p.wait_for_function("document.querySelectorAll('.cfg-col')[1]?.dataset.id === 'gap_pct'")
-    assert json.loads((data / "user" / "config.json").read_text())["watch_columns"]["quote"][:2] == ["symbol", "gap_pct"]
+    p.wait_for_function("document.querySelectorAll('.cfg-col')[1]?.dataset.id === 'gap_pct'")       # at once
+    saved = lambda: json.loads((data / "user" / "config.json").read_text())["watch_columns"]["quote"][:2]   # noqa: E731
+    for _ in range(50):                                                    # the saves go one after another
+        if saved() == ["symbol", "gap_pct"]:
+            break
+        p.wait_for_timeout(100)
+    assert saved() == ["symbol", "gap_pct"]
     # study defaults: SMA length 21 for new studies
     p.click(".cfg-tabs button[data-sec=studies]")
     p.fill("#cfgFind", "simple")
@@ -1796,11 +1801,58 @@ def test_a_rule_reads_the_opening_range_high(tab, data):
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
     name = p.inner_text("#ppRuleMsg").split('"')[1]
-    st = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["rule"]["long"][0]["b"]["study"]
+    st = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["conditions"][0]["b"]["study"]
     assert st["type"] == "session_levels" and st["output"] == "level:OR high" and st["params"]["or_minutes"] == "5"
     p.locator("#ppRuleDelete").click()
     p.locator("#ppRuleDelete").click()                                     # tidy up for the tests after
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
+
+
+def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
+    """(A OR B) AND NOT (C OR (A AND B)), typed; the groups show it; changing the groups changes the text; removing a
+    condition takes it out and moves the letters after it up. Then a rule that uses rules, and a loop refused."""
+    p = tab.goto("/config?tab=rules", 1500)
+    p.select_option("#ppRule", "\u0000new")
+    for _ in range(3):
+        p.click("#ppRuleForm button:has-text('+ condition')")
+    assert p.input_value("#ppRuleForm input.xed-text") == "A AND B AND C"
+    p.fill("#ppRuleForm input.xed-text", "(A or B) and !(C OR (A AND B))")
+    p.wait_for_function("document.querySelectorAll('#ppRuleForm .xed-group').length === 4")        # the top, and three inside
+    p.locator("#ppRuleForm input.xed-text").blur()
+    assert p.input_value("#ppRuleForm input.xed-text") == "(A OR B) AND NOT (C OR (A AND B))"     # tidied
+    p.fill("#ppRuleForm input.xed-text", "(A OR B) AND (C")
+    p.wait_for_function("document.querySelector('#ppRuleForm .xed-msg').textContent.includes(\"Expected ')'\")")
+    p.fill("#ppRuleForm input.xed-text", "(A OR B) AND NOT (C OR (A AND B))")
+    p.wait_for_function("!document.querySelector('#ppRuleForm .xed-msg').textContent")
+    p.locator("#ppRuleForm .xed-group.or .xed-head .xed-not input").first.check()                    # NOT on the first group
+    assert p.input_value("#ppRuleForm input.xed-text") == "NOT (A OR B) AND NOT (C OR (A AND B))"
+    p.locator("#ppRuleForm .pp-cond[data-letter=B] button.pp-x").click()                              # B goes, C becomes B
+    assert p.input_value("#ppRuleForm input.xed-text") == "NOT A AND NOT (B OR A)"
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
+    first = p.inner_text("#ppRuleMsg").split('"')[1]
+    assert json.loads((data / "user" / "config.json").read_text())["paper_rules"][first]["when"] == "NOT A AND NOT (B OR A)"
+    # a rule of rules, built with the groups
+    p.select_option("#ppRule", "\u0000new")
+    p.click("#ppRuleForm .xed-groups button:has-text('+ condition or rule')")
+    p.locator("#ppRuleForm select.xed-leaf").select_option(label=f"Rule: {first}")
+    p.click("#ppRuleSave")
+    p.wait_for_function(f"(t => t.startsWith('Saved') && !t.includes('{first}'))(document.querySelector('#ppRuleMsg').textContent)")
+    second = p.inner_text("#ppRuleMsg").split('"')[1]
+    assert json.loads((data / "user" / "config.json").read_text())["paper_rules"][second]["when"] == f'"{first}"'
+    p.select_option("#ppRule", first)                                     # the first can't use the second: a loop
+    p.fill("#ppRuleForm input.xed-text", f'NOT A AND "{second}"')
+    p.wait_for_function("!document.querySelector('#ppRuleForm .xed-msg').textContent")
+    p.click("#ppRuleSave")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes(\"can't use itself\")")
+    p.click("#ppRuleDelete")
+    p.click("#ppRuleDelete")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('is used by')")   # the second uses it
+    for n in (second, first):                                              # tidy up for the tests after
+        p.select_option("#ppRule", n)
+        p.click("#ppRuleDelete")
+        p.click("#ppRuleDelete")
+        p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
 
 
 def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
@@ -1812,18 +1864,26 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     assert p.locator(".dashsel").input_value() == "\u0000paper"
     assert "No trades yet" in p.inner_text("#ppTrades")
     assert p.locator(".cfg-tabs button").all_inner_texts() == ["Trades", "Backtests"]   # set-up lives in Config
-    # a rule, in Config: long when the close crosses above VWAP, $0.50 stop, $1 target, 10 shares
+    # a rule, in Config: the close crosses above VWAP; a strategy buys on it, 10 shares, $0.50 stop, $1 target
     p = tab.goto("/config?tab=rules", 1500)
+    p.select_option("#ppRule", "\u0000new")
     p.click("#ppRuleSave")
-    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('entry conditions')")   # none yet: refused
-    p.locator("#ppRuleForm button.pp-add").first.click()
-    shares = p.locator("#ppRuleForm .pp-row", has_text="Shares").locator("input")
-    shares.fill("10")
+    p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.includes('needs conditions')")   # none yet: refused
+    p.click("#ppRuleForm button:has-text('+ condition')")
+    assert p.input_value("#ppRuleForm input.xed-text") == "A"                  # every condition, until it's changed
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent === 'Saved \"Rule 1\".'")
-    rules = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
-    r = rules["Rule 1"]["rule"]
-    assert r["qty"] == 10 and r["long"][0]["op"] == "crosses_above" and r["long"][0]["b"]["study"]["type"] == "vwap"
+    r = json.loads((data / "user" / "config.json").read_text())["paper_rules"]["Rule 1"]
+    assert r["when"] == "A" and r["conditions"][0]["op"] == "crosses_above" and r["conditions"][0]["b"]["study"]["type"] == "vwap"
+    p.click(".cfg-tabs button[data-sec=strategies]")
+    p.select_option("#ppStrat", "\u0000new")
+    p.fill("#ppStratForm [data-part=buy] input.xed-text", '"Rule 1"')
+    p.wait_for_selector("#ppStratForm [data-part=buy] select.xed-leaf")
+    p.locator("#ppStratForm .pp-row", has_text="Shares").locator("input").fill("10")
+    p.click("#ppStratSave")
+    p.wait_for_function("document.querySelector('#ppStratMsg').textContent === 'Saved \"Strategy 1\".'")
+    st = json.loads((data / "user" / "config.json").read_text())["paper_strategies"]["Strategy 1"]
+    assert st["buy"] == '"Rule 1"' and st["short"] == "" and st["qty"] == 10 and st["exits"]["stop"] == 0.5
     # backtest defaults, in Config: the Paper page's Run form starts with them
     p.click(".cfg-tabs button[data-sec=backtests]")
     p.wait_for_function("document.querySelector('#cfgBtAccount').options.length === 2")
@@ -1837,7 +1897,7 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
         {"symbol": "QQQ", "account": "Tests", "baseline_runs": 1, "missing": "skip"}
     # backtest it over the cached days, and save the trades into the account
     p = tab.goto("/paper?tab=backtests", 1500)
-    assert [p.locator(x).input_value() for x in ("#ppRunRule", "#ppRunSymbol", "#ppRunAccount", "#ppRunBase")] == ["Rule 1", "QQQ", "Tests", "1"]
+    assert [p.locator(x).input_value() for x in ("#ppRunRule", "#ppRunSymbol", "#ppRunAccount", "#ppRunBase")] == ["Strategy 1", "QQQ", "Tests", "1"]
     assert p.locator("#ppRunSkip").is_checked()
     p.fill("#ppRunFrom", min(days))
     p.fill("#ppRunTo", max(days))

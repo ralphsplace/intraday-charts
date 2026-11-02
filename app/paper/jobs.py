@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from .. import jsonfile, store
-from . import backtest, rules
+from . import backtest, rules, strategies
 
 
 def folder() -> Path:
@@ -26,19 +26,20 @@ def _write(run_id: str, **fields) -> None:
         d.update(fields)
 
 
-def start(rule: dict, name: str, symbol: str, start_day: str, end_day: str, missing: str, cash: float, settings: dict,
+def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, missing: str, cash: float, settings: dict,
           baseline_runs: int = 5) -> dict:
-    """Check everything now (so mistakes come back at once), then run on a thread. missing: "stop" or "skip"."""
-    rule = rules.check(rule)
+    """Check everything now (so mistakes come back at once), then run on a thread. missing: "stop" or "skip".
+    The strategy's rules are read now: the run keeps what they said (its "strategy", expanded)."""
+    rule = strategies.prepare(strategy)
     days, gaps = backtest.trading_days(symbol, start_day, end_day)
     if gaps and missing != "skip":
         raise ValueError(f"No cached bars for {len(gaps)} trading day(s): {', '.join(gaps[:8])}"
                          + (" …" if len(gaps) > 8 else "") + ". Fetch them first, or skip them.")
     if not days:
         raise ValueError("No cached days in that range")
-    rules.check_no_repaint(symbol, days[0], rule["tf"], rule)
+    rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
     run_id = uuid.uuid4().hex[:10]
-    head = {"id": run_id, "rule_name": name, "rule": rule, "symbol": symbol, "start": start_day, "end": end_day,
+    head = {"id": run_id, "strategy_name": name, "strategy": rule, "symbol": symbol, "start": start_day, "end": end_day,
             "skipped": gaps, "status": "running", "done": 0, "total": len(days) * (1 + baseline_runs),
             "started": time.time()}
     folder().mkdir(parents=True, exist_ok=True)
@@ -66,7 +67,8 @@ def read(run_id: str) -> dict:
     p = path(run_id)
     if not p.exists():
         raise KeyError("No such backtest")
-    return jsonfile.read(p)
+    d = jsonfile.read(p)
+    return {**d, "strategy_name": d.get("strategy_name") or d.get("rule_name")}        # runs from before #67 ran a rule
 
 
 def listing() -> list[dict]:
@@ -75,8 +77,10 @@ def listing() -> list[dict]:
     for p in sorted(folder().glob("*.json"), key=lambda q: q.stat().st_mtime, reverse=True) if folder().exists() else []:
         d = jsonfile.read(p)
         if d:
-            out.append({k: d.get(k) for k in ("id", "rule_name", "symbol", "start", "end", "status", "done", "total", "started", "error")}
-                       | {"stats": (d.get("report") or {}).get("stats"), "baseline": (d.get("report") or {}).get("baseline")})
+            rep = d.get("report") or {}
+            out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "started", "error")}
+                       | {"strategy_name": d.get("strategy_name") or d.get("rule_name"),      # runs from before #67 ran a rule
+                          "stats": rep.get("stats"), "baseline": rep.get("baseline")})
     return out
 
 

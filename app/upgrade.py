@@ -12,7 +12,10 @@ What it upgrades:
       a chart saved with a price style name ("style": "hollow") gets the price type it stands for;
       a watch list panel saved before tabs gets one tab; a tab saved before lists were named gets a named list
       of its own ("Watch list N", or its old name when free), or the id of the list it names;
-      a watch list linked to one chart by the chart's id gets a colour group shared with that chart.
+      a watch list linked to one chart by the chart's id gets a colour group shared with that chart;
+  - paper trading rules from before strategies (#67), each with its own long, short and exit conditions: each
+    list of conditions becomes a rule ("<name> long", "<name> short", "<name> exit long", "<name> exit short") and
+    the rest a strategy of the old rule's name that trades on them, the same way.
 """
 from __future__ import annotations
 
@@ -34,7 +37,7 @@ _checking = False      # while only checking whether a file needs upgrading: cha
 def run() -> list[str]:
     """Upgrade everything; what changed, one line each (also logged)."""
     done = []
-    for part in (_watchlists_file, _list_shapes, _saved_layouts):
+    for part in (_watchlists_file, _list_shapes, _saved_layouts, _paper_rules):
         try:
             done += part()
         except jsonfile.BrokenFile as e:                    # a hand edit to fix first: start anyway, say so
@@ -206,3 +209,46 @@ def _dashboards(v) -> bool:
     if not isinstance(v, list):
         return False
     return any([_layout((i.get("settings") or {}).get("start")) for i in v if isinstance(i, dict)])
+
+
+# ---------------------------------------------------------------- paper trading rules (#67)
+def _old_rule(v) -> bool:
+    return isinstance(v, dict) and isinstance(v.get("rule"), dict) and "when" not in v
+
+
+def _paper_rules() -> list[str]:
+    from .paper import expr
+    if not any(_old_rule(v) for v in app_config.section("paper_rules").values()):
+        return []
+    done = []
+    with app_config.editing() as d:
+        rs, sts = d.setdefault("paper_rules", {}), d.setdefault("paper_strategies", {})
+        for name in [n for n, v in rs.items() if _old_rule(v)]:
+            old = rs.pop(name)["rule"]
+            ex = old.get("exits") or {}
+            within = old.get("within", 1) if isinstance(old.get("within"), int) else 1
+            parts = (("buy", "long", old.get("long"), within), ("short", "short", old.get("short"), within),
+                     ("exit_long", "exit long", ex.get("exit_long"), 1), ("exit_short", "exit short", ex.get("exit_short"), 1))
+            st = {k: old[k] for k in ("tf", "order", "qty", "hours") if k in old}
+            st["exits"] = {k: ex[k] for k in ("stop", "target", "trail", "reverse") if k in ex}
+            made = []
+            for key, label, conds, n in parts:
+                st[key] = ""
+                if not conds:
+                    continue
+                letters = [chr(65 + i) for i in range(len(conds[:26]))]
+                when = " AND ".join(letters)
+                if n > 1 and len(letters) > 1:                    # all within n bars, one of them on this bar
+                    when = " AND ".join(f"WITHIN {n} {x}" for x in letters) + " AND (" + " OR ".join(letters) + ")"
+                rname, k = f"{name} {label}", 2
+                while rname in rs:
+                    rname, k = f"{name} {label} {k}", k + 1
+                rs[rname] = {"id": named.new_id(), "conditions": conds[:26], "when": when}
+                st[key] = expr.text({"rule": rname})
+                made.append(rname)
+            sname, k = name, 2
+            while sname in sts:
+                sname, k = f"{name} {k}", k + 1
+            sts[sname] = {"id": named.new_id(), **st}
+            done.append(f'paper rule "{name}" became rules {", ".join(made)} and strategy "{sname}"')
+    return done

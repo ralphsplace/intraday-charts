@@ -60,8 +60,13 @@ Each account's history is in `data/user/paper/<id>.json`.
 
 ## Paper rules
 
-The rules backtests run: entry conditions, the order, the exits and the hours, saved by name. What each part means:
-[Paper trading, Rules](paper.md#rules).
+Named true / false conditions: lettered conditions on prices, study lines and levels, combined with AND, OR, NOT,
+brackets, WITHIN and other rules, typed or built in groups. What each part means: [Paper trading, Rules](paper.md#rules).
+
+## Paper strategies
+
+What backtests run: Buy if, Sell short if, Close a long if and Close a short if, each an expression of rules by name,
+then the bars, shares, entry order, exits and hours. See [Paper trading, Strategies](paper.md#strategies).
 
 ## Backtests
 
@@ -83,7 +88,9 @@ runs and stop.
  "paper_accounts": {"Morning practice": {"id": "4be1c0d2a9f3", "start_cash": 25000.0, "created": 1793539200,
                     "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
                                  "slippage": 0.01, "shorting": true}}},
- "paper_rules": {"VWAP cross": {"id": "9a1f3c7e2b40", "rule": {"tf": 3, "qty": 50, "long": ["..."], "exits": {"stop": 0.5}}}},
+ "paper_rules": {"Above VWAP": {"id": "9a1f3c7e2b40", "conditions": ["..."], "when": "A AND NOT B"}},
+ "paper_strategies": {"Pullbacks": {"id": "3c51e0a7d2f9", "tf": 3, "buy": "\"Above VWAP\" OR Rule5", "short": "",
+                      "exit_long": "", "exit_short": "", "qty": 50, "exits": {"stop": 0.5}, "...": "..."}},
  "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}},
            "backtest": {"symbol": "QQQ", "account": "Morning practice", "baseline_runs": 5, "missing": "skip"}}
 }

@@ -22,6 +22,7 @@
     <button type="button" role="tab" data-sec="studies">Study defaults</button>
     <button type="button" role="tab" data-sec="paper">Paper accounts</button>
     <button type="button" role="tab" data-sec="rules">Paper rules</button>
+    <button type="button" role="tab" data-sec="strategies">Paper strategies</button>
     <button type="button" role="tab" data-sec="backtests">Backtests</button>
   </nav>
 
@@ -122,15 +123,27 @@
 
   <section id="sec-rules" class="cfg-sec" hidden>
     <h2>Paper rules</h2>
-    <p class="muted small">When to enter and leave a trade, built from prices, study lines and levels (VWAP, the opening range high,
-      the prior day's high…), read at each bar's close.
-      A study whose past values change as new bars arrive is refused, as a rule would otherwise look ahead. Rules are run
-      on the <a href="/paper">Paper trading</a> page (Backtests).</p>
+    <p class="muted small">A rule is a true / false condition, read at each bar's close: lettered conditions on prices, study
+      lines and levels (VWAP, the opening range high, the prior day's high…), combined with AND, OR, NOT and other rules.
+      <a href="#" data-goto="strategies">Paper strategies</a> trade on rules. A study whose past values change as new
+      bars arrive is refused, as a rule would otherwise look ahead.</p>
     <div class="cfg-row"><label for="ppRule">Rule</label> <select id="ppRule"></select>
       <button id="ppRuleRename" type="button">Rename</button> <button id="ppRuleDelete" type="button" class="danger">Delete</button></div>
     <form id="ppRuleForm" class="pp-rule" autocomplete="off"></form>
     <div class="cfg-row"><button id="ppRuleSave" type="button" class="primary">Save rule</button>
       <span id="ppRuleMsg" class="muted small" role="status"></span></div>
+  </section>
+
+  <section id="sec-strategies" class="cfg-sec" hidden>
+    <h2>Paper strategies</h2>
+    <p class="muted small">What to do on the rules: Buy if, Sell short if, Close a long if, Close a short if, each an expression
+      of rules by name, e.g. ("Rule 1" AND NOT "Rule 3") OR Rule5. Then the bars, shares, entry order, exits and hours.
+      Strategies are run on the <a href="/paper">Paper trading</a> page (Backtests).</p>
+    <div class="cfg-row"><label for="ppStrat">Strategy</label> <select id="ppStrat"></select>
+      <button id="ppStratRename" type="button">Rename</button> <button id="ppStratDelete" type="button" class="danger">Delete</button></div>
+    <form id="ppStratForm" class="pp-rule" autocomplete="off"></form>
+    <div class="cfg-row"><button id="ppStratSave" type="button" class="primary">Save strategy</button>
+      <span id="ppStratMsg" class="muted small" role="status"></span></div>
   </section>
 
   <section id="sec-backtests" class="cfg-sec" hidden>

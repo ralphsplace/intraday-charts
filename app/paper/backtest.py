@@ -1,7 +1,9 @@
-"""Rule backtests (#44): a rule run over a symbol's cached days with the paper engine, bar by bar, exactly as Replay
-practice would trade it; a report of the trades; and the same exits on random entries as a baseline.
+"""Strategy backtests (#44, #67): a strategy run over a symbol's cached days with the paper engine, bar by bar, exactly
+as Replay practice would trade it; a report of the trades; and the same exits on random entries as a baseline.
 
-Each day: the rule's signals (rules.py, read at each bar's close) become orders at the minute after; the engine
+"rule" below is a prepared strategy (strategies.prepare): its rules expanded down to their conditions.
+
+Each day: the strategy's signals (strategies.signals, read at each bar's close) become orders at the minute after; the engine
 fills them on 1-minute bars (engine.py); what was done is kept as the same actions a practice session keeps
 (practice.py), so a day of a backtest can be saved into an account and opened on a chart, where it fills the same.
 Stops, targets and trails are measured from the signal bar's close. One position at a time; a new entry signal
@@ -14,7 +16,7 @@ import random
 import statistics
 
 from .. import app_config, sessions, store
-from . import engine, practice, rules
+from . import engine, practice, rules, strategies
 
 MAX_DAYS = 260
 BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "stop"}
@@ -86,8 +88,8 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
     """One day: the actions the rule takes (or the given entries, for the random baseline), the engine's fills
     and the closing cash. Entries given: {"minute", "what": "long" | "short", "close"}. series: the day's
     rules.day_series, when it's already been worked out (the baseline reuses the rule's)."""
-    s = series or rules.day_series(symbol, day, rule["tf"], rule)
-    sig = rules.signals(rule, s) if entries is None else entries
+    s = series or rules.day_series(symbol, day, rule["tf"], strategies.studies(rule))
+    sig = strategies.signals(rule, s) if entries is None else entries
     by_minute: dict[int, list[dict]] = {}
     for x in sig:
         by_minute.setdefault(x["minute"], []).append(x)
@@ -173,7 +175,7 @@ def stats(trades: list[dict], days: int) -> dict:
 
 def _random_entries(rule: dict, symbol: str, day: str, n: int, rng: random.Random) -> list[dict]:
     """n market entries at random minutes in the rule's hours, on the sides the rule trades."""
-    sides = [x for x in ("long", "short") if rule[x]]
+    sides = strategies.sides(rule)
     day_bars = [b for b in practice.bars(symbol, day) if rule["hours"]["from"] <= b["minute"] <= rule["hours"]["to"]]
     if not day_bars or not n:
         return []
