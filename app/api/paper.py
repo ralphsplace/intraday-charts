@@ -251,7 +251,7 @@ class BacktestBody(BaseModel):
     symbol: str
     start: str
     end: str
-    missing: str | None = None              # days without cached bars: "stop" or "skip" (else Config's default)
+    missing: str | None = None              # days without cached bars: "fetch", "skip" or "stop" (else Config's default)
     account: str | None = None              # whose starting cash and settings (else the defaults for new accounts)
     baseline_runs: int | None = Field(None, ge=0, le=20)   # random-entry runs (else Config's default)
 
@@ -272,8 +272,8 @@ def paper_backtest_start(req: BacktestBody):
             raise HTTPException(404, f'No strategy called "{req.strategy_name}"')
     d = backtest.defaults()
     missing = req.missing or d["missing"]
-    if missing not in ("stop", "skip"):
-        raise HTTPException(400, "missing is stop or skip")
+    if missing not in backtest.MISSING:
+        raise HTTPException(400, "missing is fetch, skip or stop")
     runs = d["baseline_runs"] if req.baseline_runs is None else req.baseline_runs
     a = _call(accounts.find, req.account)[1] if req.account else accounts.defaults()
     return _call(jobs.start, st, name, one_symbol(req.symbol, demo_ok=True), valid_date(req.start), valid_date(req.end),

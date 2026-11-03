@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from .. import jsonfile, store
-from . import backtest, rules, strategies
+from . import backtest, fetching, rules, strategies
 
 
 def folder() -> Path:
@@ -31,20 +31,27 @@ MAX_LOG = 20_000
 
 def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, missing: str, cash: float, settings: dict,
           baseline_runs: int = 5) -> dict:
-    """Check everything now (so mistakes come back at once), then run on a thread. missing: "stop" or "skip".
+    """Check everything now (so mistakes come back at once), then run on a thread. missing: what to do about trading
+    days without cached bars: "fetch" them from TWS first (fetching.py), "skip" them, or "stop" (refuse the run).
     The strategy's rules are read now: the run keeps what they said (its "strategy", expanded)."""
     rule = strategies.prepare(strategy)
     days, gaps = backtest.trading_days(symbol, start_day, end_day)
-    if gaps and missing != "skip":
+    fetch = bool(gaps) and missing == "fetch"
+    if gaps and missing == "stop":
         raise ValueError(f"No cached bars for {len(gaps)} trading day(s): {', '.join(gaps[:8])}"
-                         + (" …" if len(gaps) > 8 else "") + ". Fetch them first, or skip them.")
-    if not days:
+                         + (" …" if len(gaps) > 8 else "") + ". Fetch them from TWS, or skip them.")
+    if fetch and (why := fetching.collector_ready()):
+        raise ValueError(f"No cached bars for {len(gaps)} trading day(s), and {why}")
+    if not days and not fetch:
         raise ValueError("No cached days in that range")
-    rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
+    if days:
+        rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
     run_id = uuid.uuid4().hex[:10]
     head = {"id": run_id, "strategy_name": name, "strategy": rule, "symbol": symbol, "start": start_day, "end": end_day,
-            "skipped": gaps, "status": "running", "done": 0, "total": len(days) * (1 + baseline_runs),
-            "started": time.time()}
+            "skipped": [] if fetch else gaps, "status": "fetching" if fetch else "running", "done": 0,
+            "total": len(days) * (1 + baseline_runs), "started": time.time()}
+    if fetch:
+        head["fetch"] = {"got": 0, "wanted": len(gaps)}
     lines: list[dict] = []
 
     def log(day, text, level="info"):
@@ -54,9 +61,12 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
         elif len(lines) == MAX_LOG:
             lines.append({"t": round(time.time() - head["started"], 1), "day": None, "level": "warn",
                           "text": f"the log keeps the first {MAX_LOG} lines; the run carries on"})
-    log(None, f'"{name}" on {symbol}, {len(days)} day(s) from {days[0]} to {days[-1]}, ${cash:,.0f} to start')
-    if gaps:
-        log(None, f"skipped {len(gaps)} day(s) without cached bars: {', '.join(gaps[:20])}" + (" …" if len(gaps) > 20 else ""), "warn")
+    span = f"{len(days) + len(gaps)} trading day(s) from {start_day} to {end_day}"
+    log(None, f'"{name}" on {symbol}, {span}, ${cash:,.0f} to start')
+    if fetch:
+        log(None, f"fetching {len(gaps)} day(s) without cached bars from TWS: {_some(gaps)}")
+    elif gaps:
+        log(None, f"skipped {len(gaps)} day(s) without cached bars: {_some(gaps)}", "warn")
     folder().mkdir(parents=True, exist_ok=True)
     _write(run_id, **head, log=lines)
 
@@ -68,7 +78,10 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
                 last[0] = time.time()
                 _write(run_id, done=done, total=total, log=lines)
         try:
-            report = backtest.run(rule, symbol, days, cash, settings, baseline_runs=baseline_runs, progress=progress, log=log)
+            run_days = days
+            if fetch:
+                run_days = _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, log, lines)
+            report = backtest.run(rule, symbol, run_days, cash, settings, baseline_runs=baseline_runs, progress=progress, log=log)
             log(None, f"done: {report['stats']['trades']} trade(s), P/L {report['stats']['total']:+,.2f}")
             _write(run_id, status="done", report=report, finished=time.time(), log=lines)
         except Exception as e:  # noqa: BLE001  (any failure: the run says so, the server carries on)
@@ -76,6 +89,31 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
             _write(run_id, status="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-2000:], log=lines)
     threading.Thread(target=work, name=f"backtest-{run_id}", daemon=True).start()
     return head
+
+
+def _some(days: list[str], n: int = 20) -> str:
+    return ", ".join(days[:n]) + (" …" if len(days) > n else "")
+
+
+def _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, log, lines) -> list[str]:
+    """The fetch before a run: ask TWS for the missing days, wait, and say which never came. The days to run."""
+    last = [0.0, -1]
+
+    def progress(got, wanted):
+        if got != last[1] or time.time() - last[0] > 5:
+            if got > max(last[1], 0):
+                log(None, f"fetched {got} of {wanted} day(s)")
+            last[0], last[1] = time.time(), got
+            _write(run_id, fetch={"got": got, "wanted": wanted}, log=lines)
+    unavailable = fetching.fetch(symbol, gaps, progress=progress)
+    days, _ = backtest.trading_days(symbol, start_day, end_day)
+    if unavailable:
+        log(None, f"skipped {len(unavailable)} day(s) TWS had no bars for: {_some(unavailable)}", "warn")
+    if not days:
+        raise ValueError("TWS had no bars for any day in that range")
+    rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
+    _write(run_id, status="running", skipped=unavailable, total=len(days) * (1 + baseline_runs), log=lines)
+    return days
 
 
 def read(run_id: str) -> dict:
@@ -95,7 +133,7 @@ def listing() -> list[dict]:
         d = jsonfile.read(p)
         if d:
             rep = d.get("report") or {}
-            out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "started", "error")}
+            out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "fetch", "started", "error")}
                        | {"strategy_name": d.get("strategy_name") or d.get("rule_name"),      # runs from before #67 ran a rule
                           "stats": rep.get("stats"), "baseline": rep.get("baseline")})
     return out

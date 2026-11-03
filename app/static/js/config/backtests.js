@@ -1,6 +1,7 @@
 /* The Config page's Backtests section: what a new backtest starts with on the Paper page (symbol, whose cash and
-   costs, how many random-entry runs, and whether days without cached bars are skipped). Kept in the application
+   costs, how many random-entry runs, and what to do about days without cached bars: fetch, skip or stop). Kept in the application
    config. Data: /api/paper/backtest-defaults. */
+import { missingSelect } from "../paper/missing.js";
 import { $, api, el } from "../util.js";
 
 let say = () => {}, edited = false;      // changed here and not saved yet: a refresh keeps what's on screen
@@ -8,7 +9,7 @@ let say = () => {}, edited = false;      // changed here and not saved yet: a re
 function fill(d, accounts) {
   const as = $("cfgBtAccount");
   if (edited) d = { ...d, account: as.value };
-  else { $("cfgBtSymbol").value = d.symbol; $("cfgBtBase").value = d.baseline_runs; $("cfgBtSkip").checked = d.missing === "skip"; }
+  else { $("cfgBtSymbol").value = d.symbol; $("cfgBtBase").value = d.baseline_runs; missingSelect($("cfgBtMissing")).value = d.missing; }
   as.innerHTML = "";
   const names = Object.keys(accounts).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   for (const [v, t] of [["", "New accounts (the defaults)"], ...names.map((n) => [n, n])]) { const o = el("option", null, t); o.value = v; as.appendChild(o); }
@@ -26,7 +27,7 @@ export async function loadBacktestDefaults(sayFn) {
 
 async function save() {
   const body = { symbol: $("cfgBtSymbol").value.trim().toUpperCase(), account: $("cfgBtAccount").value,
-                 baseline_runs: parseInt($("cfgBtBase").value, 10), missing: $("cfgBtSkip").checked ? "skip" : "stop" };
+                 baseline_runs: parseInt($("cfgBtBase").value, 10), missing: $("cfgBtMissing").value };
   if (Number.isNaN(body.baseline_runs)) { say("cfgBtMsg", "Random runs are 0 to 20.", true); return; }
   try { await api("/api/paper/backtest-defaults", body, "PUT"); say("cfgBtMsg", "Saved. New backtests start with these."); }
   catch (e) { say("cfgBtMsg", e.message, true); return; }

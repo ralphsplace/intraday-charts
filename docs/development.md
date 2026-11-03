@@ -109,6 +109,7 @@ app/paper/rules.py      rules as data: conditions and an expression of them and 
 app/paper/strategies.py strategies: buy / short / exit expressions of rules, the order, exits, hours; prepared for a run
 app/paper/backtest.py   a strategy over many days with the paper engine; trades, stats, the random baseline
 app/paper/jobs.py       backtests as background runs, followed by id (progress, the run's log and results in files)
+app/paper/fetching.py   a backtest's missing days asked of the collector (control.py requests) and waited for
 app/paper/review.py     a backtest's day for a chart: its studies, and its trades as entry and exit markers
 app/paper/presets.py    the recommended rules (price against VWAP, the averages and the opening range, and more)
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
@@ -148,7 +149,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
                         (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
   paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
   paper/                the Paper page: main.js (sections), trades.js, backtests.js (runs), report.js (a run: stats,
-                        Trades and Log tabs), review-pane.js (a day's chart over the page), equity.js
+                        Trades and Log tabs), review-pane.js (a day's chart over the page), equity.js,
+                        missing.js (what a run does about days without cached bars: fetch, skip, stop)
   review.js             the chart page's review mode (/review): a backtest's day with its trades as arrows
   drawings.js           drawings stored per symbol; runs the tool modules' hooks (place, draw, alert)
   drawtools.js          the top bar's drawing-tool buttons: arm a tool on every chart

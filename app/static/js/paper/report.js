@@ -13,7 +13,7 @@ const LEVELS = [["", "Everything"], ["day", "A line a day"], ["warn", "Refused a
 // o: { say, accounts, statsTable, money, quiet }
 export function renderReport(box, run, o) {
   const fresh = run.id !== lastId;
-  if (!fresh && lastStatus === "running" && run.status === "done") tab = "trades";    // it just finished: its trades
+  if (!fresh && lastStatus !== "done" && run.status === "done") tab = "trades";    // it just finished: its trades
   lastId = run.id; lastStatus = run.status;
   const logBox = box.querySelector(".pp-log");
   const atEnd = !logBox || logBox.scrollTop + logBox.clientHeight >= logBox.scrollHeight - 4;   // following the log
@@ -22,7 +22,11 @@ export function renderReport(box, run, o) {
   box.dataset.id = run.id;
   box.appendChild(el("h3", null, `${run.strategy_name} · ${run.symbol} · ${run.start} to ${run.end}` + (run.report?.demo ? " (synthetic data)" : "")));
   const rep = run.report;
-  if (run.status === "running") {
+  if (run.status === "fetching") {
+    const f = run.fetch || { got: 0, wanted: 0 };
+    const bar = el("div", "pp-progress"); const fill = el("div"); fill.style.width = `${Math.round((100 * f.got) / (f.wanted || 1))}%`; bar.appendChild(fill);
+    box.append(el("p", "muted", `Fetching from TWS: ${f.got} of ${f.wanted} day(s) without cached bars. The run starts when they're in…`), bar);
+  } else if (run.status === "running") {
     const bar = el("div", "pp-progress"); const fill = el("div"); fill.style.width = `${Math.round((100 * run.done) / (run.total || 1))}%`; bar.appendChild(fill);
     box.append(el("p", "muted", `Running: ${run.done} of ${run.total} steps (the strategy's days, then the random entries)…`), bar);
   } else if (run.status === "failed") {
@@ -30,7 +34,7 @@ export function renderReport(box, run, o) {
   } else {
     if (rep.skipped?.count) box.appendChild(el("p", "bad", `${rep.skipped.count} entry signal${rep.skipped.count === 1 ? " was" : "s were"} refused: ${rep.skipped.first}` +
                                               ". Use fewer shares, or an account with more cash (see Log)."));
-    if (run.skipped?.length) box.appendChild(el("p", "muted small", `Skipped ${run.skipped.length} day(s) without cached bars: ${run.skipped.join(", ")}`));
+    if (run.skipped?.length) box.appendChild(el("p", "muted small", `Skipped ${run.skipped.length} day(s) without bars: ${run.skipped.join(", ")}`));
     box.appendChild(o.statsTable([["This strategy", rep.stats], [`Random entries (${rep.baseline_runs} runs)`, rep.baseline]].filter(([, s]) => s)));
     const eq = el("div", "pp-equity"); box.appendChild(eq);
     equityChart(eq, rep.equity.map((e) => ({ value: e.equity, label: e.day })), rep.start_cash);
@@ -51,7 +55,7 @@ export function renderReport(box, run, o) {
     const b = btn(label, () => show(t), null, ""); b.dataset.tab = t; b.setAttribute("role", "tab"); tabs.appendChild(b);
   }
   box.append(tabs, pane);
-  show(run.status === "running" && fresh ? "log" : tab);
+  show(run.status !== "done" && run.status !== "failed" && fresh ? "log" : tab);
   if (!o.quiet) box.scrollIntoView({ block: "start" });
 }
 
@@ -79,7 +83,7 @@ function dayLink(run, day) {
 function tradesTable(run, o) {
   const wrap = el("div");
   const rep = run.report;
-  if (!rep) { wrap.appendChild(el("p", "muted small", run.status === "running" ? "The trades show when the run is done; the Log shows them as they happen." : "No trades.")); return wrap; }
+  if (!rep) { wrap.appendChild(el("p", "muted small", run.status !== "done" ? "The trades show when the run is done; the Log shows them as they happen." : "No trades.")); return wrap; }
   wrap.appendChild(el("p", "muted small", "Click a day to see it on a chart: the entries and exits as arrows, with the studies the rules read."));
   const t = el("table", "cfg-table pp-trades");
   const head = el("tr");
@@ -106,7 +110,7 @@ function logView(run) {
   for (const [v, t] of LEVELS) { const x = el("option", null, t); x.value = v; sel.appendChild(x); }
   sel.value = logLevel;
   const lines = (run.log || []).filter((l) => !logLevel || l.level === logLevel || l.level === "error" || (logLevel === "warn" && l.level === "warn"));
-  row.append(el("span", "muted small", "Show"), sel, el("span", "muted small", `${lines.length} line${lines.length === 1 ? "" : "s"}` + (run.status === "running" ? " · running" : "")));
+  row.append(el("span", "muted small", "Show"), sel, el("span", "muted small", `${lines.length} line${lines.length === 1 ? "" : "s"}` + (run.status === "running" || run.status === "fetching" ? ` · ${run.status}` : "")));
   const box = el("div", "pp-log");
   box.setAttribute("role", "log");
   if (!run.log) box.appendChild(el("div", "muted", "This run was made before backtests kept a log."));

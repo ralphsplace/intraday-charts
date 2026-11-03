@@ -19,7 +19,8 @@ from .. import app_config, sessions, store
 from . import engine, practice, rules, strategies
 
 MAX_DAYS = 260
-BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "stop"}
+BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "fetch"}
+MISSING = ("fetch", "skip", "stop")       # days without cached bars: fetch them from TWS, skip them, or refuse
 
 
 def defaults() -> dict:
@@ -39,8 +40,8 @@ def check_defaults(d: dict) -> dict:
     n = out["baseline_runs"]
     if not isinstance(n, int) or isinstance(n, bool) or not 0 <= n <= 20:
         raise ValueError("Random runs are 0 to 20")
-    if out["missing"] not in ("stop", "skip"):
-        raise ValueError("Days without cached bars: stop or skip")
+    if out["missing"] not in MISSING:
+        raise ValueError("Days without cached bars: fetch, skip or stop")
     return out
 
 
