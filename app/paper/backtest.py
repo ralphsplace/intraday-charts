@@ -107,15 +107,18 @@ def _says(a: dict) -> str:
 
 
 def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entries: list[dict] | None = None,
-            series: dict | None = None, log=None) -> dict:
+            series: dict | None = None, log=None, check=None) -> dict:
     """One day: the actions the rule takes (or the given entries, for the random baseline), the engine's fills
     and the closing cash. Entries given: {"minute", "what": "long" | "short", "close"}. series: the day's
     rules.day_series, when it's already been worked out (the baseline reuses the rule's). log(text, level): what
     happened, in words (signals acted on, refused or ignored, and fills)."""
+    check = check or (lambda: None)
+    check()
     say = log or (lambda text, level="info": None)
     ignored = {"in a trade": 0, "outside the hours": 0, "an opposite trade (no reverse)": 0}
-    s = series or rules.day_series(symbol, day, rule["tf"], strategies.studies(rule))
-    sig = strategies.signals(rule, s) if entries is None else entries
+    s = series or rules.day_series(symbol, day, rule["tf"], strategies.studies(rule), check=check)
+    check()
+    sig = strategies.signals(rule, s, check=check) if entries is None else entries
     by_minute: dict[int, list[dict]] = {}
     for x in sig:
         by_minute.setdefault(x["minute"], []).append(x)
@@ -139,6 +142,7 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
             say(f"{_hm(a['minute'])} {why}, refused: {e}", "warn")
 
     for b in day_bars:
+        check()
         cur_minute = b["minute"]
         for x in by_minute.get(cur_minute, []):
             pos = st["position"]["qty"]
@@ -224,15 +228,18 @@ def _random_entries(rule: dict, symbol: str, day: str, n: int, rng: random.Rando
 
 
 def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, seed: int = 1, baseline_runs: int = 5,
-        progress=None, log=None) -> dict:
+        progress=None, log=None, check=None) -> dict:
     """The rule over `days`, then the baseline. progress(done, total) is called after each day; log(day, text,
     level) with what happened (run_day), a line a day, and the baseline."""
+    check = check or (lambda: None)
+    check()
     total = len(days) * (1 + baseline_runs)
     done = 0
     note = log or (lambda day, text, level="info": None)
     results, trades, equity, bal, skipped, series = [], [], [], cash, [], {}
     for d in days:
-        r = run_day(rule, symbol, d, bal, settings, log=lambda text, level="info", d=d: note(d, text, level))
+        check()
+        r = run_day(rule, symbol, d, bal, settings, log=lambda text, level="info", d=d: note(d, text, level), check=check)
         series[d] = r["series"]
         skipped += r["skipped"]
         t = trades_of(d, r["fills"])
@@ -251,8 +258,9 @@ def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, s
     random_rule = {**rule, "order": {"type": "market"}}
     for _ in range(baseline_runs):
         for res in results:
+            check()
             entries = _random_entries(rule, symbol, res["day"], res["trades"], rng)
-            r = run_day(random_rule, symbol, res["day"], cash, settings, entries, series[res["day"]])
+            r = run_day(random_rule, symbol, res["day"], cash, settings, entries, series[res["day"]], check=check)
             base_trades += trades_of(res["day"], r["fills"])
             done += 1
             if progress:

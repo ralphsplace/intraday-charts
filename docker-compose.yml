@@ -49,6 +49,24 @@ services:
       - ./config.json:/app/config.json:ro
     restart: unless-stopped
 
+  paper-worker:
+    <<: *hardening
+    image: intraday-charts:latest
+    build: .
+    command: python -m app.paper.worker
+    environment:
+      <<: *env
+      PAPER_JOB_WORKERS: ${PAPER_JOB_WORKERS:-5}
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json:ro
+    depends_on:
+      - chart
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import time; from app import jsonfile; from app.paper import jobs; s=jsonfile.read(jobs.folder()/'locks'/'status.json'); exit(0 if time.time()-s.get('heartbeat',0)<30 else 1)"]
+
   collector:
     <<: *hardening
     profiles: ["collector"]

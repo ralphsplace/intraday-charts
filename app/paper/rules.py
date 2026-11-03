@@ -185,7 +185,7 @@ def _key(spec: dict) -> str:
     return f"{spec['type']}:{spec['output']}:{sorted(spec['params'].items())}"
 
 
-def day_series(symbol: str, day: str, tf: int, specs: list[dict]) -> dict:
+def day_series(symbol: str, day: str, tf: int, specs: list[dict], check=None) -> dict:
     """The day's bars at the rule's timeframe and every value the rule reads, by bar: {"bars": [{"start", "end",
     "open", ...}], "<study key>": [value or None per bar]} for each study line or level in specs (studies_in)."""
     ctx = day_engine.DayContext(symbol, day, tf, None)
@@ -196,8 +196,10 @@ def day_series(symbol: str, day: str, tf: int, specs: list[dict]) -> dict:
     out = {"bars": bars}
     by_ct = {b["ct"]: i for i, b in enumerate(bars)}
     for spec in specs:
+        if check:
+            check()
         if is_level(spec):
-            out[_key(spec)] = _level_series(symbol, day, tf, spec, bars)
+            out[_key(spec)] = _level_series(symbol, day, tf, spec, bars, check=check)
             continue
         res = studies_base.run_study(ctx, spec["type"], dict(spec["params"]))
         vals = [None] * len(bars)
@@ -215,12 +217,17 @@ def is_level(spec: dict) -> bool:
     return spec["output"].startswith("level:")
 
 
-def _level_series(symbol: str, day: str, tf: int, spec: dict, bars: list[dict]) -> list:
+def _level_series(symbol: str, day: str, tf: int, spec: dict, bars: list[dict], check=None) -> list:
     """The level each regular-hours bar traded against: as it was when the bar started (none until it's finished;
     none outside regular hours, when no trade is open)."""
     q = {"type": spec["type"], "params": spec["params"], "output": spec["output"], "tf": tf}
-    return [study_values.value(symbol, day, q, cursor=b["start"])["value"]
-            if day_engine.RTH_START <= b["start"] < day_engine.RTH_END else None for b in bars]
+    out = []
+    for b in bars:
+        if check:
+            check()
+        out.append(study_values.value(symbol, day, q, cursor=b["start"])["value"]
+                   if day_engine.RTH_START <= b["start"] < day_engine.RTH_END else None)
+    return out
 
 
 def check_no_repaint(symbol: str, day: str, tf: int, specs: list[dict]) -> None:

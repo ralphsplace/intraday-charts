@@ -48,17 +48,28 @@ def read(p: Path) -> dict:
 
 
 @contextmanager
-def editing(p: Path):
-    """The file's contents to change in place, written back atomically when the block ends without an error.
-    Raises BrokenFile, writing nothing, if the file exists but doesn't parse."""
+def locked(p: Path, blocking: bool = True):
+    """Hold a stable sidecar lock, shared by threads and processes. Never unlink the lock file."""
     p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p.with_suffix(".lock"), "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with open(p.with_suffix(".lock"), "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
         try:
-            d = _load(p)
-            yield d
-            tmp = p.with_suffix(".tmp")
-            tmp.write_text(json.dumps(d, indent=1, sort_keys=True))
-            os.replace(tmp, p)
+            yield
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def replace(p: Path, d: dict) -> None:
+    """Atomic write; the caller must hold locked(p)."""
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, indent=1, sort_keys=True))
+    os.replace(tmp, p)
+
+
+@contextmanager
+def editing(p: Path):
+    """Change a JSON object under its lock; refuse to overwrite malformed data."""
+    with locked(p):
+        d = _load(p)
+        yield d
+        replace(p, d)

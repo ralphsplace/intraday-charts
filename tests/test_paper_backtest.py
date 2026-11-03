@@ -87,7 +87,8 @@ def test_missing_days_are_said(on_demo):
         backtest.trading_days("QQQ-DEMO", "2026-10-02", "2026-10-01")
 
 
-def test_a_background_run_end_to_end(on_demo):
+def test_a_background_run_end_to_end(on_demo, paper_runner):
+    paper_runner()
     from app.server import app
     c = TestClient(app, client=("192.168.1.20", 50000))
     have = store.list_days("QQQ-DEMO")
@@ -100,7 +101,7 @@ def test_a_background_run_end_to_end(on_demo):
     assert r["strategy_name"] == "Crosses" and r["strategy"]["when"]["long"]["c"]["op"] == "crosses_above"   # what the rule said
     for _ in range(200):
         run = c.get(f"/api/paper/backtests/{r['id']}").json()
-        if run["status"] != "running":
+        if run["status"] in ("done", "failed", "interrupted"):
             break
         time.sleep(0.1)
     assert run["status"] == "done", run.get("error")

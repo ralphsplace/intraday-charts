@@ -22,16 +22,20 @@ export function renderReport(box, run, o) {
   box.dataset.id = run.id;
   box.appendChild(el("h3", null, `${run.strategy_name} · ${run.symbol} · ${run.start} to ${run.end}` + (run.report?.demo ? " (synthetic data)" : "")));
   const rep = run.report;
-  if (run.status === "fetching") {
+  if (run.status === "queued") {
+    box.appendChild(el("p", "muted", "Queued: waiting for a free paper-job worker."));
+  } else if (run.status === "deleting") {
+    box.appendChild(el("p", "muted", "Stopping and deleting: the report is removed after the job stops."));
+  } else if (run.status === "fetching") {
     const f = run.fetch || { got: 0, wanted: 0 };
     const bar = el("div", "pp-progress"); const fill = el("div"); fill.style.width = `${Math.round((100 * f.got) / (f.wanted || 1))}%`; bar.appendChild(fill);
     box.append(el("p", "muted", `Fetching from TWS: ${f.got} of ${f.wanted} day(s) without cached bars. The run starts when they're in…`), bar);
   } else if (run.status === "running") {
     const bar = el("div", "pp-progress"); const fill = el("div"); fill.style.width = `${Math.round((100 * run.done) / (run.total || 1))}%`; bar.appendChild(fill);
     box.append(el("p", "muted", `Running: ${run.done} of ${run.total} steps (the strategy's days, then the random entries)…`), bar);
-  } else if (run.status === "failed") {
+  } else if (["failed", "interrupted"].includes(run.status)) {
     box.appendChild(el("p", "bad", run.error));
-  } else {
+  } else if (run.status === "done" && rep) {
     if (rep.skipped?.count) box.appendChild(el("p", "bad", `${rep.skipped.count} entry signal${rep.skipped.count === 1 ? " was" : "s were"} refused: ${rep.skipped.first}` +
                                               ". Use fewer shares, or an account with more cash (see Log)."));
     if (run.skipped?.length) box.appendChild(el("p", "muted small", `Skipped ${run.skipped.length} day(s) without bars: ${run.skipped.join(", ")}`));

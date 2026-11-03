@@ -29,3 +29,32 @@ def demo(synthetic_dir, monkeypatch):
     engine._summary_cache.clear()
     engine._tf_cache.clear()
     return synthetic_dir
+
+
+@pytest.fixture
+def paper_runner():
+    """Start the separate runner explicitly after a test selects its DATA_DIR; join before fixture teardown."""
+    import threading
+    from app.paper import worker
+    running = []
+
+    def start(workers=5):
+        stop, ready = threading.Event(), threading.Event()
+        errors = []
+
+        def target():
+            try:
+                worker.run(stop, workers=workers, poll_seconds=0.01, ready=ready)
+            except Exception as e:
+                errors.append(e)
+        thread = threading.Thread(target=target)
+        thread.start()
+        running.append((stop, thread, errors))
+        assert ready.wait(5), errors
+        return stop
+    yield start
+    for stop, thread, errors in running:
+        stop.set()
+        thread.join(10)
+        assert not thread.is_alive(), "paper runner did not stop"
+        assert not errors, errors

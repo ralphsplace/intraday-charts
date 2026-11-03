@@ -95,7 +95,8 @@ def test_a_collector_that_stops_answering_stops_the_wait(cache, monkeypatch):
         fetching.fetch("SPY", ["2026-10-20"], sleep=lambda *_: None, clock=clock)
 
 
-def test_a_backtest_fetches_its_missing_days_then_runs(cache):
+def test_a_backtest_fetches_its_missing_days_then_runs(cache, paper_runner):
+    paper_runner()
     from app.server import app
     http = TestClient(app, client=("192.168.1.20", 50000))
     rules.save("Cross up", {"conditions": [{"a": CLOSE, "op": "crosses_above", "b": SMA}]})
@@ -111,7 +112,7 @@ def test_a_backtest_fetches_its_missing_days_then_runs(cache):
     c = Collector()
     c.step()
     run = http.post("/api/paper/backtests", json=body).json()
-    assert run["status"] == "fetching" and run["fetch"] == {"got": 0, "wanted": 5}
+    assert run["status"] == "queued" and run["fetch"] == {"got": 0, "wanted": 5}
     assert http.get("/api/paper/backtests").json()["runs"][0]["fetch"] == {"got": 0, "wanted": 5}
     stop = threading.Event()
 

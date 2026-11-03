@@ -207,7 +207,8 @@ on them, with the same results.
   opens the default dashboard's first chart at that day, just after the entry, practising in that account.
 - **Backtests**: run a saved strategy on a symbol's cached days, with an account's cash and costs. The form starts with
   the defaults set in Config, **Backtests** (symbol, account, random runs, days without bars). It runs in
-  the background (you can leave the page). The report has the trades, the equity by day, win rate, average win and
+  the background (you can leave the page). One dedicated paper worker runs up to **five jobs concurrently**,
+  including fetch waits; additional runs show **queued** (up to 50 waiting). The report has the trades, the equity by day, win rate, average win and
   loss, profit factor, the largest drawdown, trades a day and longs and shorts apart, next to **random entries with
   the same exits** (several runs): a strategy that doesn't beat them has no edge. **Days without cached bars**:
   - **Fetch them from TWS** (the default): the run first asks the collector for them (each request brings a day and
@@ -220,6 +221,15 @@ on them, with the same results.
   Entry signals the account can't afford are skipped, and the report says how
   many. Tick runs to **compare** them side by side; **Save** puts a run's trades into an account, as sessions that
   open on a chart and fill the same.
+
+**Delete stops the job as well as deleting its report.** A queued run is removed immediately. A running or
+fetching run shows **stopping and deleting** until its worker exits, then disappears permanently. Other jobs
+continue. Cancellation is checked between bars, study evaluations and fetch polls; an in-progress file read or
+study calculation finishes before the next check. Data requests already handed to the shared collector may
+finish and populate the cache, but the deleted job will not proceed to backtesting.
+
+Restarting the chart server does not stop jobs. Restarting the paper worker keeps queued jobs and marks unfinished
+runs **interrupted**; submit a new run to retry. Finished reports remain readable and can still be saved to accounts.
 
 ### A run's report
 
