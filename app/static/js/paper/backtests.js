@@ -10,7 +10,7 @@ const KEY = "intraday-charts:paper-backtest";
 const enc = encodeURIComponent;
 let runs = [], shown = null, poll = null, accountsNow = {}, filled = false;
 
-const active = (r) => r.status === "running" || r.status === "fetching";      // still going: asked again every second
+const active = (r) => ["queued", "running", "fetching", "deleting"].includes(r.status);      // still going: asked again every second
 const pct = (x) => (x == null ? "–" : `${x}%`);
 const money = (x) => (x == null ? "–" : dollars(x, { d: 2 }));
 const ROWS = [["Trades", (s) => s.trades], ["Total P/L", (s) => money(s.total)], ["P/L a day", (s) => money(s.per_day)],
@@ -56,6 +56,7 @@ export async function loadRuns(say) {
     const tick = el("input"); tick.type = "checkbox"; tick.className = "pp-tick"; tick.value = r.id; tick.setAttribute("aria-label", `Compare ${r.strategy_name}`);
     const s = r.stats, b = r.baseline;
     const status = r.status === "running" ? `running ${Math.round((100 * r.done) / (r.total || 1))}%`
+      : r.status === "queued" ? "queued" : r.status === "deleting" ? "stopping and deleting…" : r.status === "interrupted" ? "interrupted"
       : r.status === "fetching" ? `fetching ${r.fetch?.got ?? 0} of ${r.fetch?.wanted ?? "?"} days` : r.status === "failed" ? "failed" : "";
     tr.appendChild(el("td")).appendChild(tick);
     tr.append(el("td", "cfg-name", r.strategy_name), el("td", null, r.symbol), el("td", "muted small", `${r.start} to ${r.end}`),
@@ -65,11 +66,14 @@ export async function loadRuns(say) {
     acts.append(btn("Report", () => { showReport(r.id, say); loadRuns(say); }, `Show the report of ${r.strategy_name}`, "pp-report-btn"),
                 btn("Delete", async (e) => {
                   const me = e.currentTarget;
-                  if (me.dataset.sure !== "1") { me.dataset.sure = "1"; me.textContent = "Delete? Yes"; return; }
-                  await api(`/api/paper/backtests/${r.id}`, null, "DELETE").catch((err) => say(err.message, true));
+                  if (me.dataset.sure !== "1") { me.dataset.sure = "1"; me.textContent = active(r) ? "Stop and delete? Yes" : "Delete? Yes"; return; }
+                  try {
+                    const result = await api(`/api/paper/backtests/${r.id}`, null, "DELETE");
+                    if (result.deleting) say("Stopping the job; its report will disappear when it stops.");
+                  } catch (err) { say(err.message, true); return; }
                   if (shown === r.id) { $("ppReport").innerHTML = ""; shown = null; }
                   loadRuns(say);
-                }, `Delete this backtest`, "danger"));
+                }, `Stop this job and delete its report`, "danger"));
     tr.appendChild(acts);
     t.appendChild(tr);
   }
@@ -118,7 +122,7 @@ export function initBacktests(say) {
                    baseline_runs: parseInt($("ppRunBase").value, 10) || 0 };
     if (!body.strategy_name) { say("Make a strategy first: Config, Paper strategies.", true); return; }
     store(KEY, { symbol: body.symbol, from: body.start, to: body.end });
-    try { const r = await api("/api/paper/backtests", body); say(`Started "${r.strategy_name}" on ${r.symbol}.`); shown = r.id; }
+    try { const r = await api("/api/paper/backtests", body); say(`Queued "${r.strategy_name}" on ${r.symbol}.`); shown = r.id; }
     catch (err) { say(err.message, true); return; }
     loadRuns(say);
   };

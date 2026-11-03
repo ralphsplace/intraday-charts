@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .. import app_config
@@ -27,6 +28,8 @@ class RenameBody(BaseModel):
 def _call(fn, *a):
     try:
         return fn(*a)
+    except jobs.QueueFull as e:
+        raise HTTPException(429, str(e), headers={"Retry-After": "5"}) from None
     except engine.PaperError as e:                         # an order the account can't take: say why
         raise HTTPException(409, str(e)) from None
     except KeyError as e:
@@ -320,8 +323,8 @@ def paper_backtest_review(run_id: str, day: str):
 
 @router.delete("/api/paper/backtests/{run_id}")
 def paper_backtest_delete(run_id: str):
-    _call(jobs.delete, run_id)
-    return {"runs": jobs.listing()}
+    deleted = _call(jobs.delete, run_id)
+    return JSONResponse({"runs": jobs.listing(), "deleting": not deleted}, status_code=200 if deleted else 202)
 
 
 @router.post("/api/paper/backtests/{run_id}/save")

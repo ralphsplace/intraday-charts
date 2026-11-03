@@ -108,7 +108,8 @@ app/paper/rules.py      rules as data: conditions and an expression of them and 
                         loops), evaluated bar by bar at the close; refuses studies that repaint
 app/paper/strategies.py strategies: buy / short / exit expressions of rules, the order, exits, hours; prepared for a run
 app/paper/backtest.py   a strategy over many days with the paper engine; trades, stats, the random baseline
-app/paper/jobs.py       backtests as background runs, followed by id (progress, the run's log and results in files)
+app/paper/jobs.py       durable backtest queue, cancellation/deletion, progress and reports
+app/paper/worker.py     singleton runner with up to five job threads (separate from web workers)
 app/paper/fetching.py   a backtest's missing days asked of the collector (control.py requests) and waited for
 app/paper/review.py     a backtest's day for a chart: its studies, and its trades as entry and exit markers
 app/paper/presets.py    the recommended rules (price against VWAP, the averages and the opening range, and more)
@@ -305,3 +306,34 @@ build step, so new plugins are written the same way: small ES modules against th
 skill's rules (bitmap coordinates for lines, draw the visible range only, `requestUpdate()` after changes, undo
 everything in `detached()`).
 
+
+## Paper-job runner
+
+`docker compose up -d --build` starts the chart and `paper-worker` services. For a local Python deployment,
+start `python -m app.paper.worker` alongside Uvicorn, with the same `DATA_DIR`. `PAPER_JOB_WORKERS` defaults to 5
+and accepts 1 through 5; `WEB_WORKERS` does not affect the job limit. Keep the runner at one replica.
+
+All web processes submit complete inputs to `data/user/paper/backtests/<id>.json` under an admission lock.
+There are at most 50 queued jobs. A full queue returns HTTP 429 with Retry-After. The runner submits only free
+slots to its executor and holds a lifetime flock under `backtests/locks/` until all threads have joined.
+Starting another runner against that directory fails. This requires a shared filesystem with working flock
+and atomic rename semantics; use the same local NAS bind mount for chart and runner, and verify those semantics
+before placing it on a network filesystem. Never remove lock sidecars while services are running.
+
+A worker holds a separate execution lock for its entire job. DELETE holds the report lock and tries the
+execution lock without blocking. If free, it deletes immediately (HTTP 200); otherwise it persists
+`delete_requested`/`deleting` and a small cancellation sidecar (HTTP 202). The sidecar avoids repeatedly reading
+a growing report just to check cancellation. The worker checks cancellation while fetching, building study levels,
+generating signals and stepping bars. After unwinding, it removes the report under the report lock. Every progress
+write checks existence and deletion under that same lock; it cannot recreate a deleted report. The UI polls
+queued and deleting runs as well as running/fetching runs. Cancellation does not terminate the shared collector
+or other jobs. A blocking native call is allowed to return before cancellation is acknowledged.
+
+SIGTERM/SIGINT stops admission and interrupts active jobs cooperatively. At startup, after obtaining exclusive
+ownership, the runner reconciles unfinished old runs as interrupted and finishes pending deletions. Queued
+inputs survive restarts; interrupted runs are not silently replayed. Deploy this version by stopping the old
+chart processes before starting the new runner so legacy in-process jobs are no longer executing.
+
+Days inside a run remain sequential because closing cash funds the next day. Each job retains its own seeded
+random generator, simulation state and log. Five threads bound concurrency, not CPU speedup; benchmark before
+switching execution models. No trading orders are sent to TWS.

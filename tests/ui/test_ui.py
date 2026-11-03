@@ -2016,3 +2016,37 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     wait_state(p, "a.panels[0].paperView && a.panels[0].paperView.fills.length > 0")
     assert app_state(p, "a.panels[0].symbol") == "QQQ" and "Tests" in p.inner_text(".panel .paperbar")
     assert "?" not in p.url                                                     # the address is tidied
+
+
+def test_backtest_queue_delete_acknowledgement_and_interrupted_report(tab, data):
+    """New states remain pollable and render without assuming a completed report exists."""
+    import json
+    p = tab.page
+    run = {"id": "queuedjob", "strategy_name": "Queued strategy", "symbol": "QQQ", "start": "2026-10-19",
+           "end": "2026-10-23", "status": "queued", "done": 0, "total": 5, "log": []}
+    state = {"exists": True}
+
+    def handle(route):
+        if route.request.method == "DELETE":
+            run["status"] = "deleting"
+            route.fulfill(status=202, content_type="application/json", body=json.dumps({"deleting": True, "runs": [run]}))
+        elif route.request.url.endswith("/queuedjob"):
+            route.fulfill(content_type="application/json", body=json.dumps(run))
+        else:
+            route.fulfill(content_type="application/json", body=json.dumps({"runs": [run] if state["exists"] else []}))
+    p.route("**/api/paper/backtests", handle)
+    p.route("**/api/paper/backtests/queuedjob", handle)
+    tab.goto("/paper?tab=backtests", 100)
+    p.locator("#ppRuns .pp-report-btn").click()
+    p.wait_for_function("document.querySelector('#ppReport').textContent.includes('Queued: waiting')")
+    p.locator("#ppRuns button.danger").click()
+    assert "Stop and delete? Yes" in p.inner_text("#ppRuns")
+    p.locator("#ppRuns button.danger").click()
+    p.wait_for_function("document.querySelector('#ppRuns').textContent.includes('stopping and deleting')")
+    state["exists"] = False
+    p.wait_for_function("document.querySelector('#ppRuns').textContent.includes('No backtests yet')")
+    run.update(status="interrupted", error="Worker stopped; submit a new run.")
+    state["exists"] = True
+    tab.goto("/paper?tab=backtests", 100)
+    p.locator("#ppRuns .pp-report-btn").click()
+    p.wait_for_function("document.querySelector('#ppReport').textContent.includes('Worker stopped')")

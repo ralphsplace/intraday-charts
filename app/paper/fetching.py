@@ -57,10 +57,12 @@ def _ours_waiting(symbol: str, days: set, ids: set) -> bool:
     return any(isinstance(t, dict) and t.get("symbol") == src and t.get("day") in days for t in tasks)
 
 
-def fetch(symbol: str, days: list[str], progress=None, sleep=time.sleep, clock=time.time) -> list[str]:
+def fetch(symbol: str, days: list[str], progress=None, sleep=time.sleep, clock=time.time, check=None) -> list[str]:
     """Ask the collector for `days` of `symbol` and wait for them. progress(got, wanted) after each check.
     Returns the days still missing (IBKR had nothing for them). ValueError when the collector isn't there, or
     stops answering."""
+    check = check or (lambda: None)
+    check()
     why = collector_ready()
     if why:
         raise ValueError(f"Can't fetch {len(days)} missing day(s): {why}")
@@ -69,9 +71,13 @@ def fetch(symbol: str, days: list[str], progress=None, sleep=time.sleep, clock=t
     wanted = {d for d in days if d <= today}
     if not wanted:
         return later
-    ids = {control.submit([symbol], day=d)["id"] for d in requests_for(sorted(wanted))}
+    ids = set()
+    for d in requests_for(sorted(wanted)):
+        check()
+        ids.add(control.submit([symbol], day=d)["id"])
     last_change, quiet_since, left = clock(), None, len(wanted)
     while True:
+        check()
         now_missing = missing(symbol, sorted(wanted))
         if progress:
             progress(len(wanted) - len(now_missing), len(wanted))

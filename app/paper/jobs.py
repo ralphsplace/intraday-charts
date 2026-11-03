@@ -1,9 +1,10 @@
-"""Backtests as background runs: started by a request, run on a thread of the server process, followed and read
-back by id. Progress and results are files (data/user/paper/backtests/<id>.json, written through jsonfile), so
-any of the server's worker processes can answer, and a run survives the page being closed."""
+"""Durable backtest queue, shared by all web processes; executed only by app.paper.worker.
+
+Per-run locks serialize deletion and writes. An execution lock is held for the whole computation:
+DELETE requests cancellation while it is held, and the worker removes the report only after unwinding.
+"""
 from __future__ import annotations
 
-import threading
 import time
 import traceback
 import uuid
@@ -12,28 +13,54 @@ from pathlib import Path
 from .. import jsonfile, store
 from . import backtest, fetching, rules, strategies
 
+MAX_LOG = 20_000
+MAX_QUEUED = 50
+ACTIVE = {"fetching", "running", "deleting"}
+
+
+class QueueFull(Exception):
+    """The durable waiting queue is full."""
+
+
+class Cancelled(Exception):
+    """Delete requested, or the report no longer exists."""
+
+
+class Interrupted(Exception):
+    """The runner is shutting down."""
+
 
 def folder() -> Path:
     return store.DATA_DIR / "user" / "paper" / "backtests"
 
 
 def path(run_id: str) -> Path:
+    if not run_id.isalnum():
+        raise KeyError("No such backtest")
     return folder() / f"{run_id}.json"
 
 
+def execution_path(run_id: str) -> Path:
+    return folder() / "locks" / f"{run_id}.execution"
+
+
+def cancellation_path(run_id: str) -> Path:
+    return folder() / "locks" / f"{run_id}.cancel"
+
+
 def _write(run_id: str, **fields) -> None:
-    with jsonfile.editing(path(run_id)) as d:
+    p = path(run_id)
+    with jsonfile.locked(p):
+        d = jsonfile._load(p)
+        if not d or d.get("delete_requested"):
+            raise Cancelled()
         d.update(fields)
-
-
-MAX_LOG = 20_000
+        jsonfile.replace(p, d)
 
 
 def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, missing: str, cash: float, settings: dict,
           baseline_runs: int = 5) -> dict:
-    """Check everything now (so mistakes come back at once), then run on a thread. missing: what to do about trading
-    days without cached bars: "fetch" them from TWS first (fetching.py), "skip" them, or "stop" (refuse the run).
-    The strategy's rules are read now: the run keeps what they said (its "strategy", expanded)."""
+    """Validate and persist a complete, immutable request. The runner owns execution, not the HTTP process."""
     rule = strategies.prepare(strategy)
     days, gaps = backtest.trading_days(symbol, start_day, end_day)
     fetch = bool(gaps) and missing == "fetch"
@@ -46,56 +73,110 @@ def start(strategy: dict, name: str, symbol: str, start_day: str, end_day: str, 
         raise ValueError("No cached days in that range")
     if days:
         rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
-    run_id = uuid.uuid4().hex[:10]
+    run_id = uuid.uuid4().hex
     head = {"id": run_id, "strategy_name": name, "strategy": rule, "symbol": symbol, "start": start_day, "end": end_day,
-            "skipped": [] if fetch else gaps, "status": "fetching" if fetch else "running", "done": 0,
-            "total": len(days) * (1 + baseline_runs), "started": time.time()}
+            "skipped": [] if fetch else gaps, "status": "queued", "done": 0,
+            "total": len(days) * (1 + baseline_runs), "submitted": time.time(), "started": None,
+            "inputs": {"days": days, "gaps": gaps, "missing": missing, "cash": cash, "settings": settings,
+                       "baseline_runs": baseline_runs, "seed": 1}}
     if fetch:
         head["fetch"] = {"got": 0, "wanted": len(gaps)}
-    lines: list[dict] = []
-
-    def log(day, text, level="info"):
-        """A line of the run's log: {"t": seconds since it started, "day", "level": info | warn | day | error, "text"}."""
-        if len(lines) < MAX_LOG:
-            lines.append({"t": round(time.time() - head["started"], 1), "day": day, "level": level, "text": text})
-        elif len(lines) == MAX_LOG:
-            lines.append({"t": round(time.time() - head["started"], 1), "day": None, "level": "warn",
-                          "text": f"the log keeps the first {MAX_LOG} lines; the run carries on"})
     span = f"{len(days) + len(gaps)} trading day(s) from {start_day} to {end_day}"
-    log(None, f'"{name}" on {symbol}, {span}, ${cash:,.0f} to start')
-    if fetch:
-        log(None, f"fetching {len(gaps)} day(s) without cached bars from TWS: {_some(gaps)}")
-    elif gaps:
-        log(None, f"skipped {len(gaps)} day(s) without cached bars: {_some(gaps)}", "warn")
-    folder().mkdir(parents=True, exist_ok=True)
-    _write(run_id, **head, log=lines)
+    head["log"] = [{"t": 0, "day": None, "level": "info", "text": f'"{name}" on {symbol}, {span}, ${cash:,.0f} to start'}]
+    with jsonfile.locked(folder() / "locks" / "queue"):
+        if len(queued()) >= MAX_QUEUED:
+            raise QueueFull(f"The backtest queue is full ({MAX_QUEUED} waiting jobs); try again after a job starts")
+        with jsonfile.editing(path(run_id)) as d:
+            d.update(head)
+    return head
 
-    def work():
-        last = [0.0]
+
+def queued() -> list[str]:
+    return [r["id"] for r in sorted(listing(), key=lambda r: (r.get("submitted") or 0, r["id"]))
+            if r["status"] == "queued"]
+
+
+def execute(run_id: str, stop, owner: str) -> None:
+    """One worker, one complete run. A deleted queued job is never recreated."""
+    with jsonfile.locked(execution_path(run_id)):
+        try:
+            head = read(run_id)
+        except KeyError:
+            return
+        if head.get("delete_requested"):
+            with jsonfile.locked(path(run_id)):
+                path(run_id).unlink(missing_ok=True)
+            return
+        if head.get("status") != "queued":
+            return
+        lines = head.get("log", [])
+        started = time.time()
+        last_check = [0.0]
+
+        def check():
+            if stop.is_set():
+                raise Interrupted()
+            now = time.monotonic()
+            if now - last_check[0] >= 0.1:
+                last_check[0] = now
+                if cancellation_path(run_id).exists() or not path(run_id).exists():
+                    raise Cancelled()
+
+        def log(day, text, level="info"):
+            if len(lines) < MAX_LOG:
+                lines.append({"t": round(time.time() - started, 1), "day": day, "level": level, "text": text})
+            elif len(lines) == MAX_LOG:
+                lines.append({"t": round(time.time() - started, 1), "day": None, "level": "warn",
+                              "text": f"the log keeps the first {MAX_LOG} lines; the run carries on"})
+        last_progress = [0.0]
 
         def progress(done, total):
-            if time.time() - last[0] > 0.5 or done == total:
-                last[0] = time.time()
+            check()
+            if time.monotonic() - last_progress[0] > 0.5 or done == total:
+                last_progress[0] = time.monotonic()
                 _write(run_id, done=done, total=total, log=lines)
+        terminal = {}
         try:
-            run_days = days
+            check()
+            args, rule, symbol = head["inputs"], head["strategy"], head["symbol"]
+            days, gaps = args["days"], args["gaps"]
+            fetch = bool(gaps) and args["missing"] == "fetch"
+            _write(run_id, status="fetching" if fetch else "running", started=started, owner=owner)
             if fetch:
-                run_days = _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, log, lines)
-            report = backtest.run(rule, symbol, run_days, cash, settings, baseline_runs=baseline_runs, progress=progress, log=log)
+                log(None, f"fetching {len(gaps)} day(s) without cached bars from TWS: {_some(gaps)}")
+                days = _fetch_first(run_id, rule, symbol, head["start"], head["end"], gaps,
+                                    args["baseline_runs"], log, lines, check)
+            elif gaps:
+                log(None, f"skipped {len(gaps)} day(s) without cached bars: {_some(gaps)}", "warn")
+            report = backtest.run(rule, symbol, days, args["cash"], args["settings"], seed=args["seed"],
+                                  baseline_runs=args["baseline_runs"], progress=progress, log=log, check=check)
+            check()
             log(None, f"done: {report['stats']['trades']} trade(s), P/L {report['stats']['total']:+,.2f}")
-            _write(run_id, status="done", report=report, finished=time.time(), log=lines)
-        except Exception as e:  # noqa: BLE001  (any failure: the run says so, the server carries on)
+            terminal = {"status": "done", "report": report}
+        except Cancelled:
+            pass
+        except Interrupted:
+            terminal = {"status": "interrupted", "error": "The paper worker stopped. Submit a new run to retry."}
+        except Exception as e:  # any job failure is recorded without stopping the other workers
             log(None, f"failed: {type(e).__name__}: {e}", "error")
-            _write(run_id, status="failed", error=f"{type(e).__name__}: {e}", trace=traceback.format_exc()[-2000:], log=lines)
-    threading.Thread(target=work, name=f"backtest-{run_id}", daemon=True).start()
-    return head
+            terminal = {"status": "failed", "error": f"{type(e).__name__}: {e}", "trace": traceback.format_exc()[-2000:]}
+        finally:
+            # The computation has unwound. Deletion wins over completion, failure and shutdown.
+            p = path(run_id)
+            with jsonfile.locked(p):
+                d = jsonfile._load(p)
+                if d.get("delete_requested"):
+                    p.unlink()
+                elif d and terminal:
+                    d.update(**terminal, finished=time.time(), log=lines)
+                    jsonfile.replace(p, d)
 
 
 def _some(days: list[str], n: int = 20) -> str:
     return ", ".join(days[:n]) + (" …" if len(days) > n else "")
 
 
-def _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, log, lines) -> list[str]:
+def _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, log, lines, check) -> list[str]:
     """The fetch before a run: ask TWS for the missing days, wait, and say which never came. The days to run."""
     last = [0.0, -1]
 
@@ -105,40 +186,71 @@ def _fetch_first(run_id, rule, symbol, start_day, end_day, gaps, baseline_runs, 
                 log(None, f"fetched {got} of {wanted} day(s)")
             last[0], last[1] = time.time(), got
             _write(run_id, fetch={"got": got, "wanted": wanted}, log=lines)
-    unavailable = fetching.fetch(symbol, gaps, progress=progress)
+    unavailable = fetching.fetch(symbol, gaps, progress=progress, check=check)
+    check()
     days, _ = backtest.trading_days(symbol, start_day, end_day)
     if unavailable:
         log(None, f"skipped {len(unavailable)} day(s) TWS had no bars for: {_some(unavailable)}", "warn")
     if not days:
         raise ValueError("TWS had no bars for any day in that range")
+    check()
     rules.check_no_repaint(symbol, days[0], rule["tf"], strategies.studies(rule))
+    check()
     _write(run_id, status="running", skipped=unavailable, total=len(days) * (1 + baseline_runs), log=lines)
     return days
 
 
 def read(run_id: str) -> dict:
-    if not run_id.isalnum():
+    d = jsonfile.read(path(run_id))
+    if not d:
         raise KeyError("No such backtest")
-    p = path(run_id)
-    if not p.exists():
-        raise KeyError("No such backtest")
-    d = jsonfile.read(p)
-    return {**d, "strategy_name": d.get("strategy_name") or d.get("rule_name")}        # runs from before #67 ran a rule
+    return {**d, "strategy_name": d.get("strategy_name") or d.get("rule_name")}
 
 
 def listing() -> list[dict]:
-    """Every run, newest first, without the trades."""
+    """Every run, newest first, without the trades. Files may disappear during this scan."""
     out = []
-    for p in sorted(folder().glob("*.json"), key=lambda q: q.stat().st_mtime, reverse=True) if folder().exists() else []:
+    for p in folder().glob("*.json"):
         d = jsonfile.read(p)
         if d:
             rep = d.get("report") or {}
-            out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "fetch", "started", "error")}
-                       | {"strategy_name": d.get("strategy_name") or d.get("rule_name"),      # runs from before #67 ran a rule
+            out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "fetch",
+                                             "submitted", "started", "finished", "error")}
+                       | {"strategy_name": d.get("strategy_name") or d.get("rule_name"),
                           "stats": rep.get("stats"), "baseline": rep.get("baseline")})
-    return out
+    return sorted(out, key=lambda r: r.get("submitted") or r.get("started") or 0, reverse=True)
 
 
-def delete(run_id: str) -> None:
-    read(run_id)
-    path(run_id).unlink()
+def delete(run_id: str) -> bool:
+    """True: stopped and deleted. False: cancellation persisted; worker will remove after it stops (HTTP 202)."""
+    p = path(run_id)
+    with jsonfile.locked(p):
+        d = jsonfile._load(p)
+        if not d:
+            raise KeyError("No such backtest")
+        if d.get("status") not in ACTIVE | {"queued"}:
+            p.unlink()                 # finalization already committed; no computation or writes remain
+            return True
+        try:
+            with jsonfile.locked(execution_path(run_id), blocking=False):
+                p.unlink()             # no worker owns it: queued, terminal, or abandoned after a crash
+                return True
+        except BlockingIOError:
+            d.update(status="deleting", delete_requested=True)
+            jsonfile.replace(p, d)
+            cancellation_path(run_id).touch()     # cheap polling: never reread a growing report on every bar
+            return False
+
+
+def recover() -> None:
+    """Called only after acquiring the singleton runner lock; no previous worker can still be executing."""
+    for row in listing():
+        p = path(row["id"])
+        with jsonfile.locked(p):
+            d = jsonfile._load(p)
+            if d.get("delete_requested"):
+                p.unlink()
+            elif d.get("status") in ACTIVE:
+                d.update(status="interrupted", finished=time.time(),
+                         error="The paper worker was interrupted. Submit a new run to retry.")
+                jsonfile.replace(p, d)

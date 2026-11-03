@@ -118,12 +118,14 @@ def studies(c: dict) -> list[dict]:
     return rules.studies_in([t for t in c["when"].values() if t], extra)
 
 
-def signals(c: dict, s: dict) -> list[dict]:
+def signals(c: dict, s: dict, check=None) -> list[dict]:
     """What a compiled strategy says, bar by bar, read at each bar's close: {"minute": the minute after the bar
     closes (when an order goes in), "what": "long" | "short" | "exit_long" | "exit_short", "close", "bar"}."""
     out, memo = [], {}
     order = [w for w in ("exit_long", "exit_short", "long", "short") if c["when"][w]]
     for i, b in enumerate(s["bars"]):
+        if check:
+            check()
         for what in order:
             if rules.holds(c["when"][what], s, i, memo):
                 out.append({"minute": b["end"], "what": what, "close": b["close"], "bar": i})

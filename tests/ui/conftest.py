@@ -87,7 +87,13 @@ def data(ui_data):
     """Each test starts with no dashboards file, saved items, fetch requests or fetched watch lists."""
     for sub in ("user", "control", "lists", "account"):
         shutil.rmtree(ui_data / sub, ignore_errors=True)
-    return ui_data
+    env = {**os.environ, "DATA_DIR": str(ui_data), "PYTHONPATH": str(ROOT)}
+    worker = subprocess.Popen([sys.executable, "-m", "app.paper.worker"], cwd=ROOT, env=env)
+    try:
+        yield ui_data
+    finally:
+        worker.terminate()
+        worker.wait(10)
 
 
 @pytest.fixture(scope="session")
