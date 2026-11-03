@@ -127,6 +127,13 @@
       lines and levels (VWAP, the opening range high, the prior day's high…), combined with AND, OR, NOT and other rules.
       <a href="#" data-goto="strategies">Paper strategies</a> trade on rules. A study whose past values change as new
       bars arrive is refused, as a rule would otherwise look ahead.</p>
+    <details id="ppPresets" class="pp-presets">
+      <summary>Recommended rules: price above or below VWAP, the moving averages and the opening range, breakouts, trend, slope, momentum</summary>
+      <div id="ppPresetList"></div>
+      <div class="cfg-row"><button id="ppPresetAdd" type="button" class="primary">Add the ticked rules</button>
+        <button id="ppPresetAll" type="button">Add them all</button>
+        <span id="ppPresetMsg" class="muted small" role="status"></span></div>
+    </details>
     <div class="cfg-row"><label for="ppRule">Rule</label> <select id="ppRule"></select>
       <button id="ppRuleRename" type="button">Rename</button> <button id="ppRuleDelete" type="button" class="danger">Delete</button></div>
     <form id="ppRuleForm" class="pp-rule" autocomplete="off"></form>

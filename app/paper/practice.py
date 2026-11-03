@@ -66,7 +66,7 @@ def replay(symbol: str, day: str, cash: float, settings: dict, actions: list[dic
             _, a = acts[ai]
             ai += 1
             try:
-                events.extend(_apply(st, a, last_price(day_bars, a["minute"])))
+                events.extend(_apply(st, a, last_price(day_bars, a["minute"]), symbol, day))
             except engine.PaperError as e:
                 refused.append(f"{a['kind']} at {a['minute']}: {e}")
     for b in day_bars:
@@ -79,7 +79,34 @@ def replay(symbol: str, day: str, cash: float, settings: dict, actions: list[dic
     return st, events, refused
 
 
-def _apply(st: dict, a: dict, price: float | None) -> list[dict]:
+def atr_distance(symbol: str, day: str, t: dict, minute: int) -> float:
+    """An ATR trailing distance in dollars: {"atr": multiple, "length": n, "tf": minutes} times the ATR on that
+    timeframe, as it was when the order went in (from the bars before `minute`, as the chart's ATR study)."""
+    mult, n, tf = t.get("atr"), t.get("length", 14), t.get("tf", 1)
+    if not (isinstance(mult, (int, float)) and 0 < mult <= 20 and isinstance(n, int) and 1 <= n <= 100):
+        raise engine.PaperError("an ATR trailing stop is 0 to 20 times an ATR of 1 to 100 bars")
+    v = study_values.value(symbol, day, {"type": "atr", "params": {"length": n}, "output": "atr", "tf": tf}, cursor=minute)["value"]
+    if not v:
+        raise engine.PaperError(f"ATR ({n}) isn't known yet at {minute // 60:02d}:{minute % 60:02d}")
+    return round(mult * v, 4)
+
+
+def resolved(a: dict, symbol: str, day: str) -> dict:
+    """The action with any ATR trailing distance ({"atr": ...}) turned into dollars, at the action's minute. The
+    action is kept as written, so a replay works the distance out again the same way."""
+    def fix(t):
+        return {"amount": atr_distance(symbol, day, t, a["minute"]), "atr": t} if t and "atr" in t else t
+    out = a
+    if a.get("order", {}).get("trail"):
+        out = {**out, "order": {**a["order"], "trail": fix(a["order"]["trail"])}}
+    if (a.get("stop") or {}).get("trail"):
+        out = {**out, "stop": {**a["stop"], "trail": fix(a["stop"]["trail"])}}
+    return out
+
+
+def _apply(st: dict, a: dict, price: float | None, symbol: str | None = None, day: str | None = None) -> list[dict]:
+    if symbol:
+        a = resolved(a, symbol, day)
     k, m = a["kind"], a["minute"]
     if k == "order":
         o = engine.place(st, a["order"], m, price)
@@ -140,7 +167,7 @@ def act(account: str, symbol: str, day: str, cursor: int, action: dict) -> dict:
         if any(a["minute"] > cursor for a in s["actions"]):
             raise engine.PaperError("The practice is ahead of the replay: step forward, or remove the later trades first")
         st, _, _ = replay(symbol, day, s["cash"], s["settings"], s["actions"], cursor, day_bars)
-        _apply(st, action, last_price(day_bars, cursor))      # raises PaperError when the account can't take it
+        _apply(st, action, last_price(day_bars, cursor), symbol, day)   # raises PaperError when the account can't take it
         s["actions"].append(action)
     return view(name, symbol, day, cursor)
 

@@ -75,7 +75,8 @@ def _entry(rule: dict, side: str, close: float, minute: int) -> dict:
         order["level"] = {"spec": {**o["level"], "tf": rule["tf"]}, "as": o["as"]}
     x = rule["exits"]
     sign = 1 if buy else -1
-    stop = {"price": round(close - sign * x["stop"], 4)} if "stop" in x else {"trail": {"amount": x["trail"]}} if "trail" in x else None
+    stop = ({"price": round(close - sign * x["stop"], 4)} if "stop" in x else {"trail": {"amount": x["trail"]}} if "trail" in x
+            else {"trail": {"atr": x["trail_atr"], "length": x.get("atr_length", 14), "tf": rule["tf"]}} if "trail_atr" in x else None)
     target = {"price": round(close + sign * x["target"], 4)} if "target" in x else None
     if stop or target:
         return {"kind": "bracket", "order": order, **({"stop": stop} if stop else {}), **({"target": target} if target else {}),
@@ -98,7 +99,9 @@ def _says(a: dict) -> str:
     for k in ("stop", "target"):
         x = a.get(k)
         if x:
-            out += f", {k} " + (f"{x['price']:.2f}" if "price" in x else f"trailing {x['trail']['amount']:.2f}")
+            t = x.get("trail") or {}
+            out += f", {k} " + (f"{x['price']:.2f}" if "price" in x else f"trailing {t['amount']:.2f}" if "amount" in t
+                                else f"trailing {t['atr']:g} x ATR({t.get('length', 14)})")
     return out
 
 
@@ -127,7 +130,7 @@ def run_day(rule: dict, symbol: str, day: str, cash: float, settings: dict, entr
 
     def act(a, why):
         try:
-            events.extend(practice._apply(st, a, practice.last_price(day_bars, a["minute"])))
+            events.extend(practice._apply(st, a, practice.last_price(day_bars, a["minute"]), symbol, day))
             actions.append(a)
             say(f"{_hm(a['minute'])} {why}: {_says(a)}")
         except engine.PaperError as e:                        # e.g. not enough buying power: skipped, and counted

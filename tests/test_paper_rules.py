@@ -68,7 +68,8 @@ def test_rules_are_checked_with_reasons():
     assert r["when"] == "A AND B"                                          # every condition, by default
     for bad, why in (({"buy": ""}, "Buy if, Sell short if"), ({"buy": "A"}, "would be a rule's own condition"),
                      ({"buy": "Nope"}, 'no rule called "Nope"'), ({"buy": "R1", "tf": 4}, "tf is one of"),
-                     ({"buy": "R1", "exits": {"stop": 1, "trail": 1}}, "not both"),
+                     ({"buy": "R1", "exits": {"stop": 1, "trail": 1}}, "one stop"),
+                     ({"buy": "R1", "exits": {"trail": 1, "trail_atr": 2}}, "one stop"), ({"buy": "R1", "exits": {"trail_atr": 25}}, "0 to 20"),
                      ({"buy": "R1", "hours": {"from": 900, "to": 600}}, "hours"), ({"buy": "R1 OR"}, "Buy if: The expression ends")):
         with pytest.raises(ValueError, match=why):
             S.check(bad, {"R1": r})

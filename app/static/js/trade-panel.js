@@ -70,7 +70,7 @@ export class TradePanel {
 
     this.info = el("div", "tpinfo");
     this.notice = el("div", "tpnotice muted small");
-    this.ticket = tradeTicket((a) => this.act(a));
+    this.ticket = tradeTicket((a) => this.act(a), () => this.chart()?.tf || 1);
     this.body = el("div", "tpbody");
     this.orders = el("table", "wltable tporders");
     this.fills = el("table", "wltable tpfills");

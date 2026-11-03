@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.56 has no Chromium for 26.04 (ubuntu-latest since Nov 2026)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,7 +30,7 @@ jobs:
         run: grep -E "^(FAILED|ERROR) " pytest.log | cut -c1-900 | sed 's/^/::error title=pytest::/' || true
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # Playwright 1.56 has no Chromium for 26.04 (ubuntu-latest since Nov 2026)
     steps:
       - uses: actions/checkout@v4
       - name: Build the image and check the container's protections

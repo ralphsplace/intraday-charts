@@ -1844,6 +1844,39 @@ def test_a_rule_says_vzo_is_above_minus_40_and_rising(tab, data):
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
 
 
+def test_recommended_rules_are_added_and_a_strategy_trails_by_atr(tab, data):
+    """Config: tick a recommended rule (it brings the rules it's made of), add the rest, then a strategy buying on
+    them with a 2 x ATR(14) trailing stop."""
+    p = tab.goto("/config?tab=rules", 1500)
+    p.click("#ppPresets summary")
+    assert p.locator("#ppPresetList input[value='Price above ORH']").count() == 1
+    p.check("#ppPresetList input[value='Bull trend']")
+    p.click("#ppPresetAdd")
+    p.wait_for_function("document.querySelector('#ppPresetMsg').textContent.startsWith('Added 3')")
+    assert p.locator("#ppPresetList input[value='Price above VWAP']").is_disabled()           # added with Bull trend
+    p.click("#ppPresetAll")
+    p.wait_for_function("document.querySelector('#ppPresets summary').dataset.left === 'all added'")
+    saved = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
+    assert {"Price above ORH", "Price below ORL", "VZO above -40 and rising", "Bull trend"} <= set(saved)
+    assert saved["Bull trend"]["when"] == '"Price above VWAP" AND "EMA 9 above EMA 21"'
+    p.wait_for_function("[...document.querySelectorAll('#ppRule option')].some((o) => o.value === 'Price above ORH')")
+    p.click(".cfg-tabs button[data-sec=strategies]")
+    p.select_option("#ppStrat", "\u0000new")
+    p.fill("#ppStratForm [data-part=buy] input.xed-text", '"Bull trend" AND "VZO above -40 and rising"')
+    p.wait_for_selector("#ppStratForm [data-part=buy] select.xed-leaf")
+    p.fill("#ppStratForm .pp-row:has(> .pp-label:text-is('Stop')) input", "")
+    p.fill("#ppStratForm input[aria-label='ATR trailing stop: multiple']", "2")
+    p.click("#ppStratSave")
+    p.wait_for_function("document.querySelector('#ppStratMsg').textContent.startsWith('Saved')")
+    name = p.inner_text("#ppStratMsg").split('"')[1]
+    st = json.loads((data / "user" / "config.json").read_text())["paper_strategies"][name]
+    assert st["exits"]["trail_atr"] == 2.0 and st["exits"]["atr_length"] == 14 and "stop" not in st["exits"]
+    p.select_option("#ppStrat", name)
+    p.click("#ppStratDelete")
+    p.click("#ppStratDelete")                                              # tidy up for the tests after
+    p.wait_for_function("document.querySelector('#ppStratMsg').textContent.startsWith('Deleted')")
+
+
 def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
     """(A OR B) AND NOT (C OR (A AND B)), typed; the groups show it; changing the groups changes the text; removing a
     condition takes it out and moves the letters after it up. Then a rule that uses rules, and a loop refused."""

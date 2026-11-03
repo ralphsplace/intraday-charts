@@ -637,6 +637,14 @@ body.review label:has(#layout), body.review label:has(#day), body.review #layout
 .pp-conds:empty { flex: 0 0 0; }
 .pp-cond { flex-wrap: nowrap; width: max-content; max-width: 100%; }
 .pp-rule input.pp-ago { width: 52px; }
+/* the recommended rules (config/presets.js) */
+.pp-presets { margin: 6px 0 12px; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+.pp-presets summary { cursor: pointer; font-size: 13px; }
+.pp-presets summary::after { content: " · " attr(data-left); color: var(--muted); font-size: 12px; }
+.pp-presets h4.sec { margin: 10px 0 2px; font-size: 12px; color: var(--muted); }
+.pp-presetlist { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 24px; }
+.pp-presetlist li { break-inside: avoid; padding: 2px 0; font-size: 12px; }
+.pp-presetlist .pp-added { color: var(--teal); }
 .pp-cond .pp-letter { width: 18px; text-align: center; color: var(--amber); }
 /* a true / false expression: typed, and as nested groups (config/expr-editor.js) */
 .xed { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 980px; }

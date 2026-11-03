@@ -10,7 +10,8 @@ A strategy:
     order       the entry: {"type": "market"} | {"type": "limit" | "stop", "offset": dollars from the close}
                 | {"type": "level", "level": a study line or level, "as": "limit" | "stop"}
     qty         shares
-    exits       {"stop": dollars, "target": dollars, "trail": dollars (any of them; a stop or a trail),
+    exits       {"stop": dollars, "target": dollars, "trail": dollars, "trail_atr": a multiple of the ATR, with
+                 "atr_length" (14) on the strategy's bars, worked out when the entry goes in (one kind of stop),
                  "reverse": an opposite entry closes the trade and turns it}
     hours       {"from": minute, "to": minute}: new trades start only between (default 09:30 to 15:50)
 
@@ -86,8 +87,15 @@ def check(st: dict, saved: dict | None = None) -> dict:
             if not isinstance(e[k], (int, float)) or not 0 < e[k] <= 1000:
                 raise ValueError(f"the {k} is a distance of $0 to $1,000")
             exits[k] = float(e[k])
-    if "stop" in exits and "trail" in exits:
-        raise ValueError("a stop or a trailing stop, not both")
+    if e.get("trail_atr") is not None:                     # a trailing stop of N x ATR, worked out at the entry
+        if not isinstance(e["trail_atr"], (int, float)) or isinstance(e["trail_atr"], bool) or not 0 < e["trail_atr"] <= 20:
+            raise ValueError("the ATR trailing stop is 0 to 20 times the ATR")
+        n = e.get("atr_length", 14)
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 100:
+            raise ValueError("the ATR's length is 1 to 100 bars")
+        exits["trail_atr"], exits["atr_length"] = float(e["trail_atr"]), n
+    if sum(k in exits for k in ("stop", "trail", "trail_atr")) > 1:
+        raise ValueError("one stop: a stop, a trailing stop or an ATR trailing stop")
     exits["reverse"] = bool(e.get("reverse", False))
     h = {**DEFAULT_HOURS, **(st.get("hours") or {})}
     if not (isinstance(h["from"], int) and isinstance(h["to"], int) and 4 * 60 <= h["from"] < h["to"] <= 16 * 60):

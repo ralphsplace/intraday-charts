@@ -6,6 +6,7 @@ import { fillForm, readForm } from "../settings-form.js";
 import { initBacktestDefaults, loadBacktestDefaults } from "./backtests.js";
 import { initDashboards } from "./dashboards.js";
 import { initPaper, loadPaper } from "./paper.js";
+import { initPresets, loadPresets } from "./presets.js";
 import { initRules, loadRules } from "./rules.js";
 import { initStrategies, loadStrategies } from "./strategies.js";
 import { $, api, btn, el, load, store } from "../util.js";
@@ -24,7 +25,7 @@ async function reload() {
   $("cfgPath").textContent = cfg.path;
   renderLists(); renderColumns(); renderStudyList();
   if (study) showStudy(study);
-  await Promise.all([loadPaper(say), loadRules(sayRule), loadStrategies(sayStrat), loadBacktestDefaults(say)]);
+  await Promise.all([loadPaper(say), loadRules(sayRule), loadStrategies(sayStrat), loadBacktestDefaults(say), loadPresets()]);
 }
 
 // ---------------------------------------------------------------- watch lists
@@ -216,6 +217,7 @@ $("sec-studies").querySelector(".cfg-sform").hidden = true;
 
 initPaper(say);
 initRules(sayRule);
+initPresets(say, () => { loadRules(sayRule); document.dispatchEvent(new Event("paper:rules")); });
 initStrategies(sayStrat);
 for (const a of document.querySelectorAll("a[data-goto]")) a.onclick = (e) => { e.preventDefault(); showSection(a.dataset.goto); };
 initBacktestDefaults(say);

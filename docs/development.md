@@ -110,6 +110,7 @@ app/paper/strategies.py strategies: buy / short / exit expressions of rules, the
 app/paper/backtest.py   a strategy over many days with the paper engine; trades, stats, the random baseline
 app/paper/jobs.py       backtests as background runs, followed by id (progress, the run's log and results in files)
 app/paper/review.py     a backtest's day for a chart: its studies, and its trades as entry and exit markers
+app/paper/presets.py    the recommended rules (price against VWAP, the averages and the opening range, and more)
 app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
@@ -171,7 +172,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
   config/               the Config page: dashboards and the environment check, watch lists, watch list
-                        columns, study defaults, paper accounts, rules.js and strategies.js (their forms, on
+                        columns, study defaults, paper accounts, rules.js, presets.js (recommended rules) and
+                        strategies.js (their forms, on
                         expr-editor.js: an expression typed or in groups, conditions.js, named-menu.js),
                         backtests.js (backtest defaults)
   lists.js              the named watch lists in the page: find (by id, then name), create, change, rename
