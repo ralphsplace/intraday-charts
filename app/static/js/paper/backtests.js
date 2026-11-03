@@ -3,12 +3,14 @@
    save a run's trades into an account to open them on a chart. Data: /api/paper/backtests. */
 import { dollars } from "../format.js";
 import { $, api, btn, el, load, store } from "../util.js";
+import { missingSelect } from "./missing.js";
 import { renderReport } from "./report.js";
 
 const KEY = "intraday-charts:paper-backtest";
 const enc = encodeURIComponent;
 let runs = [], shown = null, poll = null, accountsNow = {}, filled = false;
 
+const active = (r) => r.status === "running" || r.status === "fetching";      // still going: asked again every second
 const pct = (x) => (x == null ? "–" : `${x}%`);
 const money = (x) => (x == null ? "–" : dollars(x, { d: 2 }));
 const ROWS = [["Trades", (s) => s.trades], ["Total P/L", (s) => money(s.total)], ["P/L a day", (s) => money(s.per_day)],
@@ -17,7 +19,7 @@ const ROWS = [["Trades", (s) => s.trades], ["Total P/L", (s) => money(s.total)],
               ["Largest drawdown", (s) => money(s.max_drawdown)], ["Longs", (s) => `${s.long.trades} · ${money(s.long.total)}`],
               ["Shorts", (s) => `${s.short.trades} · ${money(s.short.total)}`], ["Commissions", (s) => money(s.commissions)]];
 
-// the run form: the strategies and accounts as they are now; symbol, account, random runs and "skip" from Config's
+// the run form: the strategies and accounts as they are now; symbol, account, random runs and missing days from Config's
 // backtest defaults the first time; the dates this browser last ran
 export function fillRunForm(names, accounts, defaults) {
   accountsNow = accounts;
@@ -35,7 +37,7 @@ export function fillRunForm(names, accounts, defaults) {
     $("ppRunSymbol").value = defaults.symbol;
     $("ppRunFrom").value = saved.from || ""; $("ppRunTo").value = saved.to || "";
     $("ppRunBase").value = defaults.baseline_runs;
-    $("ppRunSkip").checked = defaults.missing === "skip";
+    missingSelect($("ppRunMissing")).value = defaults.missing;
     as.value = defaults.account in accounts ? defaults.account : "";
   } else as.value = acur in accounts ? acur : "";
 }
@@ -53,7 +55,8 @@ export async function loadRuns(say) {
     tr.dataset.id = r.id;
     const tick = el("input"); tick.type = "checkbox"; tick.className = "pp-tick"; tick.value = r.id; tick.setAttribute("aria-label", `Compare ${r.strategy_name}`);
     const s = r.stats, b = r.baseline;
-    const status = r.status === "running" ? `running ${Math.round((100 * r.done) / (r.total || 1))}%` : r.status === "failed" ? "failed" : "";
+    const status = r.status === "running" ? `running ${Math.round((100 * r.done) / (r.total || 1))}%`
+      : r.status === "fetching" ? `fetching ${r.fetch?.got ?? 0} of ${r.fetch?.wanted ?? "?"} days` : r.status === "failed" ? "failed" : "";
     tr.appendChild(el("td")).appendChild(tick);
     tr.append(el("td", "cfg-name", r.strategy_name), el("td", null, r.symbol), el("td", "muted small", `${r.start} to ${r.end}`),
               el("td", null, s ? String(s.trades) : status), el("td", s && s.total >= 0 ? "up" : "down", s ? money(s.total) : ""),
@@ -71,7 +74,7 @@ export async function loadRuns(say) {
     t.appendChild(tr);
   }
   for (const tr of t.querySelectorAll("tr[data-id]")) tr.classList.toggle("on", tr.dataset.id === shown);
-  if (runs.some((r) => r.status === "running")) { clearTimeout(poll); poll = setTimeout(() => loadRuns(say), 1000); }
+  if (runs.some(active)) { clearTimeout(poll); poll = setTimeout(() => loadRuns(say), 1000); }
   if (shown && runs.some((r) => r.id === shown)) showReport(shown, say, true);       // live while it runs, then done
 }
 
@@ -111,7 +114,7 @@ export function initBacktests(say) {
   $("ppRun").onsubmit = async (e) => {
     e.preventDefault();
     const body = { strategy_name: $("ppRunRule").value, symbol: $("ppRunSymbol").value.trim().toUpperCase(), start: $("ppRunFrom").value,
-                   end: $("ppRunTo").value, account: $("ppRunAccount").value || null, missing: $("ppRunSkip").checked ? "skip" : "stop",
+                   end: $("ppRunTo").value, account: $("ppRunAccount").value || null, missing: $("ppRunMissing").value,
                    baseline_runs: parseInt($("ppRunBase").value, 10) || 0 };
     if (!body.strategy_name) { say("Make a strategy first: Config, Paper strategies.", true); return; }
     store(KEY, { symbol: body.symbol, from: body.start, to: body.end });

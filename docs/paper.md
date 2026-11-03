@@ -1,7 +1,8 @@
 # Paper trading
 
 Practise trades in Replay, and test strategies on past days, with a paper account. Paper accounts are **simulated on
-the NAS from the cached bars**: they never talk to TWS or your IBKR account, and nothing here places a real order.
+the NAS from the cached bars**: they never trade through TWS or your IBKR account, and nothing here places a real
+order. (A backtest may ask the collector for price history it doesn't have yet, as the chart page does.)
 Results are only as good as the model below: read its limits before trusting a number.
 
 ## Paper accounts
@@ -205,11 +206,18 @@ on them, with the same results.
   symbol and day; see the totals and the equity after each session; write a note on any trade; **Open on the chart**
   opens the default dashboard's first chart at that day, just after the entry, practising in that account.
 - **Backtests**: run a saved strategy on a symbol's cached days, with an account's cash and costs. The form starts with
-  the defaults set in Config, **Backtests** (symbol, account, random runs, skipping days without bars). It runs in
+  the defaults set in Config, **Backtests** (symbol, account, random runs, days without bars). It runs in
   the background (you can leave the page). The report has the trades, the equity by day, win rate, average win and
   loss, profit factor, the largest drawdown, trades a day and longs and shorts apart, next to **random entries with
-  the same exits** (several runs): a strategy that doesn't beat them has no edge. Days without cached bars stop the run,
-  or are skipped if you tick that. Entry signals the account can't afford are skipped, and the report says how
+  the same exits** (several runs): a strategy that doesn't beat them has no edge. **Days without cached bars**:
+  - **Fetch them from TWS** (the default): the run first asks the collector for them (each request brings a day and
+    the 5 trading days before it, so the studies have history too) and shows *fetching 3 of 12 days* until they're
+    in. Days TWS has no bars for are skipped, and the Log says which. The collector has to be running and connected
+    to TWS; if it isn't, the run doesn't start and says so.
+  - **Skip them**: the run uses the cached days only.
+  - **Stop the run**: the run doesn't start, and says which days are missing.
+
+  Entry signals the account can't afford are skipped, and the report says how
   many. Tick runs to **compare** them side by side; **Save** puts a run's trades into an account, as sessions that
   open on a chart and fill the same.
 

@@ -71,9 +71,9 @@ then the bars, shares, entry order, exits and hours. See [Paper trading, Strateg
 ## Backtests
 
 What the Run form on the Paper trading page starts with: the symbol, whose cash and costs (an account, or the
-defaults for new accounts), how many random-entry runs to measure the rule against (0 to 20), and whether days
-without cached bars are skipped or stop the run. **Built-in defaults** puts back QQQ, the new-account defaults, 5
-runs and stop.
+defaults for new accounts), how many random-entry runs to measure the rule against (0 to 20), and what to do about days
+without cached bars: fetch them from TWS first, skip them, or stop the run (see [Paper trading](paper.md)).
+**Built-in defaults** puts back QQQ, the new-account defaults, 5 runs and fetch.
 
 ## The file
 

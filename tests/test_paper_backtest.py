@@ -105,7 +105,7 @@ def test_a_background_run_end_to_end(on_demo):
         time.sleep(0.1)
     assert run["status"] == "done", run.get("error")
     assert run["done"] == run["total"] and run["report"]["stats"]["trades"] >= 1
-    assert run["log"][0]["text"].startswith('"Crosses" on QQQ-DEMO, 5 day(s)') and run["log"][-1]["text"].startswith("done:")
+    assert run["log"][0]["text"].startswith('"Crosses" on QQQ-DEMO, 5 trading day(s)') and run["log"][-1]["text"].startswith("done:")
     day = run["report"]["trades"][0]["day"]
     v = c.get(f"/api/paper/backtests/{r['id']}/review", params={"day": day}).json()
     assert v["strategy_name"] == "Crosses" and v["markers"] and v["when"]["buy"] == '"Cross up"'
