@@ -1,12 +1,14 @@
-/* The trade panel's order form (trade-panel.js): order type, shares, price or trailing distance, and an optional
+/* The trade panel's order form (trade-panel.js): order type, shares, price or trailing distance (in dollars, or as
+   a multiple of the ATR on the followed chart's bars), and an optional
    stop and target, then Buy or Sell. It only builds the action (app/paper/practice.py's "order" or "bracket"); the
    panel sends it. The stop and target are distances from the last price, so one form serves both sides. Orders at a
    study line are placed from a chart's own ticket (paper-practice.js), where the chart's studies are. */
 import { btn, el } from "./util.js";
 
-const TYPES = [["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trail", "Trailing stop"]];
+const TYPES = [["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trail", "Trailing stop"], ["trail_atr", "Trail × ATR"]];
 
-export function tradeTicket(onAction) {
+// tfOf(): the minutes of the bars an ATR trailing stop's ATR is read on (the followed chart's)
+export function tradeTicket(onAction, tfOf = () => 1) {
   const form = el("form", "tpform");
   form.autocomplete = "off";
   const field = (label, input, cls) => {
@@ -21,6 +23,8 @@ export function tradeTicket(onAction) {
   const qty = field("Shares", num(1, 1), "tpqty");
   const price = field("Price", num(0.01), "tpprice");
   const trail = field("Trail by $", num(0.01, 0.01), "tptrail");
+  const atrX = field("Trail by × ATR", num(0.1, 0.1), "tpatr"); atrX.value = 2;
+  const atrN = field("ATR length", num(1, 1), "tpatrlen"); atrN.value = 14;
   const bracket = el("input"); bracket.type = "checkbox";
   const bl = el("label", "papercheck tpbracket"); bl.append(bracket, " Stop and target"); form.appendChild(bl);
   const stop = field("Stop $ away", num(0.01, 0.01), "tpstop");
@@ -37,6 +41,7 @@ export function tradeTicket(onAction) {
     const k = type.value;
     price.parentElement.hidden = !(k === "limit" || k === "stop");
     trail.parentElement.hidden = k !== "trail";
+    atrX.parentElement.hidden = atrN.parentElement.hidden = k !== "trail_atr";
     stop.parentElement.hidden = target.parentElement.hidden = !bracket.checked;
   };
   type.onchange = () => { if (last != null && !price.value) price.value = last.toFixed(2); show(); };
@@ -46,9 +51,11 @@ export function tradeTicket(onAction) {
 
   function send(side) {
     const k = type.value, n = parseInt(qty.value, 10);
-    const order = { side, qty: n, type: k };
+    const order = { side, qty: n, type: k === "trail_atr" ? "trail" : k };
     if (k === "limit" || k === "stop") order.price = parseFloat(price.value);
     if (k === "trail") order.trail = { amount: parseFloat(trail.value) };
+    // N x the ATR on the chart's bars, worked out on the server when the order goes in (app/paper/practice.py)
+    if (k === "trail_atr") order.trail = { atr: parseFloat(atrX.value), length: parseInt(atrN.value, 10), tf: tfOf() };
     if (!bracket.checked) return onAction({ kind: "order", order });
     const sign = side === "buy" ? 1 : -1, from = order.price ?? last;
     onAction({ kind: "bracket", order, stop: { price: round(from - sign * parseFloat(stop.value)) },

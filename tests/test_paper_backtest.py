@@ -180,3 +180,25 @@ def test_a_run_logs_what_it_did_and_shows_a_day_for_a_chart(on_demo):
         review.day_view(run, "2020-01-02")
     with pytest.raises(ValueError, match="hasn't finished"):
         review.day_view({**run, "status": "running"}, day)
+
+
+def test_an_atr_trailing_stop_trails_by_n_atrs_at_the_entry(on_demo):
+    """trail_atr: 2 x ATR(14) on the strategy's bars, as it was when the entry went in; backtest and Replay
+    practice fill it the same."""
+    from app import study_values
+    day = store.list_days("QQQ-DEMO")[3]
+    r = cross_rule(exits={"trail_atr": 2, "atr_length": 14})
+    res = backtest.run_day(r, "QQQ-DEMO", day, 100_000, engine.DEFAULT_SETTINGS)
+    bracket = next(a for a in res["actions"] if a["kind"] == "bracket")
+    assert bracket["stop"] == {"trail": {"atr": 2.0, "length": 14, "tf": 3}}          # kept as written
+    atr = study_values.value("QQQ-DEMO", day, {"type": "atr", "params": {"length": 14}, "output": "atr", "tf": 3},
+                             cursor=bracket["minute"])["value"]
+    st = engine.new_state(100_000, engine.DEFAULT_SETTINGS)
+    practice._apply(st, bracket, practice.last_price(practice.bars("QQQ-DEMO", day), bracket["minute"]), "QQQ-DEMO", day)
+    trail = next(o for o in st["orders"] if o["type"] == "trail")
+    assert trail["trail"]["amount"] == pytest.approx(2 * atr, abs=1e-3) and atr > 0
+    st2, events, refused = practice.replay("QQQ-DEMO", day, 100_000, engine.DEFAULT_SETTINGS, res["actions"], 16 * 60 + 1)
+    assert refused == [] and [(f["price"], f["minute"]) for f in events if f["event"] == "fill"] == \
+        [(f["price"], f["minute"]) for f in res["fills"]]
+    with pytest.raises(engine.PaperError, match="0 to 20 times"):
+        practice.atr_distance("QQQ-DEMO", day, {"atr": 0, "length": 14, "tf": 3}, 600)

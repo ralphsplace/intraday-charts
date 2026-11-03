@@ -69,6 +69,11 @@ function render() {
   row("Stop", num(x.stop, (v) => { x.stop = v; }, 0.01), el("span", "muted small", "$ from the signal bar's close (blank: none)"));
   row("Target", num(x.target, (v) => { x.target = v; }, 0.01), el("span", "muted small", "$"));
   row("Trailing stop", num(x.trail, (v) => { x.trail = v; }, 0.01), el("span", "muted small", "$ behind the best price (instead of a stop)"));
+  const atrLen = num(x.atr_length ?? 14, (v) => { x.atr_length = v; }, 1, 1);
+  atrLen.setAttribute("aria-label", "ATR length");
+  const atrRow = row("ATR trailing stop", num(x.trail_atr, (v) => { x.trail_atr = v; }, 0.1), el("span", "muted small", "× ATR ("), atrLen,
+                     el("span", "muted small", "bars) behind the best price, the ATR on these bars when the entry goes in (instead of a stop)"));
+  atrRow.querySelector("input").setAttribute("aria-label", "ATR trailing stop: multiple");
   const rev = el("input"); rev.type = "checkbox"; rev.checked = x.reverse; rev.onchange = () => { x.reverse = rev.checked; };
   row("Reverse", rev, el("span", "muted small", "an opposite entry closes the trade and turns it"));
   f.appendChild(el("h4", "sec", "Hours"));
@@ -82,7 +87,8 @@ async function saveStrategy() {
   const bad = PARTS.map(([k, label]) => editors[k].error() && `${label}: ${editors[k].error()}`).find(Boolean);
   if (bad) { say(bad, true); return; }
   const body = { tf: st.tf, qty: st.qty, order: st.order, hours: st.hours, exits: { ...st.exits } };
-  for (const k of ["stop", "target", "trail"]) if (body.exits[k] == null || body.exits[k] === 0) delete body.exits[k];
+  for (const k of ["stop", "target", "trail", "trail_atr"]) if (body.exits[k] == null || body.exits[k] === 0) delete body.exits[k];
+  if (body.exits.trail_atr == null) delete body.exits.atr_length;
   for (const [k] of PARTS) { const t = editors[k].tree(); body[k] = t ? exprText(t) : ""; }
   const name = menu.current() === NEW ? null : menu.current();
   try {

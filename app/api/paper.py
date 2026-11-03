@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import app_config
-from ..paper import accounts, backtest, engine, expr, jobs, practice, review, rules, strategies
+from ..paper import accounts, backtest, engine, expr, jobs, practice, presets, review, rules, strategies
 from .common import one_symbol, valid_date
 
 router = APIRouter()
@@ -187,6 +187,23 @@ def paper_rule_save(req: RuleBody):
     """A new rule (under its name, or "Rule N"), or new contents for the rule of that name."""
     name, item = _call(rules.save, req.name, req.rule)
     return {"name": name, "item": item, "rules": _rules_view()}
+
+
+class PresetsBody(BaseModel):
+    names: list[str] | None = None                         # the recommended rules to add, or all of them
+
+
+@router.get("/api/paper/rules/presets")
+def paper_rule_presets():
+    """The recommended rules (app/paper/presets.py), and which are saved already."""
+    return {"presets": presets.listing()}
+
+
+@router.post("/api/paper/rules/presets")
+def paper_rule_presets_add(req: PresetsBody):
+    """Save recommended rules (with the rules they're made of); a saved rule of the same name is kept."""
+    r = _call(presets.add, req.names)
+    return {**r, "rules": _rules_view(), "presets": presets.listing()}
 
 
 @router.post("/api/paper/rules/{name}/rename")

@@ -12,7 +12,8 @@ import { app, save } from "./state.js";
 import { renderPriceLines } from "./tools/priceline.js";
 import { api, btn, el } from "./util.js";
 
-const TYPES = [["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trail", "Trailing stop"], ["level", "At a study line"]];
+const TYPES = [["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trail", "Trailing stop"], ["trail_atr", "Trailing stop (ATR)"],
+               ["level", "At a study line"]];
 const SHORT = { market: "MKT", limit: "LMT", stop: "STP", trail: "TRAIL", level: "LVL" };
 const COLOR = { buy: "#26a69a", sell: "#ef5350", avg: "#c9d1d9" };
 
@@ -133,6 +134,7 @@ export class PaperPractice {
     const qty = field("Shares", num(Math.max(1, Math.min(100, Math.floor(cash / (last || 1)))), 1)); qty.min = 1;
     const price = field("Price", num(last.toFixed(2), 0.01));
     const trail = field("Trail by ($)", num((last * 0.002).toFixed(2), 0.01));
+    const atrX = field("× ATR", num(2, 0.1)), atrN = field("ATR length", num(14, 1));
     const lines = this.studyLines();
     const line = field("Study line", el("select"));
     for (const [i, x] of lines.entries()) { const o = el("option", null, x.label); o.value = String(i); line.appendChild(o); }
@@ -147,6 +149,7 @@ export class PaperPractice {
       const k = type.value;
       price.parentElement.hidden = !(k === "limit" || k === "stop");
       trail.parentElement.hidden = k !== "trail";
+      atrX.parentElement.hidden = atrN.parentElement.hidden = k !== "trail_atr";
       line.parentElement.hidden = k !== "level";
       stop.parentElement.hidden = target.parentElement.hidden = !brOn.checked;
       msg.textContent = k === "level" && !lines.length ? "Add a study with a line (VWAP, SMA…) to this chart first." : "";
@@ -155,9 +158,10 @@ export class PaperPractice {
     t.onsubmit = (e) => {
       e.preventDefault();
       const k = type.value, n = parseInt(qty.value, 10);
-      const order = { side, qty: n, type: k };
+      const order = { side, qty: n, type: k === "trail_atr" ? "trail" : k };
       if (k === "limit" || k === "stop") order.price = parseFloat(price.value);
       if (k === "trail") order.trail = { amount: parseFloat(trail.value) };
+      if (k === "trail_atr") order.trail = { atr: parseFloat(atrX.value), length: parseInt(atrN.value, 10), tf: this.tf };   // ATR on this chart's bars
       if (k === "level") {
         const x = lines[+line.value];
         if (!x) return;

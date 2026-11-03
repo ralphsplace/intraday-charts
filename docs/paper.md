@@ -23,6 +23,8 @@ back to the starting cash and keeps the history.
 The order ticket offers:
 
 - **Market**, **Limit**, **Stop**, **Trailing stop** (follows the best price by a dollar distance)
+- **Trailing stop (ATR)**: follows the best price by a multiple of the ATR (2 × ATR (14) to start with) on the
+  chart's bars, worked out when the order goes in
 - **At a study line**: follows one of the chart's study lines (VWAP, an SMA, …) as it moves. Below the price, a buy
   works as a limit; above, as a stop (the other way round for a sell).
 - **Attach a stop and target** (a bracket): once the entry fills, the stop and target work; whichever fills first
@@ -44,7 +46,8 @@ A Buy / Sell panel of its own in the window, next to the charts: on any cell's *
 - Pick the **account** in its header. It trades the symbol of its [link group](layouts.md) (the coloured square),
   or of the active chart when it isn't linked, at the replay cursor.
 - It shows the position, unrealized and realized P/L, equity and the last price; then the order form: **Market**,
-  **Limit**, **Stop** or **Trailing stop**, the shares, and **Stop and target** as dollar distances (a bracket),
+  **Limit**, **Stop**, **Trailing stop** or **Trail × ATR** (a multiple of the ATR on the followed chart's
+  bars), the shares, and **Stop and target** as dollar distances (a bracket),
   then **Buy**, **Sell** or **Flatten**. Orders at a study line are placed from a chart's own ticket, where its
   studies are.
 - Below: the **working orders** (× cancels one) and **today's fills**, with why each filled.
@@ -103,6 +106,74 @@ above the high of the day before it. Levels count in regular hours only. A level
 the study's defaults hide it on the charts. A study whose past values change as new bars arrive is refused: trading
 on it would look ahead.
 
+## Recommended rules
+
+Ready-made rules to use in strategies: on the Config page, **Paper rules**, open **Recommended rules**, tick the
+ones you want and **Add the ticked rules** (or **Add them all**). Each becomes an ordinary rule you can rename or
+change. Adding one that's made of others adds those too; a rule of yours with the same name is kept as it is.
+Each is checked like any rule, and the tests run every one over the demo days. *Price* is the bar's close, ORH and
+ORL are the 15-minute opening range's high and low, and RSI is RSI (14).
+
+**Price against a line or level**
+
+- *Price above VWAP*: The bar closed above VWAP.
+- *Price below VWAP*: The bar closed below VWAP.
+- *Price above SMA 50*: The bar closed above SMA 50.
+- *Price below SMA 50*: The bar closed below SMA 50.
+- *Price above SMA 200*: The bar closed above SMA 200.
+- *Price below SMA 200*: The bar closed below SMA 200.
+- *Price above EMA 9*: The bar closed above EMA 9.
+- *Price below EMA 9*: The bar closed below EMA 9.
+- *Price above EMA 21*: The bar closed above EMA 21.
+- *Price below EMA 21*: The bar closed below EMA 21.
+- *Price above ORH*: The bar closed above the 15-minute opening range high.
+- *Price below ORH*: The bar closed below the 15-minute opening range high.
+- *Price above ORL*: The bar closed above the 15-minute opening range low.
+- *Price below ORL*: The bar closed below the 15-minute opening range low.
+
+**Crossings and breakouts**
+
+- *Price crosses above VWAP*: This bar closed above VWAP; the one before closed at or below it.
+- *Price crosses below VWAP*: This bar closed below VWAP; the one before at or above it.
+- *Price crosses above EMA 9*: A close back above the 9 EMA.
+- *Price crosses below EMA 9*: A close back below the 9 EMA.
+- *ORH breakout*: The first close above the 15-minute opening range high.
+- *ORL breakdown*: The first close below the 15-minute opening range low.
+- *Prior day high breakout*: A close above yesterday's high.
+- *Prior day low breakdown*: A close below yesterday's low.
+
+**Trend**
+
+- *EMA 9 above EMA 21*: The fast average above the slow one: short-term uptrend.
+- *EMA 9 below EMA 21*: The fast average below the slow one: short-term downtrend.
+- *EMA 9 crosses above EMA 21*: The bar the fast average crosses up through the slow one.
+- *EMA 9 crosses below EMA 21*: The bar the fast average crosses down through the slow one.
+- *SMA 50 above SMA 200*: The longer trend is up.
+- *SMA 50 below SMA 200*: The longer trend is down.
+
+**Slope**
+
+- *VWAP rising*: VWAP higher than on the bar before.
+- *VWAP falling*: VWAP lower than on the bar before.
+- *EMA 21 rising*: The 21 EMA higher than on the bar before.
+- *EMA 21 falling*: The 21 EMA lower than on the bar before.
+
+**Momentum**
+
+- *RSI above 50*: RSI (14) above 50: buyers in control.
+- *RSI below 50*: RSI (14) below 50: sellers in control.
+- *RSI oversold*: RSI (14) below 30.
+- *RSI overbought*: RSI (14) above 70.
+- *MACD above signal*: MACD above its signal line.
+- *MACD below signal*: MACD below its signal line.
+- *VZO above -40 and rising*: VZO (20) above -40, and higher than on the bar before.
+- *VZO below 40 and falling*: VZO (20) below 40, and lower than on the bar before.
+
+**Made of other rules**
+
+- *Bull trend*: Price above VWAP, and the 9 EMA above the 21 EMA.
+- *Bear trend*: Price below VWAP, and the 9 EMA below the 21 EMA.
+
 ## Strategies
 
 A **strategy** trades on rules. Write strategies on the Config page, **Paper strategies**:
@@ -115,6 +186,10 @@ A **strategy** trades on rules. Write strategies on the Config page, **Paper str
 - **Shares**, the **entry order** (market, a limit or stop a distance from the close, or at a study line or level),
   the **exits** (a stop, target or trailing distance from the signal bar's close, and reversing on the opposite
   signal) and the **hours** new trades may start.
+- **ATR trailing stop**: instead of a fixed stop or trailing distance, trail by a multiple of the ATR, e.g. **2 × ATR
+  (14)**: the ATR on the strategy's bars as it was when the entry went in (from the bars before it), times the
+  multiple, is how far the stop follows behind the best price. A quiet day trails closer, a wild one further. The
+  Log shows the distance each trade got.
 
 A backtest keeps what the rules said when it ran, so changing a rule later doesn't change an old report.
 
