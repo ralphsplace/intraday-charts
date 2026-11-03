@@ -109,5 +109,14 @@ export function initStrategies(sayFn) {
   $("ppStratSave").onclick = saveStrategy;
   $("ppStratForm").onsubmit = (e) => { e.preventDefault(); saveStrategy(); };
   // a rule saved, renamed or deleted: the menus of rules, and any strategy that said its old name
-  document.addEventListener("paper:rules", () => { if (meta) loadStrategies(say).catch((e) => say(e.message, true)); });
+  document.addEventListener("paper:rules", () => { if (meta) rulesChanged().catch((e) => say(e.message, true)); });
+}
+
+// rules saved, added, renamed or deleted (another section): the rule menus follow; what's being written here stays
+async function rulesChanged() {
+  const s = await api("/api/paper/strategies");
+  await Promise.all(Object.values(editors).map((x) => x.settled()));    // what's typed, read first
+  meta = { ...meta, strategies: s.strategies, ruleList: s.rules };
+  menu.fill();
+  if (st) render(); else pick(menu.current());
 }
