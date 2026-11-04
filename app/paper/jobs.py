@@ -96,8 +96,9 @@ def queued() -> list[str]:
             if r["status"] == "queued"]
 
 
-def execute(run_id: str, stop, owner: str) -> None:
-    """One worker, one complete run. A deleted queued job is never recreated."""
+def execute(run_id: str, stop, owner: str, pool=None) -> None:
+    """One worker, one complete run. A deleted queued job is never recreated. pool (days.DayPool): its days are
+    worked on at the same time; the run's "days" says which are going and which are done (with their P/L)."""
     with jsonfile.locked(execution_path(run_id)):
         try:
             head = read(run_id)
@@ -129,12 +130,31 @@ def execute(run_id: str, stop, owner: str) -> None:
                 lines.append({"t": round(time.time() - started, 1), "day": None, "level": "warn",
                               "text": f"the log keeps the first {MAX_LOG} lines; the run carries on"})
         last_progress = [0.0]
+        going = {"running": [], "worked": [], "done": {}, "workers": pool.limit() if pool else 1}
+        steps = {}                                  # the latest done / total, in every write
+
+        def flush(force=False):
+            if force or time.monotonic() - last_progress[0] > 0.5:
+                last_progress[0] = time.monotonic()
+                going["workers"] = pool.limit() if pool else 1
+                _write(run_id, days=going, log=lines, **steps)
 
         def progress(done, total):
             check()
-            if time.monotonic() - last_progress[0] > 0.5 or done == total:
-                last_progress[0] = time.monotonic()
-                _write(run_id, done=done, total=total, log=lines)
+            steps.update(done=done, total=total)
+            flush(done == total)
+
+        def on_day(day, what, pnl=None):
+            if what == "running":
+                going["running"].append(day)
+            elif what == "worked":                  # its process is done: it waits for the days before it
+                going["running"] = [d for d in going["running"] if d != day]
+                going["worked"].append(day)
+            else:
+                going["running"] = [d for d in going["running"] if d != day]
+                going["worked"] = [d for d in going["worked"] if d != day]
+                going["done"][day] = pnl
+            flush(what == "running")              # a day starting shows at once (once a day at most)
         terminal = {}
         try:
             check()
@@ -148,8 +168,10 @@ def execute(run_id: str, stop, owner: str) -> None:
                                     args["baseline_runs"], log, lines, check)
             elif gaps:
                 log(None, f"skipped {len(gaps)} day(s) without cached bars: {_some(gaps)}", "warn")
+            going["all"] = days
             report = backtest.run(rule, symbol, days, args["cash"], args["settings"], seed=args["seed"],
-                                  baseline_runs=args["baseline_runs"], progress=progress, log=log, check=check)
+                                  baseline_runs=args["baseline_runs"], progress=progress, log=log, check=check,
+                                  pool=pool, on_day=on_day)
             check()
             log(None, f"done: {report['stats']['trades']} trade(s), P/L {report['stats']['total']:+,.2f}")
             terminal = {"status": "done", "report": report}
@@ -217,7 +239,8 @@ def listing() -> list[dict]:
             out.append({k: d.get(k) for k in ("id", "symbol", "start", "end", "status", "done", "total", "fetch",
                                              "submitted", "started", "finished", "error")}
                        | {"strategy_name": d.get("strategy_name") or d.get("rule_name"),
-                          "stats": rep.get("stats"), "baseline": rep.get("baseline")})
+                          "stats": rep.get("stats"), "baseline": rep.get("baseline"),
+                          "days": {"running": (d.get("days") or {}).get("running", [])} if d.get("status") == "running" else None})
     return sorted(out, key=lambda r: r.get("submitted") or r.get("started") or 0, reverse=True)
 
 

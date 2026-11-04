@@ -673,3 +673,14 @@ body.review label:has(#layout), body.review label:has(#day), body.review #layout
 .pp-stats { max-width: 720px; }
 .pp-report { margin-top: 14px; }
 .pp-report .bad, .cfg .bad { color: var(--bear); }
+/* a running backtest's days (paper/day-grid.js) */
+.pp-days { margin: 8px 0 0; max-width: 900px; }
+.pp-daycells { display: flex; flex-wrap: wrap; gap: 4px; }
+.pp-day { font-size: 11px; font-variant-numeric: tabular-nums; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); }
+.pp-day.going { border-color: var(--amber); color: var(--amber); animation: pp-going 1.2s ease-in-out infinite; }
+.pp-day.up { border-color: var(--bull); color: var(--bull); }
+.pp-day.down { border-color: var(--bear); color: var(--bear); }
+.pp-day.flat { color: var(--text); }
+@keyframes pp-going { 50% { background: rgba(230, 180, 80, .15); } }
+@media (prefers-reduced-motion: reduce) { .pp-day.going { animation: none; background: rgba(230, 180, 80, .15); } }
+.pp-day.worked { color: var(--text); border-style: dashed; }

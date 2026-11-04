@@ -4,6 +4,7 @@
    The run: GET /api/paper/backtests/<id> (backtests.js asks again every second while it runs). */
 import { fmtMin } from "../format.js";
 import { api, btn, el } from "../util.js";
+import { dayGrid } from "./day-grid.js";
 import { equityChart } from "./equity.js";
 import { openReview } from "./review-pane.js";
 
@@ -32,7 +33,9 @@ export function renderReport(box, run, o) {
     box.append(el("p", "muted", `Fetching from TWS: ${f.got} of ${f.wanted} day(s) without cached bars. The run starts when they're in…`), bar);
   } else if (run.status === "running") {
     const bar = el("div", "pp-progress"); const fill = el("div"); fill.style.width = `${Math.round((100 * run.done) / (run.total || 1))}%`; bar.appendChild(fill);
-    box.append(el("p", "muted", `Running: ${run.done} of ${run.total} steps (the strategy's days, then the random entries)…`), bar);
+    box.append(el("p", "muted", `Running: ${run.done} of ${run.total} steps (each day: the strategy, then the random entries)…`), bar);
+    const grid = dayGrid(run);
+    if (grid) box.appendChild(grid);
   } else if (["failed", "interrupted"].includes(run.status)) {
     box.appendChild(el("p", "bad", run.error));
   } else if (run.status === "done" && rep) {

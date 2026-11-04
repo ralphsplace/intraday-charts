@@ -51,7 +51,8 @@ def new_state(cash: float, settings: dict | None = None) -> dict:
     for k, v in (settings or {}).items():
         s[k] = {**s[k], **v} if isinstance(s.get(k), dict) and isinstance(v, dict) else v
     return {"cash": float(cash), "start_cash": float(cash), "position": {"qty": 0, "avg": 0.0}, "realized": 0.0,
-            "commissions": 0.0, "orders": [], "fills": [], "next_id": 1, "settings": s, "closed": False}
+            "commissions": 0.0, "orders": [], "fills": [], "next_id": 1, "settings": s, "closed": False,
+            "headroom": {"spare": None, "short": None}}
 
 
 def commission(qty: int, price: float, settings: dict) -> float:
@@ -80,6 +81,16 @@ def _check(state: dict, o: dict) -> None:
             raise PaperError("an order at a study level needs the study and whether it works as a limit or a stop")
 
 
+def _note_headroom(state: dict, slack: float) -> None:
+    """How far the starting cash could move without a buying-power check deciding differently (backtest.py runs a
+    day before it knows the cash it starts with): "spare", the least slack of a check that passed (the cash could
+    be that much lower), and "short", the least shortfall of one that was refused (it would pass with that much
+    more). None: no such check."""
+    h = state.setdefault("headroom", {"spare": None, "short": None})
+    key, v = ("spare", slack) if slack >= 0 else ("short", -slack)
+    h[key] = v if h[key] is None else min(h[key], v)
+
+
 def place(state: dict, order: dict, minute: int, price: float | None = None) -> dict:
     """Add an order (a copy, with an id) after checking it; `price` is the last price known, for the checks and for
     a trailing stop's first level. Returns the order as kept."""
@@ -93,6 +104,7 @@ def place(state: dict, order: dict, minute: int, price: float | None = None) -> 
         raise PaperError("Shorting is off for this account: you can sell only shares you hold")
     if not o["exit"] and abs(after) > abs(pos) and price:          # no margin: long or short, at most the equity
         equity = state["cash"] + pos * price
+        _note_headroom(state, equity + 1e-9 - abs(after) * price)
         if abs(after) * price > equity + 1e-9:
             raise PaperError(f"Not enough buying power: {abs(after)} shares at about {price:.2f} are "
                              f"${abs(after) * price:,.0f}; the account has ${equity:,.0f} (no margin)")

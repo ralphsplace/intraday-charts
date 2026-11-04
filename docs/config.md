@@ -73,7 +73,10 @@ then the bars, shares, entry order, exits and hours. See [Paper trading, Strateg
 What the Run form on the Paper trading page starts with: the symbol, whose cash and costs (an account, or the
 defaults for new accounts), how many random-entry runs to measure the rule against (0 to 20), and what to do about days
 without cached bars: fetch them from TWS first, skip them, or stop the run (see [Paper trading](paper.md)).
-**Built-in defaults** puts back QQQ, the new-account defaults, 5 runs and fetch.
+**Workers** (1 to 16) is how many days of backtests are worked on at once, each in its own process, across every
+run going: about one per CPU core of the NAS; more cores than that only makes the days take turns. A change applies
+to runs already going. **Built-in defaults** puts back QQQ, the new-account defaults, 5 runs, fetch, and the
+smaller of 4 and the number of cores.
 
 ## The file
 
@@ -92,7 +95,8 @@ without cached bars: fetch them from TWS first, skip them, or stop the run (see 
  "paper_strategies": {"Pullbacks": {"id": "3c51e0a7d2f9", "tf": 3, "buy": "\"Above VWAP\" OR Rule5", "short": "",
                       "exit_long": "", "exit_short": "", "qty": 50, "exits": {"stop": 0.5}, "...": "..."}},
  "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}},
-           "backtest": {"symbol": "QQQ", "account": "Morning practice", "baseline_runs": 5, "missing": "skip"}}
+           "backtest": {"symbol": "QQQ", "account": "Morning practice", "baseline_runs": 5, "missing": "skip",
+                        "workers": 4}}
 }
 ```
 

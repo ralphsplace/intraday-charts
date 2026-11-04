@@ -1961,10 +1961,11 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     p.fill("#cfgBtBase", "1")
     assert p.locator("#cfgBtMissing").input_value() == "fetch"          # the built-in default
     p.select_option("#cfgBtMissing", "skip")
+    p.fill("#cfgBtWorkers", "2")
     p.click("#cfgBtSave")
     p.wait_for_function("document.querySelector('#cfgBtMsg').textContent.startsWith('Saved')")
     assert json.loads((data / "user" / "config.json").read_text())["paper"]["backtest"] == \
-        {"symbol": "QQQ", "account": "Tests", "baseline_runs": 1, "missing": "skip"}
+        {"symbol": "QQQ", "account": "Tests", "baseline_runs": 1, "missing": "skip", "workers": 2}
     # backtest it over the cached days, and save the trades into the account
     p = tab.goto("/paper?tab=backtests", 1500)
     assert [p.locator(x).input_value() for x in ("#ppRunRule", "#ppRunSymbol", "#ppRunAccount", "#ppRunBase")] == ["Strategy 1", "QQQ", "Tests", "1"]
