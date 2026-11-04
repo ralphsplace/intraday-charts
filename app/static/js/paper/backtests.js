@@ -55,7 +55,7 @@ export async function loadRuns(say) {
     tr.dataset.id = r.id;
     const tick = el("input"); tick.type = "checkbox"; tick.className = "pp-tick"; tick.value = r.id; tick.setAttribute("aria-label", `Compare ${r.strategy_name}`);
     const s = r.stats, b = r.baseline;
-    const status = r.status === "running" ? `running ${Math.round((100 * r.done) / (r.total || 1))}%`
+    const status = r.status === "running" ? `running ${Math.round((100 * r.done) / (r.total || 1))}%` + (r.days?.running?.length ? ` · ${r.days.running.length} day${r.days.running.length === 1 ? "" : "s"} going` : "")
       : r.status === "queued" ? "queued" : r.status === "deleting" ? "stopping and deleting…" : r.status === "interrupted" ? "interrupted"
       : r.status === "fetching" ? `fetching ${r.fetch?.got ?? 0} of ${r.fetch?.wanted ?? "?"} days` : r.status === "failed" ? "failed" : "";
     tr.appendChild(el("td")).appendChild(tick);

@@ -12,6 +12,7 @@ while one is open is ignored (unless the rule reverses). Every day ends flat at 
 from __future__ import annotations
 
 import datetime
+import os
 import random
 import statistics
 
@@ -19,7 +20,9 @@ from .. import app_config, sessions, store
 from . import engine, practice, rules, strategies
 
 MAX_DAYS = 260
-BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "fetch"}
+MAX_WORKERS = 16                          # days of runs worked on at once, in all (days.py)
+BUILT_IN_DEFAULTS = {"symbol": "QQQ", "account": "", "baseline_runs": 5, "missing": "fetch",
+                     "workers": max(1, min(4, os.cpu_count() or 1))}
 MISSING = ("fetch", "skip", "stop")       # days without cached bars: fetch them from TWS, skip them, or refuse
 
 
@@ -42,6 +45,9 @@ def check_defaults(d: dict) -> dict:
         raise ValueError("Random runs are 0 to 20")
     if out["missing"] not in MISSING:
         raise ValueError("Days without cached bars: fetch, skip or stop")
+    w = out["workers"]
+    if not isinstance(w, int) or isinstance(w, bool) or not 1 <= w <= MAX_WORKERS:
+        raise ValueError(f"Workers are 1 to {MAX_WORKERS}")
     return out
 
 
@@ -227,48 +233,84 @@ def _random_entries(rule: dict, symbol: str, day: str, n: int, rng: random.Rando
             for b in picks]
 
 
+def day_chunk(rule: dict, symbol: str, day: str, cash: float, settings: dict, baseline_runs: int = 0, seed: int = 1,
+              baseline_cash: float | None = None, check=None) -> dict:
+    """One day of a run, as plain data, so another process can work it out (days.py): the strategy's day from
+    `cash`, and the random entries with the same exits on that day (from baseline_cash, the run's starting cash).
+    "headroom" says how far `cash` could have been off with the same result (engine._note_headroom)."""
+    lines: list[tuple[str, str]] = []
+    r = run_day(rule, symbol, day, cash, settings, log=lambda text, level="info": lines.append((text, level)), check=check)
+    t = trades_of(day, r["fills"])
+    rng = random.Random(f"{seed}:{day}")                 # a day's random entries don't depend on the days before it
+    random_rule = {**rule, "order": {"type": "market"}}
+    base = []
+    for _ in range(baseline_runs):
+        entries = _random_entries(rule, symbol, day, len(t), rng)
+        b = run_day(random_rule, symbol, day, cash if baseline_cash is None else baseline_cash, settings, entries, r["series"],
+                    check=check)
+        base += trades_of(day, b["fills"])
+    return {"day": day, "cash_from": cash, "cash": r["cash"], "actions": r["actions"], "trades": t, "skipped": r["skipped"],
+            "lines": lines, "headroom": r["state"]["headroom"], "baseline": base}
+
+
+def fits(chunk: dict, cash: float) -> bool:
+    """Whether a day worked out from chunk["cash_from"] is what it would be from `cash`: every buying-power check
+    decides the same. A refused entry says the cash in its words, so a day with one is worked out again."""
+    diff = cash - chunk["cash_from"]
+    if abs(diff) < 0.005:
+        return True
+    spare = chunk["headroom"]["spare"]
+    return not chunk["skipped"] and (spare is None or spare + diff > 1e-6)
+
+
 def run(rule: dict, symbol: str, days: list[str], cash: float, settings: dict, seed: int = 1, baseline_runs: int = 5,
-        progress=None, log=None, check=None) -> dict:
-    """The rule over `days`, then the baseline. progress(done, total) is called after each day; log(day, text,
-    level) with what happened (run_day), a line a day, and the baseline."""
+        progress=None, log=None, check=None, pool=None, on_day=None) -> dict:
+    """The rule over `days`, with the random baseline, a day at a time. pool (days.DayPool): the days are worked
+    out at the same time in other processes, each from the starting cash, and put together in order here; a day
+    whose buying-power checks would have gone differently with the cash the days before left is worked out again,
+    so the result is the same as one day after another. progress(done, total) after each day; log(day, text,
+    level) with what happened, in day order; on_day(day, "running" | "worked" | "done", pnl) as days start, as a
+    process is done with one (in the pool: it may wait for the days before it), and as it's put in the run."""
     check = check or (lambda: None)
     check()
-    total = len(days) * (1 + baseline_runs)
-    done = 0
+    total, done = len(days) * (1 + baseline_runs), 0
     note = log or (lambda day, text, level="info": None)
-    results, trades, equity, bal, skipped, series = [], [], [], cash, [], {}
-    for d in days:
-        check()
-        r = run_day(rule, symbol, d, bal, settings, log=lambda text, level="info", d=d: note(d, text, level), check=check)
-        series[d] = r["series"]
-        skipped += r["skipped"]
-        t = trades_of(d, r["fills"])
-        note(d, f"{len(t)} trade(s), P/L {sum(x['pnl'] for x in t):+,.2f}, cash {r['cash']:,.2f}", "day")
-        bal = r["cash"]
+    told = on_day or (lambda day, what, pnl=None: None)
+    trades, equity, actions, skipped, base_trades = [], [], {}, [], []
+    bal = cash
+
+    def one_after_another():
+        for d in days:
+            check()
+            told(d, "running")
+            yield day_chunk(rule, symbol, d, bal, settings, baseline_runs, seed, cash, check)
+    chunks = pool.in_order(day_chunk, [(rule, symbol, d, cash, settings, baseline_runs, seed, cash) for d in days],
+                           check, lambda d: told(d, "running"), lambda d: told(d, "worked")) if pool else one_after_another()
+    for c in chunks:
+        d = c["day"]
+        if not fits(c, bal):
+            note(d, f"worked out again from ${bal:,.2f}: the days before changed what the account could buy")
+            c = day_chunk(rule, symbol, d, bal, settings, baseline_runs, seed, cash, check)
+        for text, level in c["lines"]:
+            note(d, text, level)
+        t, end = c["trades"], bal + c["cash"] - c["cash_from"]
+        pnl = sum(x["pnl"] for x in t)
+        note(d, f"{len(t)} trade(s), P/L {pnl:+,.2f}, cash {end:,.2f}", "day")
+        bal = end
         trades += t
+        skipped += c["skipped"]
+        base_trades += c["baseline"]
+        actions[d] = c["actions"]
         equity.append({"day": d, "equity": round(bal, 2)})
-        results.append({"day": d, "actions": r["actions"], "trades": len(t)})
-        done += 1
+        done += 1 + baseline_runs
+        told(d, "done", round(pnl, 2))
         if progress:
             progress(done, total)
-    rng = random.Random(seed)
-    base_trades = []
-    if baseline_runs:
-        note(None, f"random entries with the same exits: {baseline_runs} run(s) over the same days")
-    random_rule = {**rule, "order": {"type": "market"}}
-    for _ in range(baseline_runs):
-        for res in results:
-            check()
-            entries = _random_entries(rule, symbol, res["day"], res["trades"], rng)
-            r = run_day(random_rule, symbol, res["day"], cash, settings, entries, series[res["day"]], check=check)
-            base_trades += trades_of(res["day"], r["fills"])
-            done += 1
-            if progress:
-                progress(done, total)
     base = stats(base_trades, len(days) * baseline_runs) if baseline_runs else None
     if base:
-        note(None, f"random entries: {base['trades']} trade(s), P/L {base['total']:+,.2f}")
+        note(None, f"random entries with the same exits, {baseline_runs} run(s) over the same days: "
+                   f"{base['trades']} trade(s), P/L {base['total']:+,.2f}")
     return {"symbol": symbol, "days": days, "start_cash": cash, "end_cash": round(bal, 2), "trades": trades,
             "equity": equity, "stats": stats(trades, len(days)), "baseline": base, "baseline_runs": baseline_runs,
-            "actions": {res["day"]: res["actions"] for res in results}, "demo": symbol.endswith("-DEMO"),
+            "actions": actions, "demo": symbol.endswith("-DEMO"),
             "skipped": {"count": len(skipped), "first": skipped[0] if skipped else None}}

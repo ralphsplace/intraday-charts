@@ -136,10 +136,12 @@ def test_backtest_defaults_are_kept_in_the_config_and_used_when_a_run_leaves_the
     from app.server import app
     c = TestClient(app, client=("192.168.1.20", 50000))
     assert c.get("/api/paper/backtest-defaults").json() == backtest.BUILT_IN_DEFAULTS
-    for bad in ({"symbol": ""}, {"baseline_runs": 21}, {"baseline_runs": True}, {"missing": "maybe"}, {"account": 3}):
+    for bad in ({"symbol": ""}, {"baseline_runs": 21}, {"baseline_runs": True}, {"missing": "maybe"}, {"account": 3},
+                {"workers": 0}, {"workers": 17}, {"workers": 2.5}):
         assert c.put("/api/paper/backtest-defaults", json=bad).status_code == 400, bad
     d = c.put("/api/paper/backtest-defaults", json={"symbol": " qqq-demo ", "baseline_runs": 0, "missing": "skip", "x": 1}).json()
-    assert d == {"symbol": "QQQ-DEMO", "account": "", "baseline_runs": 0, "missing": "skip"}
+    assert d == {"symbol": "QQQ-DEMO", "account": "", "baseline_runs": 0, "missing": "skip",
+                 "workers": backtest.BUILT_IN_DEFAULTS["workers"]}
     seen = {}
     monkeypatch.setattr("app.paper.jobs.start", lambda *a: seen.update(missing=a[5], runs=a[8]) or {"id": "x"})
     have = store.list_days("QQQ-DEMO")

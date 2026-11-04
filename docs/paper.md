@@ -208,7 +208,12 @@ on them, with the same results.
 - **Backtests**: run a saved strategy on a symbol's cached days, with an account's cash and costs. The form starts with
   the defaults set in Config, **Backtests** (symbol, account, random runs, days without bars). It runs in
   the background (you can leave the page). One dedicated paper worker runs up to **five jobs concurrently**,
-  including fetch waits; additional runs show **queued** (up to 50 waiting). The report has the trades, the equity by day, win rate, average win and
+  including fetch waits; additional runs show **queued** (up to 50 waiting). **A run's days are worked on at the
+  same time**, a day at a time each, in separate processes: as many at once as Config, Backtests, **Workers** says,
+  shared by every run going. While it runs, the report shows each day as waiting, going or done with its P/L. The
+  result is the same as working through the days one after another: a day starts with the cash the days before it
+  left, so a day whose buying-power checks would have gone differently with that cash is worked out again (the
+  Log says so). The report has the trades, the equity by day, win rate, average win and
   loss, profit factor, the largest drawdown, trades a day and longs and shorts apart, next to **random entries with
   the same exits** (several runs): a strategy that doesn't beat them has no edge. **Days without cached bars**:
   - **Fetch them from TWS** (the default): the run first asks the collector for them (each request brings a day and

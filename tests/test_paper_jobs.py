@@ -164,22 +164,24 @@ def test_cancellation_inside_day_and_baseline(cache, monkeypatch):
     with pytest.raises(jobs.Cancelled):
         backtest.run(cross_rule(), "QQQ-DEMO", have, 100_000, {}, check=check)
     assert len(steps) == 3
-    # A cancellation requested at the first baseline progress callback stops all later iterations.
-    count = []
+    # A cancellation requested as the random entries start stops them inside the day: no later run, no progress.
+    count, baselines = [], []
     cancelled = threading.Event()
+    picks = backtest._random_entries
 
-    def progress(done, total):
-        count.append(done)
-        if done == 2:
-            cancelled.set()
+    def random_entries(*a):
+        baselines.append(1)
+        cancelled.set()
+        return picks(*a)
 
     def baseline_check():
         if cancelled.is_set():
             raise jobs.Cancelled()
+    monkeypatch.setattr(backtest, "_random_entries", random_entries)
     with pytest.raises(jobs.Cancelled):
         backtest.run(cross_rule(), "QQQ-DEMO", have, 100_000, {}, baseline_runs=5,
-                     progress=progress, check=baseline_check)
-    assert count == [1, 2]
+                     progress=lambda done, total: count.append(done), check=baseline_check)
+    assert baselines == [1] and count == []
 
 
 def test_restart_preserves_queue_interrupts_old_runs_and_finishes_deletions(cache, monkeypatch, paper_runner):
