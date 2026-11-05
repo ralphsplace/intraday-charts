@@ -569,7 +569,7 @@ button.danger { border-color: #7a2e2e; color: #ffb4b4; }
 .tpform button:disabled { opacity: .4; cursor: not-allowed; }
 .tpbody { flex: 1; min-height: 0; overflow: auto; padding-bottom: 6px; }
 .tpbody .tpsub { padding: 6px 8px 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.tp .wltable .paperx { padding: 0 6px; border: none; background: none; }
+.tp .wltable .tpx { padding: 0 6px; border: none; background: none; }
 /* a backtest's report: progress, the Trades and Log tabs, and a day's chart over the page (backtesting/report.js) */
 .pp-progress { height: 6px; background: #1a2028; border-radius: 3px; overflow: hidden; max-width: 520px; }
 .pp-progress > div { height: 100%; background: var(--teal); transition: width .4s; }

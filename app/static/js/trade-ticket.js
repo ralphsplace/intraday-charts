@@ -1,8 +1,7 @@
 /* The trade panel's order form (trade-panel.js): order type, shares, price or trailing distance (in dollars, or as
-   a multiple of the ATR on the followed chart's bars), and an optional
-   stop and target, then Buy or Sell. It only builds the action (app/backtesting/orders.py's "order" or "bracket"); the
-   panel sends it. The stop and target are distances from the last price, so one form serves both sides. Orders at a
-   study line are placed from a chart's own ticket (paper-practice.js), where the chart's studies are. */
+   a multiple of the ATR on the followed chart's bars, worked out on the server when the order goes in), and an
+   optional stop and target, then Buy or Sell. It only builds the action ("order" or "bracket", app/live_orders.py);
+   the panel sends it. The stop and target are distances from the last price, so one form serves both sides. */
 import { btn, el } from "./util.js";
 
 const TYPES = [["market", "Market"], ["limit", "Limit"], ["stop", "Stop"], ["trail", "Trailing stop"], ["trail_atr", "Trail × ATR"]];
@@ -54,7 +53,7 @@ export function tradeTicket(onAction, tfOf = () => 1) {
     const order = { side, qty: n, type: k === "trail_atr" ? "trail" : k };
     if (k === "limit" || k === "stop") order.price = parseFloat(price.value);
     if (k === "trail") order.trail = { amount: parseFloat(trail.value) };
-    // N x the ATR on the chart's bars, worked out on the server when the order goes in (app/backtesting/orders.py)
+    // N x the ATR on the chart's bars, worked out on the server when the order goes in (app/live_orders.py)
     if (k === "trail_atr") order.trail = { atr: parseFloat(atrX.value), length: parseInt(atrN.value, 10), tf: tfOf() };
     if (!bracket.checked) return onAction({ kind: "order", order });
     const sign = side === "buy" ? 1 : -1, from = order.price ?? last;
@@ -65,11 +64,12 @@ export function tradeTicket(onAction, tfOf = () => 1) {
   show();
   return {
     form,
-    // the session now: the last price for the defaults (until the form is changed by hand), and whether it can trade
-    update(price_, equity, enabled) {
+    // the last price for the defaults (until the form is changed by hand), whether orders can go, the most shares
+    update(price_, enabled, maxShares = 1000) {
       last = price_;
+      qty.max = maxShares;
       if (!touched && last) {
-        qty.value = Math.max(1, Math.min(100, Math.floor((equity || 0) / last)));   // what the account can afford, up to 100
+        qty.value = Math.min(100, maxShares);
         price.value = last.toFixed(2);
         trail.value = (last * 0.002).toFixed(2);
         stop.value = (last * 0.003).toFixed(2);

@@ -10,6 +10,11 @@ REM market indexes fetched with every request (add TICK-NDX if you have Nasdaq i
 set COMPANIONS=TICK-NYSE TRIN-NYSE
 REM FinViz watch lists: your FinViz Elite API token (and FINVIZ_TOKEN in the NAS's .env, so the page knows)
 set FINVIZ_TOKEN=
+REM Trade panel orders to your IBKR PAPER account (docs/trading.md): set LIVE_ORDERS=paper here AND in the NAS's
+REM .env, and log a second TWS into your paper account (API port 7497, Read-Only API unticked). Empty: off.
+set LIVE_ORDERS=
+set TRADE_HOST=127.0.0.1
+set TRADE_PORT=7497
 
 py -m pip install --quiet -r "%~dp0..\requirements.txt"
 py "%~dp0fetch_ibkr.py" --symbols %SYMBOLS% --days 30 --live --host 127.0.0.1 --port 7496 --data-dir "%DATA_DIR%"

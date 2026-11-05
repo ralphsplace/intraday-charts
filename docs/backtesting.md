@@ -7,8 +7,7 @@ only as good as the model below: read its limits before trusting a number.
 
 Before #83 this was *Paper trading*: paper accounts are now **backtesting accounts**, paper rules **signal rules** and
 paper strategies **signal strategies**. They moved over by themselves when the app was updated. Replay practice (a
-chart's PAPER strip) is gone; the trade panel is for orders to your IBKR paper account (see [the trade
-panel](#the-trade-panel)). Practice history files are kept in `data/user/backtesting/practice-history-archive/`.
+chart's PAPER strip) is gone; the trade panel is for orders to your IBKR paper account ([Trading](trading.md)). Practice history files are kept in `data/user/backtesting/practice-history-archive/`.
 
 ## Backtesting accounts
 
@@ -34,9 +33,7 @@ remembers it.
 
 ## The trade panel
 
-A panel of its own in the window, next to the charts (any cell's **≡** menu, **+ Trade panel left** or **+ Trade
-panel right**). It follows the symbol of its [link group](layouts.md) (the coloured square), or of the active
-chart when it isn't linked. Orders from it go to your IBKR paper account (#84).
+The trade panel places orders on your IBKR paper account: see [Trading on your IBKR paper account](trading.md).
 
 ## Rules
 

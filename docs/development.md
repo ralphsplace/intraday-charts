@@ -95,6 +95,7 @@ app/api/                the endpoints, one module per area of the app, each with
   earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
   backtesting.py        backtesting accounts and their defaults, backtests (queue, read, review, delete) and their defaults
   signals.py            signal rules, expressions, recommended rules, signal strategies, a strategy's arrows on a chart
+  live.py               the trade panel: a symbol's view of the IBKR paper account, and sending an order (LIVE_ORDERS=paper)
   pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
@@ -134,6 +135,8 @@ app/watchlists.py       named watch lists, app-wide on the NAS: default names, u
 app/watch_fields.py     the watch list's columns (one registry) and their values per symbol, only the groups asked for
 app/study_values.py     a ticker's study value (a line or level at the cursor) by name, e.g. VWAP or SMA 50
 app/positions.py        the Holdings list: positions summed over accounts, value and P/L at the price on screen (no TWS)
+app/live_orders.py      orders to the IBKR paper account, the server's side: the switch, checks, requests and status
+                        files for the collector's trader (no TWS)
 app/list_sources.py     watch lists from outside sources (FinViz): addresses checked, fetched lists stored (no network)
 app/structures.py       option structures: Black-Scholes, templates, evaluation (risk graph, grid, loss-limit prices)
 app/static/options.html the option-chain page (/options); its scripts in js/options/
@@ -168,7 +171,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
-  trade-panel.js        the trade panel cell: follows its link group's symbol (orders to the IBKR paper account: #84)
+  trade-panel.js        the trade panel cell: Buy / Sell on the IBKR paper account for its link group's symbol, with
+                        the position, working orders and fills TWS reports (/api/live)
   trade-ticket.js       the trade panel's order form: builds the order or bracket it sends
   watchlist.js          the watch list cell: its tabs and link group, picking a row; built from the parts below
   watchlist-tabs.js     its tabs and list menu: show, add, close, rename; pick, make or delete a list
@@ -199,6 +203,8 @@ tools/fetch_ibkr.py     TWS collector: request queue, backfill, daily history an
 tools/run_collector_windows.bat  runs the collector on the TWS PC
 tools/earnings_sources.py  where the collector gets earnings dates (SEC EDGAR); off without SEC_CONTACT
 tools/positions.py      the collector's positions reader for the Holdings list (HOLDINGS=on only)
+tools/trader.py         the collector's trader: the trade panel's orders, on its own connection to a paper TWS, only
+                        while TWS reports paper accounts (LIVE_ORDERS=paper only; the one place with order calls)
 tools/list_sources.py   where the collector fetches watch lists from (FinViz Elite exports); off without FINVIZ_TOKEN
 tools/option_quotes.py  option chains and snapshot quotes for the expected-move and option-chain pages
 tools/recorder.py       records ADD-NYSE and VOLD-NYSE from live quotes (no history at IBKR)

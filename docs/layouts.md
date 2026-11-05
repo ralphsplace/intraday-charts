@@ -28,8 +28,8 @@ Each chart's **≡** menu has a **Layout** section:
   press Enter.
 - **+ Row below** adds a new row with one chart under this chart's row.
 - **+ Watch list left / + Watch list right** adds a [watch list](#the-watch-list) instead.
-- **+ Trade panel left / + Trade panel right** adds a [trade panel](backtesting.md#the-trade-panel) that follows
-  the symbol of its link group.
+- **+ Trade panel left / + Trade panel right** adds a [trade panel](trading.md#the-trade-panel): Buy and Sell
+  on your IBKR paper account, for the symbol of its link group.
 - **Remove this chart** closes it up; a row left empty goes away. **Undo** on the message that follows brings
   it back.
 

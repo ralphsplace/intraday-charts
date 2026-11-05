@@ -40,6 +40,7 @@ nav:
       - Option chain view: option-chain.md
       - Config page: config.md
       - Backtesting: backtesting.md
+      - Trading (IBKR paper): trading.md
   - Setting up:
       - Connecting to TWS: tws.md
       - Configuration: configuration.md

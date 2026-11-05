@@ -1,7 +1,8 @@
 """TWS collector: fetches bars from Trader Workstation into the local cache, and keeps today's bars live.
 
-TWS must be running and logged in, with the API enabled (Configure > API > Settings). The connection is
-opened read-only, so this script cannot place orders.
+TWS must be running and logged in, with the API enabled (Configure > API > Settings). Its market data connection
+is opened read-only. Only with LIVE_ORDERS=paper does it place the trade panel's orders, on a second connection to
+a TWS logged into an IBKR paper account, and only while TWS reports a paper account (tools/trader.py).
 
 It works through a queue of fetches. The queue is filled from six places:
   - the symbols on the command line (or the SYMBOLS environment variable)
@@ -47,12 +48,13 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from app import (control, earnings, envcheck, expected_move, list_sources, option_chain, positions,  # noqa: E402
+from app import (control, earnings, envcheck, expected_move, list_sources, live_orders, option_chain, positions,  # noqa: E402
                  sessions, store)
 from option_quotes import OptionQuotes  # noqa: E402
 from earnings_sources import make_source  # noqa: E402
 from list_sources import make_fetchers  # noqa: E402
 from positions import PositionsReader  # noqa: E402
+from trader import Trader, connect_paper  # noqa: E402
 from recorder import Recorder  # noqa: E402
 
 ET = "America/New_York"
@@ -276,6 +278,9 @@ class Collector:
         # the account's positions, for the watch list's Holdings list: only with HOLDINGS=on, only in live mode
         self.positions = PositionsReader(ib, clock) if args.live and positions.turned_on() else None
         self.recorder = Recorder(ib, getattr(args, "record", []), self.contract, args.write_every, clock) if args.live else None
+        # orders to the IBKR paper account, from the trade panel: only with LIVE_ORDERS=paper, only in live mode, on a
+        # connection of their own to the paper TWS (tools/trader.py); this connection stays read-only
+        self.trader = make_trader(clock) if args.live and live_orders.turned_on() else None
         err = getattr(ib, "errorEvent", None)
         if err is not None:
             err += self._on_error
@@ -494,6 +499,8 @@ class Collector:
             self.recorder.sync(now)
         if self.positions:
             self.positions.sync()
+        if self.trader:
+            self.trader.step()
         if self.tasks and self.pacer.ready():
             self.run_task(self.tasks.popleft())
         self.write_status()
@@ -525,6 +532,17 @@ class Collector:
         if self.recorder:
             self.recorder.flush()
             self.recorder.cancel()
+        if self.trader:
+            self.trader.close()
+
+
+def make_trader(clock=time.monotonic) -> Trader:
+    host = os.environ.get("TRADE_HOST") or os.environ.get("IB_HOST", "host.docker.internal")
+    port = int(os.environ.get("TRADE_PORT", "7497"))
+    cid = int(os.environ.get("TRADE_CLIENT_ID", "18"))
+    envcheck.require_local_tws(host)
+    log.info("Orders to the IBKR paper account are on (LIVE_ORDERS=paper): trader on %s:%s, client id %s", host, port, cid)
+    return Trader(lambda: connect_paper(host, port, cid), clock, host, port)
 
 
 def connect(args):

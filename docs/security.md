@@ -1,7 +1,8 @@
 # Purpose and security model
 
 **Purpose:** custom charting and visual presentation of trading data, from read-only sources (mainly the
-IBKR API), in a secure local environment. It never trades.
+IBKR API), in a secure local environment. It trades only when you turn that on, and then only on an IBKR **paper**
+account ([Trading](trading.md)).
 
 **Security:** there are no logins. Instead, the dashboard can only be reached from your home network, and it
 checks that it runs in a secure environment:
@@ -15,12 +16,17 @@ checks that it runs in a secure environment:
     `ALLOWED_HOSTS`. This blocks "DNS rebinding".
 
   - Changes (saving, fetching, editing dashboards) are only accepted from the dashboard's own pages.
-- **Read-only trading data:**
-  - Every TWS connection is opened read-only, and doesn't download the account's orders or executions.
+- **Read-only trading data, and orders only to a paper account:**
+  - Every TWS connection is opened read-only, and doesn't download the account's orders or executions, with one
+    exception you turn on: with `LIVE_ORDERS=paper`, the collector's trader (`tools/trader.py`) opens its own
+    connection to a TWS logged into your IBKR paper account, and places the trade panel's orders there. It sends an
+    order only while every account that TWS reports is a paper one (IDs start `DU`), checked when it connects and
+    again before each order, and at most `LIVE_MAX_SHARES` shares an order. It is off by default.
   - The account's positions are read only when you turn on the watch list's Holdings list (`HOLDINGS=on`):
     by the collector, once a minute in Live, with account numbers masked. A test checks that nothing else reads
     the account.
-  - The code contains no order calls. A test fails if one is ever added, and the server refuses to start.
+  - Order calls appear only in `tools/trader.py`. A test fails if one is ever added anywhere else, and the server
+    refuses to start; a test also checks that every other TWS connection is opened read-only.
   - The tools refuse to connect to a TWS address on the internet. Accepted TWS addresses are this machine,
     Docker's `*.docker.internal` names, and home-network addresses.
 - **Environment check at startup.** It covers:
@@ -28,7 +34,7 @@ checks that it runs in a secure environment:
   - accepted addresses
   - running as a normal user
   - the data folder not writable by everyone
-  - read-only trading data
+  - orders: off, or on for the paper account only (and refused, if TWS is logged into a live account)
   - the TWS connection
   - internet access
 
