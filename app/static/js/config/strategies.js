@@ -1,8 +1,8 @@
-/* The Config page's Paper strategies section: what to do on the saved rules (app/paper/strategies.py). Buy if, Sell
+/* The Config page's Signal strategies section: what to do on the saved rules (app/signals/strategies.py). Buy if, Sell
    short if, Close a long if, Close a short if: each an expression of rules by name, e.g. ("Rule 1" AND NOT
    "Rule 3") OR Rule5, typed or built in groups (expr-editor.js); then the bars the rules are read on, the shares,
-   the entry order, the stop, target or trail, and the hours. Backtests run a strategy (Paper trading page).
-   Data: /api/paper/strategies, /api/paper/rules (the conditions' menus), the study catalog (an entry at a level). */
+   the entry order, the stop, target or trail, and the hours. Backtests run a strategy (Backtesting page).
+   Data: /api/signal-strategies, /api/signal-rules (the conditions' menus), the study catalog (an entry at a level). */
 import { fmtMin } from "../format.js";
 import { $, api, el } from "../util.js";
 import { firstLine, operand } from "./conditions.js";
@@ -18,7 +18,7 @@ const blank = () => ({ tf: 3, qty: 100, order: { type: "market" }, exits: { stop
 
 export async function loadStrategies(sayFn) {
   say = sayFn;
-  const [s, r, cat] = await Promise.all([api("/api/paper/strategies"), api("/api/paper/rules"), api("/api/studies").then((c) => c.studies)]);
+  const [s, r, cat] = await Promise.all([api("/api/signal-strategies"), api("/api/signal-rules"), api("/api/studies").then((c) => c.studies)]);
   meta = { ...r, strategies: s.strategies, ruleList: s.rules, catalog: cat };
   menu.fill();
   pick(menu.current());
@@ -43,7 +43,7 @@ function render() {
   const choice = (opts, v, set) => { const s = el("select"); for (const [k, t] of opts) { const o = el("option", null, t); o.value = k; s.appendChild(o); } s.value = v; s.onchange = () => set(s.value); return s; };
 
   f.appendChild(el("h4", "sec", "When"));
-  if (!meta.ruleList.length) f.appendChild(el("p", "muted small", "Save a rule first (Paper rules): a strategy trades on rules."));
+  if (!meta.ruleList.length) f.appendChild(el("p", "muted small", "Save a rule first (Signal rules): a strategy trades on rules."));
   for (const [k, label, empty] of PARTS) {
     const r = el("div", "pp-row pp-when");
     r.dataset.part = k;
@@ -92,29 +92,29 @@ async function saveStrategy() {
   for (const [k] of PARTS) { const t = editors[k].tree(); body[k] = t ? exprText(t) : ""; }
   const name = menu.current() === NEW ? null : menu.current();
   try {
-    const r = await api("/api/paper/strategies", { name, strategy: body });
+    const r = await api("/api/signal-strategies", { name, strategy: body });
     meta.strategies = r.strategies;
     say(`Saved "${r.name}".`);
     menu.show(r.name);
   } catch (e) { say(e.message, true); return; }
-  document.dispatchEvent(new Event("paper:strategies"));
+  document.dispatchEvent(new Event("signals:strategies"));
 }
 
 export function initStrategies(sayFn) {
   say = sayFn;
-  menu = namedMenu({ sel: $("ppStrat"), renameBtn: $("ppStratRename"), deleteBtn: $("ppStratDelete"), base: "/api/paper/strategies",
+  menu = namedMenu({ sel: $("ppStrat"), renameBtn: $("ppStratRename"), deleteBtn: $("ppStratDelete"), base: "/api/signal-strategies",
                      what: "strategy", say: (t, bad) => say(t, bad), items: () => meta?.strategies || {},
                      set: (r) => { meta.strategies = r.strategies; }, pick,
-                     changed: () => document.dispatchEvent(new Event("paper:strategies")) });
+                     changed: () => document.dispatchEvent(new Event("signals:strategies")) });
   $("ppStratSave").onclick = saveStrategy;
   $("ppStratForm").onsubmit = (e) => { e.preventDefault(); saveStrategy(); };
   // a rule saved, renamed or deleted: the menus of rules, and any strategy that said its old name
-  document.addEventListener("paper:rules", () => { if (meta) rulesChanged().catch((e) => say(e.message, true)); });
+  document.addEventListener("signals:rules", () => { if (meta) rulesChanged().catch((e) => say(e.message, true)); });
 }
 
 // rules saved, added, renamed or deleted (another section): the rule menus follow; what's being written here stays
 async function rulesChanged() {
-  const s = await api("/api/paper/strategies");
+  const s = await api("/api/signal-strategies");
   await Promise.all(Object.values(editors).map((x) => x.settled()));    // what's typed, read first
   meta = { ...meta, strategies: s.strategies, ruleList: s.rules };
   menu.fill();

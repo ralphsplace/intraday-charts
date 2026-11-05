@@ -44,35 +44,33 @@ study's settings puts back.
 Studies already on charts keep their own settings: the defaults apply to studies added afterwards. Values that
 aren't allowed (a length out of range, say) are brought within range, as in a study's own settings.
 
-## Paper accounts
+## Backtesting accounts
 
-Accounts for practising trades in Replay and for backtests. They're simulated on the NAS from the cached bars and
-never talk to TWS or your IBKR account.
+The starting cash and costs backtests run with ("Cash and costs of" on the [Backtesting](backtesting.md) page).
+Simulated on the NAS from the cached bars; nothing here trades.
 
-- **New account** makes "Paper N" with the defaults; names are unique across the app.
-- **Rename** keeps the account's history. **Reset** puts the balance back to the starting cash; the trades before it
-  stay in the history. **Delete** asks first; the history file is kept aside on the NAS (`.deleted`).
+- **New account** makes "Account N" with the defaults; names are unique across the app.
+- **Rename** and **Delete** (it asks first).
 - **Settings**, for new accounts (the defaults) or one account: starting cash; commission per share, minimum per
   order and at most a % of the trade's value (IBKR Fixed by default: $0.005, $1.00, 1%); slippage per share on
   market and stop fills; and whether short selling is allowed (on by default).
 
-Each account's history is in `data/user/paper/<id>.json`.
-
-## Paper rules
+## Signal rules
 
 Named true / false conditions: lettered conditions on prices, study lines and levels, combined with AND, OR, NOT,
-brackets, WITHIN and other rules, typed or built in groups. What each part means: [Paper trading, Rules](paper.md#rules).
+brackets, WITHIN and other rules, typed or built in groups. What each part means: [Backtesting, Rules](backtesting.md#rules).
 
-## Paper strategies
+## Signal strategies
 
-What backtests run: Buy if, Sell short if, Close a long if and Close a short if, each an expression of rules by name,
-then the bars, shares, entry order, exits and hours. See [Paper trading, Strategies](paper.md#strategies).
+What backtests run, and what a chart's **Signals** shows: Buy if, Sell short if, Close a long if and Close a short
+if, each an expression of rules by name, then the bars, shares, entry order, exits and hours. See [Backtesting,
+Strategies](backtesting.md#strategies) and [Signals on a chart](backtesting.md#signals-on-a-chart).
 
 ## Backtests
 
-What the Run form on the Paper trading page starts with: the symbol, whose cash and costs (an account, or the
+What the Run form on the Backtesting page starts with: the symbol, whose cash and costs (an account, or the
 defaults for new accounts), how many random-entry runs to measure the rule against (0 to 20), and what to do about days
-without cached bars: fetch them from TWS first, skip them, or stop the run (see [Paper trading](paper.md)).
+without cached bars: fetch them from TWS first, skip them, or stop the run (see [Backtesting](backtesting.md)).
 **Workers** (1 to 16) is how many days of backtests are worked on at once, each in its own process, across every
 run going: about one per CPU core of the NAS; more cores than that only makes the days take turns. A change applies
 to runs already going. **Built-in defaults** puts back QQQ, the new-account defaults, 5 runs, fetch, and the
@@ -88,15 +86,15 @@ smaller of 4 and the number of cores.
                 "Holdings": {"id": "cbdf586dbe13", "source": "holdings"}},
  "watch_columns": {"quote": ["symbol", "last", "change", "pct", "gap_pct"]},
  "studies": {"sma": {"length": 21, "sma_color": "#ff9800"}},
- "paper_accounts": {"Morning practice": {"id": "4be1c0d2a9f3", "start_cash": 25000.0, "created": 1793539200,
-                    "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
+ "backtest_accounts": {"Morning": {"id": "4be1c0d2a9f3", "start_cash": 25000.0, "created": 1793539200,
+                       "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
                                  "slippage": 0.01, "shorting": true}}},
- "paper_rules": {"Above VWAP": {"id": "9a1f3c7e2b40", "conditions": ["..."], "when": "A AND NOT B"}},
- "paper_strategies": {"Pullbacks": {"id": "3c51e0a7d2f9", "tf": 3, "buy": "\"Above VWAP\" OR Rule5", "short": "",
-                      "exit_long": "", "exit_short": "", "qty": 50, "exits": {"stop": 0.5}, "...": "..."}},
- "paper": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}},
-           "backtest": {"symbol": "QQQ", "account": "Morning practice", "baseline_runs": 5, "missing": "skip",
-                        "workers": 4}}
+ "signal_rules": {"Above VWAP": {"id": "9a1f3c7e2b40", "conditions": ["..."], "when": "A AND NOT B"}},
+ "signal_strategies": {"Pullbacks": {"id": "3c51e0a7d2f9", "tf": 3, "buy": "\"Above VWAP\" OR Rule5", "short": "",
+                       "exit_long": "", "exit_short": "", "qty": 50, "exits": {"stop": 0.5}, "...": "..."}},
+ "backtesting": {"defaults": {"start_cash": 30000.0, "settings": {"...": "as an account's"}},
+                 "backtest": {"symbol": "QQQ", "account": "Morning", "baseline_runs": 5, "missing": "skip",
+                              "workers": 4}}
 }
 ```
 
@@ -105,7 +103,10 @@ columns are ignored.
 
 When the server starts, it brings anything an older version saved on the NAS up to date, once: watch lists from
 `data/user/watchlists.json` move into `config.json` (the old file is kept as `watchlists.json.moved`), and saved
-views, layouts and dashboards get today's settings. The server's log lists what it changed.
+views, layouts and dashboards get today's settings; and paper trading's names from before #83 become backtesting's
+(`paper_accounts`, `paper`, `paper_rules` and `paper_strategies` in `config.json` become `backtest_accounts`,
+`backtesting`, `signal_rules` and `signal_strategies`; `data/user/paper/` becomes `data/user/backtesting/`). The
+server's log lists what it changed.
 
 If a hand edit leaves the file unreadable (a missing comma, say), the app shows defaults and refuses every change
 with a message naming the file, so nothing you wrote is lost; fix the typo and it picks the file up again. Saved

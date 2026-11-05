@@ -1,6 +1,6 @@
 /* The trade panel's order form (trade-panel.js): order type, shares, price or trailing distance (in dollars, or as
    a multiple of the ATR on the followed chart's bars), and an optional
-   stop and target, then Buy or Sell. It only builds the action (app/paper/practice.py's "order" or "bracket"); the
+   stop and target, then Buy or Sell. It only builds the action (app/backtesting/orders.py's "order" or "bracket"); the
    panel sends it. The stop and target are distances from the last price, so one form serves both sides. Orders at a
    study line are placed from a chart's own ticket (paper-practice.js), where the chart's studies are. */
 import { btn, el } from "./util.js";
@@ -26,7 +26,7 @@ export function tradeTicket(onAction, tfOf = () => 1) {
   const atrX = field("Trail by × ATR", num(0.1, 0.1), "tpatr"); atrX.value = 2;
   const atrN = field("ATR length", num(1, 1), "tpatrlen"); atrN.value = 14;
   const bracket = el("input"); bracket.type = "checkbox";
-  const bl = el("label", "papercheck tpbracket"); bl.append(bracket, " Stop and target"); form.appendChild(bl);
+  const bl = el("label", "checkline tpbracket"); bl.append(bracket, " Stop and target"); form.appendChild(bl);
   const stop = field("Stop $ away", num(0.01, 0.01), "tpstop");
   const target = field("Target $ away", num(0.01, 0.01), "tptarget");
   const row = el("div", "tpbtns");
@@ -54,7 +54,7 @@ export function tradeTicket(onAction, tfOf = () => 1) {
     const order = { side, qty: n, type: k === "trail_atr" ? "trail" : k };
     if (k === "limit" || k === "stop") order.price = parseFloat(price.value);
     if (k === "trail") order.trail = { amount: parseFloat(trail.value) };
-    // N x the ATR on the chart's bars, worked out on the server when the order goes in (app/paper/practice.py)
+    // N x the ATR on the chart's bars, worked out on the server when the order goes in (app/backtesting/orders.py)
     if (k === "trail_atr") order.trail = { atr: parseFloat(atrX.value), length: parseInt(atrN.value, 10), tf: tfOf() };
     if (!bracket.checked) return onAction({ kind: "order", order });
     const sign = side === "buy" ? 1 : -1, from = order.price ?? last;

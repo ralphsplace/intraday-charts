@@ -13,14 +13,20 @@ What it upgrades:
       a watch list panel saved before tabs gets one tab; a tab saved before lists were named gets a named list
       of its own ("Watch list N", or its old name when free), or the id of the list it names;
       a watch list linked to one chart by the chart's id gets a colour group shared with that chart;
-  - paper trading rules from before strategies (#67), each with its own long, short and exit conditions: each
+  - paper trading's names from before backtesting (#83): the config sections paper_accounts, paper, paper_rules
+    and paper_strategies become backtest_accounts, backtesting, signal_rules and signal_strategies (a name already
+    in the new section wins), and data/user/paper becomes data/user/backtesting: its backtests move, and the
+    accounts' Replay practice history files (practice is gone) move to practice-history-archive/, kept;
+  - signal rules from before strategies (#67), each with its own long, short and exit conditions: each
     list of conditions becomes a rule ("<name> long", "<name> short", "<name> exit long", "<name> exit short") and
     the rest a strategy of the old rule's name that trades on them, the same way.
 """
 from __future__ import annotations
 
+import contextlib
 import copy
 import logging
+import shutil
 
 from . import app_config, jsonfile, named, saved, store, watchlists
 
@@ -37,7 +43,7 @@ _checking = False      # while only checking whether a file needs upgrading: cha
 def run() -> list[str]:
     """Upgrade everything; what changed, one line each (also logged)."""
     done = []
-    for part in (_watchlists_file, _list_shapes, _saved_layouts, _paper_rules):
+    for part in (_watchlists_file, _list_shapes, _saved_layouts, _backtesting_names, _backtesting_folder, _paper_rules):
         try:
             done += part()
         except jsonfile.BrokenFile as e:                    # a hand edit to fix first: start anyway, say so
@@ -211,18 +217,65 @@ def _dashboards(v) -> bool:
     return any([_layout((i.get("settings") or {}).get("start")) for i in v if isinstance(i, dict)])
 
 
-# ---------------------------------------------------------------- paper trading rules (#67)
+# ---------------------------------------------------------------- paper trading becomes backtesting (#83)
+RENAMED = (("paper_accounts", "backtest_accounts"), ("paper", "backtesting"), ("paper_rules", "signal_rules"),
+           ("paper_strategies", "signal_strategies"))
+
+
+def _backtesting_names() -> list[str]:
+    if not any(old in app_config.read() for old, _ in RENAMED):
+        return []
+    done = []
+    with app_config.editing() as d:
+        for old, new in RENAMED:
+            if old not in d:
+                continue
+            was = d.pop(old)
+            if isinstance(was, dict):
+                now = d.setdefault(new, {})
+                for k, v in was.items():
+                    now.setdefault(k, v)                      # already in the new section: that one wins
+            done.append(f'config section "{old}" is now "{new}"')
+    return done
+
+
+def _backtesting_folder() -> list[str]:
+    old, new = store.DATA_DIR / "user" / "paper", store.DATA_DIR / "user" / "backtesting"
+    if not old.is_dir():
+        return []
+    done = []
+    with contextlib.suppress(FileNotFoundError):              # another process (the backtest worker) got there first
+        if (old / "backtests").is_dir():
+            (new / "backtests").mkdir(parents=True, exist_ok=True)
+            for f in (old / "backtests").iterdir():
+                if f.name != "locks" and not (new / "backtests" / f.name).exists():
+                    shutil.move(str(f), new / "backtests" / f.name)
+            shutil.rmtree(old / "backtests", ignore_errors=True)
+            done.append("backtests moved to data/user/backtesting/backtests")
+        histories = [f for f in old.iterdir() if f.is_file()]
+        if histories:
+            archive = new / "practice-history-archive"
+            archive.mkdir(parents=True, exist_ok=True)
+            for f in histories:
+                shutil.move(str(f), archive / f.name)
+            done.append(f"{len(histories)} Replay practice history file(s) kept in data/user/backtesting/practice-history-archive")
+        with contextlib.suppress(OSError):
+            old.rmdir()
+    return done
+
+
+# ---------------------------------------------------------------- signal rules (#67)
 def _old_rule(v) -> bool:
     return isinstance(v, dict) and isinstance(v.get("rule"), dict) and "when" not in v
 
 
 def _paper_rules() -> list[str]:
-    from .paper import expr
-    if not any(_old_rule(v) for v in app_config.section("paper_rules").values()):
+    from .signals import expr
+    if not any(_old_rule(v) for v in app_config.section("signal_rules").values()):
         return []
     done = []
     with app_config.editing() as d:
-        rs, sts = d.setdefault("paper_rules", {}), d.setdefault("paper_strategies", {})
+        rs, sts = d.setdefault("signal_rules", {}), d.setdefault("signal_strategies", {})
         for name in [n for n, v in rs.items() if _old_rule(v)]:
             old = rs.pop(name)["rule"]
             ex = old.get("exits") or {}
@@ -250,5 +303,5 @@ def _paper_rules() -> list[str]:
             while sname in sts:
                 sname, k = f"{name} {k}", k + 1
             sts[sname] = {"id": named.new_id(), **st}
-            done.append(f'paper rule "{name}" became rules {", ".join(made)} and strategy "{sname}"')
+            done.append(f'rule "{name}" from before strategies became rules {", ".join(made)} and strategy "{sname}"')
     return done

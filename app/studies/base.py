@@ -106,7 +106,7 @@ def study(type, name, category, pane, params, label, description="", plots=(), w
 
 
 def rule_levels(type: str, *levels: tuple, settings: tuple = ()) -> None:
-    """The levels of a level study (horizontal prices, not a line through every bar) that paper trading rules can
+    """The levels of a level study (horizontal prices, not a line through every bar) that signal rules can
     read, as (name, plot id, the on/off setting that draws it or None): the name is the level's label without its
     note in brackets ("OR high (building)" is "OR high"). settings: the ones that change the levels, offered in the
     rule form (the opening range's length...). With no levels, the study has nothing a rule can read."""
@@ -138,7 +138,7 @@ def level_name(label: str) -> str:
 
 
 def rule_outputs(spec: dict) -> list[dict]:
-    """What a paper trading rule can read from a study: its declared levels ("level:<name>"), or else its lines."""
+    """What a signal rule can read from a study: its declared levels ("level:<name>"), or else its lines."""
     if spec.get("levels") is not None:
         return [{"id": "level:" + name, "label": name, "plot": plot} for name, plot, _ in spec["levels"]]
     return [{"id": pl["id"], "label": pl["label"]} for pl in spec.get("plots", [])]

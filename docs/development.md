@@ -93,28 +93,30 @@ app/api/                the endpoints, one module per area of the app, each with
   config.py             the Config page: study defaults, each list kind's default columns
   dashboards.py         create, rename, change, delete, default dashboard
   earnings.py, expected_move.py, options.py   the earnings, expected-move and option chain pages' data
-  paper.py              paper accounts, practice sessions, rules, backtests, trades and notes
+  backtesting.py        backtesting accounts and their defaults, backtests (queue, read, review, delete) and their defaults
+  signals.py            signal rules, expressions, recommended rules, signal strategies, a strategy's arrows on a chart
   pages.py              the HTML pages and versioned page files; last, as it ends with /{name}
 app/store.py            Parquet cache (1-minute days and daily bars); derived symbols such as -VIX
 app/control.py          requests and status shared by the server and the collector (data/control/)
 app/sessions.py         US trading days and holidays
 app/saved.py            saved chart views, layouts and option structures (data/user/)
 app/upgrade.py          at server start, once: what older versions saved, brought to today's shapes
-app/paper/engine.py     paper trading's market model: orders and 1-minute bars to fills (never the broker)
-app/paper/accounts.py   named paper accounts, their settings, history file, balance and resets
-app/paper/practice.py   Replay practice: a session's actions replayed over the day's bars, at the cursor
-app/paper/expr.py       true / false expressions: text to a tree and back ((A OR B) AND NOT "Rule 3"), with where it's wrong
-app/paper/rules.py      rules as data: conditions and an expression of them and other rules; checked, expanded (no
-                        loops), evaluated bar by bar at the close; refuses studies that repaint
-app/paper/strategies.py strategies: buy / short / exit expressions of rules, the order, exits, hours; prepared for a run
-app/paper/backtest.py   a strategy over many days with the paper engine; trades, stats, the random baseline
-app/paper/jobs.py       durable backtest queue, cancellation/deletion, progress and reports
-app/paper/worker.py     singleton runner with up to five job threads (separate from web workers)
-app/paper/days.py       a run's days worked on at once: one-day chunks in a shared pool of processes, in day order
-app/paper/fetching.py   a backtest's missing days asked of the collector (control.py requests) and waited for
-app/paper/review.py     a backtest's day for a chart: its studies, and its trades as entry and exit markers
-app/paper/presets.py    the recommended rules (price against VWAP, the averages and the opening range, and more)
-app/named.py            app-wide named things (watch lists, paper accounts): unique names, ids, rename is a move
+app/backtesting/engine.py   the backtest market model: orders and 1-minute bars to fills (never the broker)
+app/backtesting/accounts.py named backtesting accounts: starting cash and costs
+app/backtesting/orders.py   a day's 1-minute bars for the engine, and an action (order, bracket, cancel, flatten) on it
+app/backtesting/backtest.py a strategy over many days with the engine; trades, stats, the random baseline
+app/backtesting/jobs.py     durable backtest queue, cancellation/deletion, progress and reports
+app/backtesting/worker.py   singleton runner with up to five job threads (separate from web workers)
+app/backtesting/days.py     a run's days worked on at once: one-day chunks in a shared pool of processes, in day order
+app/backtesting/fetching.py a backtest's missing days asked of the collector (control.py requests) and waited for
+app/backtesting/review.py   a backtest's day for a chart: its studies, and its trades as entry and exit markers
+app/signals/expr.py         true / false expressions: text to a tree and back ((A OR B) AND NOT "Rule 3"), with where it's wrong
+app/signals/rules.py        rules as data: conditions and an expression of them and other rules; checked, expanded (no
+                            loops), evaluated bar by bar at the close; refuses studies that repaint
+app/signals/strategies.py   strategies: buy / short / exit expressions of rules, the order, exits, hours; prepared for a run
+app/signals/presets.py      the recommended rules (price against VWAP, the averages and the opening range, and more)
+app/signals/chart.py        a strategy's entries and exits on any chart: a backtest's day, as arrows (kept until the bars change)
+app/named.py            app-wide named things (watch lists, backtesting accounts, rules, strategies): unique names, ids, rename is a move
 app/watchlist.py        symbols from pasted text or exported watchlist files
 app/dashboards.py       named dashboards and their addresses (data/user/dashboards.json)
 app/security.py         home-network-only access, host-name and cross-site checks
@@ -149,8 +151,8 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   outputs/              one module per kind of study output (lines, levels, profile, box, event lines, ...)
   legends.js            the legend on each pane, with Settings / Hide / Remove
                         (panel.js and watchlist.js are built from parts like this one with mixParts in util.js)
-  paper-practice.js     Replay practice on a chart: the paper strip, the order ticket, order lines (part of Panel)
-  paper/                the Paper page: main.js (sections), trades.js, backtests.js (runs), report.js (a run: stats,
+  chart-signals.js      a signal strategy's arrows on a chart, its strip, and the Signals choice in the ≡ menu (part of Panel)
+  backtesting/          the Backtesting page: main.js, backtests.js (runs), report.js (a run: stats,
                         Trades and Log tabs), review-pane.js (a day's chart over the page), equity.js,
                         missing.js (what a run does about days without cached bars: fetch, skip, stop),
                         day-grid.js (a running backtest's days: waiting, going, done)
@@ -166,8 +168,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   grid.js               the grid of cells (charts and watch lists), active chart, splitters, maximize
   layout-edit.js        adding and removing cells: rows, settings and sizes in, new ones out (no page)
   layout-actions.js     the Layout section of a cell's menu, and Undo after a removal
-  trade-panel.js        the trade panel cell: a paper account's Buy / Sell for its link group's symbol, at the
-                        replay cursor (the same practice session as the charts' strips)
+  trade-panel.js        the trade panel cell: follows its link group's symbol (orders to the IBKR paper account: #84)
   trade-ticket.js       the trade panel's order form: builds the order or bracket it sends
   watchlist.js          the watch list cell: its tabs and link group, picking a row; built from the parts below
   watchlist-tabs.js     its tabs and list menu: show, add, close, rename; pick, make or delete a list
@@ -177,7 +178,7 @@ app/static/js/          the pages' code, as ES modules, one job each (no build s
   watch-tab.js          one tab of a watch list panel: the named list it shows, its columns and rows
   settings-form.js      a settings form from a parameter list (the settings dialog and the Config page)
   config/               the Config page: dashboards and the environment check, watch lists, watch list
-                        columns, study defaults, paper accounts, rules.js, presets.js (recommended rules) and
+                        columns, study defaults, accounts.js (backtesting accounts), rules.js, presets.js (recommended rules) and
                         strategies.js (their forms, on
                         expr-editor.js: an expression typed or in groups, conditions.js, named-menu.js),
                         backtests.js (backtest defaults)
@@ -309,13 +310,15 @@ skill's rules (bitmap coordinates for lines, draw the visible range only, `reque
 everything in `detached()`).
 
 
-## Paper-job runner
+## Backtest runner
 
-`docker compose up -d --build` starts the chart and `paper-worker` services. For a local Python deployment,
-start `python -m app.paper.worker` alongside Uvicorn, with the same `DATA_DIR`. `PAPER_JOB_WORKERS` defaults to 5
-and accepts 1 through 5; `WEB_WORKERS` does not affect the job limit. Keep the runner at one replica.
+`docker compose up -d --build` starts the chart and `backtest-worker` services. For a local Python deployment,
+start `python -m app.backtesting.worker` alongside Uvicorn, with the same `DATA_DIR`. `BACKTEST_JOB_WORKERS` (the
+old `PAPER_JOB_WORKERS` still works) defaults to 5 and accepts 1 through 5; `WEB_WORKERS` does not affect the job
+limit. Keep the runner at one replica. It runs the same start-up upgrade as the server (app/upgrade.py) before it
+looks at its queue.
 
-All web processes submit complete inputs to `data/user/paper/backtests/<id>.json` under an admission lock.
+All web processes submit complete inputs to `data/user/backtesting/backtests/<id>.json` under an admission lock.
 There are at most 50 queued jobs. A full queue returns HTTP 429 with Retry-After. The runner submits only free
 slots to its executor and holds a lifetime flock under `backtests/locks/` until all threads have joined.
 Starting another runner against that directory fails. This requires a shared filesystem with working flock

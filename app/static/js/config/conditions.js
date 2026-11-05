@@ -1,7 +1,7 @@
-/* A condition in a paper trading rule, as form fields: an operand (a price, a number, or a study's line or level
+/* A condition in a signal rule, as form fields: an operand (a price, a number, or a study's line or level
    with the settings that change it), how it compares (crosses above, is below...), and another operand. Used by
-   Config's Paper rules (each lettered condition) and Paper strategies (an entry at a study level). The lists come
-   from /api/paper/rules (prices, ops) and the study catalog (/api/studies: each study's "lines", which for a level
+   Config's Signal rules (each lettered condition) and Signal strategies (an entry at a study level). The lists come
+   from /api/signal-rules (prices, ops) and the study catalog (/api/studies: each study's "lines", which for a level
    study are its levels by name, and its "rule_settings"). */
 import { btn, el } from "../util.js";
 

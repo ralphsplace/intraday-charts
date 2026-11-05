@@ -570,7 +570,7 @@ def test_switcher_and_addresses(tab):
     p = tab.goto("/")
     assert p.title().startswith("QQQs")
     assert p.locator(".dashsel option").all_inner_texts() == ["QQQs  (default)", "Internals", "Earnings", "Expected move",
-                                                                 "Option chain", "Paper trading", "Config", "Manage dashboards…"]
+                                                                 "Option chain", "Backtesting", "Config", "Manage dashboards…"]
     p.select_option(".dashsel", "\u0000manage")
     p.wait_for_url("**/config?tab=dashboards")
     p.wait_for_function("document.querySelectorAll('table.dash tbody tr').length > 0")   # the list loads after the page
@@ -1668,120 +1668,85 @@ def test_a_refresh_keeps_the_legend_watch_list_and_chain_on_screen(tab, data):
     assert p.evaluate("window._row.isConnected")
 
 
-def test_the_config_page_makes_and_sets_up_paper_accounts(tab, data):
+def test_the_config_page_makes_and_sets_up_backtesting_accounts(tab, data):
     p = tab.goto("/config", 1500)
-    p.click(".cfg-tabs button[data-sec=paper]")
-    assert "No paper accounts yet" in p.inner_text("#cfgPaper")
+    p.click(".cfg-tabs button[data-sec=accounts]")
+    assert "No backtesting accounts yet" in p.inner_text("#cfgAcct")
     # the defaults for new accounts: $30,000, long only
-    p.fill("#cfgPaperForm [data-key=start_cash]", "30000")
-    p.uncheck("#cfgPaperForm [data-key=shorting]")
-    p.click("#cfgPaperSave")
-    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent.startsWith('Saved the defaults')")
-    p.click("#cfgPaperNew")
-    p.wait_for_selector("#cfgPaper tr[data-name='Paper 1']")
-    row = p.locator("#cfgPaper tr[data-name='Paper 1']")
+    p.fill("#cfgAcctForm [data-key=start_cash]", "30000")
+    p.uncheck("#cfgAcctForm [data-key=shorting]")
+    p.click("#cfgAcctSave")
+    p.wait_for_function("document.querySelector('#cfgAcctMsg').textContent.startsWith('Saved the defaults')")
+    p.click("#cfgAcctNew")
+    p.wait_for_selector("#cfgAcct tr[data-name='Account 1']")
+    row = p.locator("#cfgAcct tr[data-name='Account 1']")
     assert "$30,000" in row.inner_text() and "long only" in row.inner_text()
-    assert p.locator("#cfgPaperFor").input_value() == "Paper 1"                # the new account's settings on view
+    assert p.locator("#cfgAcctFor").input_value() == "Account 1"                # the new account's settings on view
     # one account's own settings
-    p.fill("#cfgPaperForm [data-key=slippage]", "0.03")
-    p.click("#cfgPaperSave")
-    p.wait_for_function("document.querySelector('#cfgPaperMsg').textContent === 'Saved \"Paper 1\".'")
-    acct = json.loads((data / "user" / "config.json").read_text())["paper_accounts"]["Paper 1"]
+    p.fill("#cfgAcctForm [data-key=slippage]", "0.03")
+    p.click("#cfgAcctSave")
+    p.wait_for_function("document.querySelector('#cfgAcctMsg').textContent === 'Saved \"Account 1\".'")
+    acct = json.loads((data / "user" / "config.json").read_text())["backtest_accounts"]["Account 1"]
     assert acct["settings"]["slippage"] == 0.03 and acct["settings"]["shorting"] is False and acct["start_cash"] == 30000
     # rename, then delete with two clicks
     row.locator("button.cfg-rename").click()
-    p.fill("#cfgPaper input.cfg-input", "Morning practice")
-    p.press("#cfgPaper input.cfg-input", "Enter")
-    p.wait_for_selector("#cfgPaper tr[data-name='Morning practice']")
-    row = p.locator("#cfgPaper tr[data-name='Morning practice']")
+    p.fill("#cfgAcct input.cfg-input", "Morning practice")
+    p.press("#cfgAcct input.cfg-input", "Enter")
+    p.wait_for_selector("#cfgAcct tr[data-name='Morning practice']")
+    row = p.locator("#cfgAcct tr[data-name='Morning practice']")
     row.locator("button.danger").click()
     assert row.locator("button.danger").inner_text() == "Delete? Yes"
     row.locator("button.danger").click()
-    p.wait_for_function("document.querySelector('#cfgPaper').innerText.includes('No paper accounts yet')")
-    p.screenshot(path="/tmp/cfg-paper.png", full_page=True)
+    p.wait_for_function("document.querySelector('#cfgAcct').innerText.includes('No backtesting accounts yet')")
+    p.screenshot(path="/tmp/cfg-accounts.png", full_page=True)
 
 
-def test_replay_practice_on_a_chart(tab, data):
-    """A chart trades a paper account in Replay: a market buy fills on the next bar, the position and its line show,
-    and stepping back past the trade asks before removing it."""
+def test_a_chart_shows_a_signal_strategys_entries_and_exits(tab, data):
+    """A chart's ≡ menu, Signals: a signal strategy's entries and exits as arrows on the chart's bars, with a strip
+    naming it; in Replay only what had happened before the cursor; × takes it off. Signals only: nothing is traded."""
     p = tab.goto("/QQQs", 2000)
-    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
-               "body: JSON.stringify({name: 'Practice'})})")
-    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 630;          // 10:30, in the session
-                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
-    wait_state(p, "a.cursor === 630 && a.panels[0].view && a.panels[0].view.cursor === 630")
+    p.evaluate("""async () => {
+        const post = (u, b) => fetch(u, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)});
+        const vw = {study: {type: 'vwap', params: {}, output: 'vwap'}};
+        await post('/api/signal-rules', {name: 'Up', rule: {conditions: [{a: {price: 'close'}, op: 'crosses_above', b: vw}], when: 'A'}});
+        await post('/api/signal-rules', {name: 'Down', rule: {conditions: [{a: {price: 'close'}, op: 'crosses_below', b: vw}], when: 'A'}});
+        await post('/api/signal-strategies', {name: 'Crosses', strategy: {tf: 1, buy: 'Up', short: 'Down', qty: 10, exits: {stop: 0.5, target: 1}}});
+    }""")
     p.locator(".panel").first.locator(".viewsbtn").click()
-    p.wait_for_selector("#savedMenu select.paperacctsel option:nth-child(2)", state="attached")
-    acct = p.evaluate("[...document.querySelectorAll('#savedMenu select.paperacctsel option')].find((o) => o.text.startsWith('Practice')).value")
-    p.select_option("#savedMenu select.paperacctsel", acct)
+    p.wait_for_selector("#savedMenu select.sigsel option[value='Crosses']", state="attached")
+    p.select_option("#savedMenu select.sigsel", "Crosses")
     p.keyboard.press("Escape")
-    bar = p.locator(".panel .paperbar")
-    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Flat')")
-    assert app_state(p, "a.panels[0].config().paper") == app_state(p, "a.panels[0].paper") != ""
-    # a market buy of 10: working until the next bar is shown
-    bar.locator("button.paperbuy").click()
-    p.fill(".paperticket input[type=number] >> nth=0", "10")
-    p.click(".paperticket button[type=submit]")
-    p.wait_for_selector(".panel .paperorder.buy")
-    assert "BUY MKT 10" in bar.inner_text()
-    p.click("#stepFwd")
-    p.wait_for_function("document.querySelector('.panel .paperbar .paperinfo')?.innerText.includes('Long 10 @')")
-    assert p.locator(".toast", has_text="Paper Practice: BUY 10").count() == 1
-    assert app_state(p, "a.panels[0].toolState.paper.length") == 1                    # the average-price line
-    # step back past the trade: it asks; Remove takes it out
-    p.click("#stepBack")
-    p.click("#stepBack")
-    p.wait_for_selector(".toast .toastbtn:has-text('Remove')")
-    assert bar.locator("button.paperbuy").is_disabled()                                # not until it's settled
-    p.locator(".toast .toastbtn:has-text('Remove')").click()
-    p.wait_for_function("!document.querySelector('.panel .paperbar button.paperbuy').disabled")
-    assert "Flat" in bar.inner_text()
-    assert not bar.locator("button.paperbuy").is_disabled() and bar.locator(".paperorder").count() == 0
-    p.screenshot(path="/tmp/practice.png")
-    # off again
-    p.locator(".panel").first.locator(".viewsbtn").click()
-    p.wait_for_selector("#savedMenu select.paperacctsel")
-    p.select_option("#savedMenu select.paperacctsel", "")
-    assert bar.is_hidden()
-
-
-def test_a_trade_panel_buys_and_sells_in_a_paper_account_with_the_charts(tab):
-    """A trade panel next to the chart: it follows the active chart's symbol, trades the account at the replay cursor
-    (a bracket buy), shows the fills and working orders, and a chart in the same account shows the same orders."""
+    p.wait_for_function("document.querySelector('.panel .sigbar .siginfo')?.innerText.includes('trade')", timeout=20000)
+    full = app_state(p, "a.panels[0].markers.length")
+    assert full >= 2 and app_state(p, "a.panels[0].markerApi.markers().length") == full
+    assert app_state(p, "a.panels[0].config().signals") == "Crosses" and "Crosses" in p.inner_text(".panel .sigbar")
+    assert app_state(p, "a.panels[0].markers.every((m) => m.shape.startsWith('arrow'))")
+    # in Replay, at 10:00: only the arrows before it
+    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 600;
+                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
+    wait_state(p, "a.panels[0].view && a.panels[0].view.cursor === 600")
+    p.wait_for_function("document.querySelector('.panel .sigbar .siginfo').innerText.includes('so far')", timeout=20000)
+    assert app_state(p, "a.panels[0].markers.length") < full
+    assert app_state(p, "a.panels[0].markers.every((m) => Math.floor((m.time % 86400) / 60) < 600)")
+    p.screenshot(path="/tmp/signals.png")
+    # kept with the window; × takes it off
     p = tab.goto("/QQQs", 2000)
-    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
-               "body: JSON.stringify({name: 'Desk', start_cash: 100000})})")
+    assert app_state(p, "a.panels[0].signals") == "Crosses"
+    p.locator(".panel .sigbar button.sigoff").click()
+    assert p.locator(".panel .sigbar").is_hidden() and app_state(p, "a.panels[0].config().signals") is None
+    wait_state(p, "!a.panels[0].markerApi || a.panels[0].markerApi.markers().length === 0")
+
+
+def test_a_trade_panel_follows_the_charts_symbol(tab):
+    """A trade panel next to the chart follows the active chart's symbol; Replay practice is gone (#83) and its
+    orders to the IBKR paper account come next (#84). It's kept with the window, and removed like any cell."""
+    p = tab.goto("/QQQs", 2000)
     layout_action(p, 0, "trade-right")
     tp = p.locator(".panel.tp")
     assert tp.count() == 1 and tp.locator(".tpsym").inner_text() == "QQQ"
-    assert "Pick a paper account" in tp.inner_text() and tp.locator("button.tpbuy").is_disabled()
-    acct = p.evaluate("[...document.querySelectorAll('.tpacct option')].find((o) => o.text.startsWith('Desk')).value")
-    p.select_option(".tpacct", acct)
-    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 630;
-                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
-    p.wait_for_function("document.querySelector('.panel.tp .tpinfo')?.innerText.includes('at 10:30')")
-    assert "Flat" in tp.locator(".tpinfo").inner_text()
-    # a bracket buy of 20: the entry works until the next bar, then fills; the stop and target wait on it
-    tp.locator(".tpqty input").fill("20")
-    tp.locator(".tpbracket input").check()
-    tp.locator("button.tpbuy").click()
-    p.wait_for_function("document.querySelectorAll('.panel.tp .tporders tr[data-id]').length === 3")
-    p.click("#stepFwd")
-    p.wait_for_function("document.querySelector('.panel.tp .tpinfo').innerText.includes('Long 20 @')")
-    assert tp.locator(".tpfills td", has_text="BUY").count() == 1 and tp.locator(".tporders tr[data-id]").count() == 2
-    # the chart in the same account shows the same orders; cancelling one in the panel takes it off the chart too
-    p.locator(".panel").first.locator(".viewsbtn").click()
-    p.wait_for_selector("#savedMenu select.paperacctsel option:nth-child(2)", state="attached")
-    p.select_option("#savedMenu select.paperacctsel", acct)
-    p.keyboard.press("Escape")
-    p.wait_for_function("document.querySelectorAll('.panel .paperbar .paperorder').length === 2")
-    tp.locator(".tporders .paperx").first.click()
-    p.wait_for_function("document.querySelectorAll('.panel .paperbar .paperorder').length === 1")
-    assert tp.locator(".tporders tr[data-id]").count() == 1
-    # it's kept with the window, and removed like any cell
+    assert "IBKR paper account" in tp.inner_text() and tp.locator("button.tpbuy").count() == 0
     p = tab.goto("/QQQs", 2000)
-    assert app_state(p, f"a.configs.some((c) => c.kind === 'trade' && c.account === '{acct}')")      # read back from storage
-    assert p.locator(".panel.tp .tpacct").input_value() == acct
+    assert app_state(p, "a.configs.some((c) => c.kind === 'trade')")
     layout_action(p, 1, "remove")
     assert p.locator(".panel.tp").count() == 0
 
@@ -1801,7 +1766,7 @@ def test_a_rule_reads_the_opening_range_high(tab, data):
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
     name = p.inner_text("#ppRuleMsg").split('"')[1]
-    st = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["conditions"][0]["b"]["study"]
+    st = json.loads((data / "user" / "config.json").read_text())["signal_rules"][name]["conditions"][0]["b"]["study"]
     assert st["type"] == "session_levels" and st["output"] == "level:OR high" and st["params"]["or_minutes"] == "5"
     p.locator("#ppRuleDelete").click()
     p.locator("#ppRuleDelete").click()                                     # tidy up for the tests after
@@ -1835,7 +1800,7 @@ def test_a_rule_says_vzo_is_above_minus_40_and_rising(tab, data):
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
     name = p.inner_text("#ppRuleMsg").split('"')[1]
-    c = json.loads((data / "user" / "config.json").read_text())["paper_rules"][name]["conditions"]
+    c = json.loads((data / "user" / "config.json").read_text())["signal_rules"][name]["conditions"]
     assert c[0]["op"] == "above" and c[0]["b"] == {"value": -40.0} and c[0]["a"]["study"]["type"] == "vzo"
     assert c[1] == {"a": c[0]["a"], "op": "rising", "bars": 1}
     assert c[2]["b"] == {"price": "high", "ago": 1}
@@ -1856,7 +1821,7 @@ def test_recommended_rules_are_added_and_a_strategy_trails_by_atr(tab, data):
     assert p.locator("#ppPresetList input[value='Price above VWAP']").is_disabled()           # added with Bull trend
     p.click("#ppPresetAll")
     p.wait_for_function("document.querySelector('#ppPresets summary').dataset.left === 'all added'")
-    saved = json.loads((data / "user" / "config.json").read_text())["paper_rules"]
+    saved = json.loads((data / "user" / "config.json").read_text())["signal_rules"]
     assert {"Price above ORH", "Price below ORL", "VZO above -40 and rising", "Bull trend"} <= set(saved)
     assert saved["Bull trend"]["when"] == '"Price above VWAP" AND "EMA 9 above EMA 21"'
     p.wait_for_function("[...document.querySelectorAll('#ppRule option')].some((o) => o.value === 'Price above ORH')")
@@ -1869,7 +1834,7 @@ def test_recommended_rules_are_added_and_a_strategy_trails_by_atr(tab, data):
     p.click("#ppStratSave")
     p.wait_for_function("document.querySelector('#ppStratMsg').textContent.startsWith('Saved')")
     name = p.inner_text("#ppStratMsg").split('"')[1]
-    st = json.loads((data / "user" / "config.json").read_text())["paper_strategies"][name]
+    st = json.loads((data / "user" / "config.json").read_text())["signal_strategies"][name]
     assert st["exits"]["trail_atr"] == 2.0 and st["exits"]["atr_length"] == 14 and "stop" not in st["exits"]
     p.select_option("#ppStrat", name)
     p.click("#ppStratDelete")
@@ -1900,7 +1865,7 @@ def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Saved')")
     first = p.inner_text("#ppRuleMsg").split('"')[1]
-    assert json.loads((data / "user" / "config.json").read_text())["paper_rules"][first]["when"] == "NOT A AND NOT (B OR A)"
+    assert json.loads((data / "user" / "config.json").read_text())["signal_rules"][first]["when"] == "NOT A AND NOT (B OR A)"
     # a rule of rules, built with the groups
     p.select_option("#ppRule", "\u0000new")
     p.click("#ppRuleForm .xed-groups button:has-text('+ condition or rule')")
@@ -1908,7 +1873,7 @@ def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
     p.click("#ppRuleSave")
     p.wait_for_function(f"(t => t.startsWith('Saved') && !t.includes('{first}'))(document.querySelector('#ppRuleMsg').textContent)")
     second = p.inner_text("#ppRuleMsg").split('"')[1]
-    assert json.loads((data / "user" / "config.json").read_text())["paper_rules"][second]["when"] == f'"{first}"'
+    assert json.loads((data / "user" / "config.json").read_text())["signal_rules"][second]["when"] == f'"{first}"'
     p.select_option("#ppRule", first)                                     # the first can't use the second: a loop
     p.fill("#ppRuleForm input.xed-text", f'NOT A AND "{second}"')
     p.wait_for_function("!document.querySelector('#ppRuleForm .xed-msg').textContent")
@@ -1924,15 +1889,14 @@ def test_a_rule_is_a_nested_true_false_expression_typed_or_built(tab, data):
         p.wait_for_function("document.querySelector('#ppRuleMsg').textContent.startsWith('Deleted')")
 
 
-def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a_chart(tab, data):
-    p = tab.goto("/paper", 1500)
-    p.evaluate("() => fetch('/api/paper/accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
+def test_config_writes_a_rule_the_backtesting_page_backtests_it_and_a_chart_shows_its_signals(tab, data):
+    p = tab.goto("/backtesting", 1500)
+    p.evaluate("() => fetch('/api/backtest-accounts', {method: 'POST', headers: {'Content-Type': 'application/json'}, "
                "body: JSON.stringify({name: 'Tests', start_cash: 100000})})")
     days = [d for s in p.evaluate("fetch('/api/meta').then((r) => r.json())")["symbols"] if s["symbol"] == "QQQ" for d in s["days"]]
-    p = tab.goto("/paper", 1500)
-    assert p.locator(".dashsel").input_value() == "\u0000paper"
-    assert "No trades yet" in p.inner_text("#ppTrades")
-    assert p.locator(".cfg-tabs button").all_inner_texts() == ["Trades", "Backtests"]   # set-up lives in Config
+    p = tab.goto("/backtesting", 1500)
+    assert p.locator(".dashsel").input_value() == "\u0000backtesting"
+    assert p.locator(".cfg-tabs button").count() == 0 and "No backtests yet" in p.inner_text("#ppRuns")   # set-up lives in Config
     # a rule, in Config: the close crosses above VWAP; a strategy buys on it, 10 shares, $0.50 stop, $1 target
     p = tab.goto("/config?tab=rules", 1500)
     p.select_option("#ppRule", "\u0000new")
@@ -1942,7 +1906,7 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     assert p.input_value("#ppRuleForm input.xed-text") == "A"                  # every condition, until it's changed
     p.click("#ppRuleSave")
     p.wait_for_function("document.querySelector('#ppRuleMsg').textContent === 'Saved \"Rule 1\".'")
-    r = json.loads((data / "user" / "config.json").read_text())["paper_rules"]["Rule 1"]
+    r = json.loads((data / "user" / "config.json").read_text())["signal_rules"]["Rule 1"]
     assert r["when"] == "A" and r["conditions"][0]["op"] == "crosses_above" and r["conditions"][0]["b"]["study"]["type"] == "vwap"
     p.click(".cfg-tabs button[data-sec=strategies]")
     p.select_option("#ppStrat", "\u0000new")
@@ -1951,9 +1915,9 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     p.locator("#ppStratForm .pp-row", has_text="Shares").locator("input").fill("10")
     p.click("#ppStratSave")
     p.wait_for_function("document.querySelector('#ppStratMsg').textContent === 'Saved \"Strategy 1\".'")
-    st = json.loads((data / "user" / "config.json").read_text())["paper_strategies"]["Strategy 1"]
+    st = json.loads((data / "user" / "config.json").read_text())["signal_strategies"]["Strategy 1"]
     assert st["buy"] == '"Rule 1"' and st["short"] == "" and st["qty"] == 10 and st["exits"]["stop"] == 0.5
-    # backtest defaults, in Config: the Paper page's Run form starts with them
+    # backtest defaults, in Config: the Backtesting page's Run form starts with them
     p.click(".cfg-tabs button[data-sec=backtests]")
     p.wait_for_function("document.querySelector('#cfgBtAccount').options.length === 2")
     p.fill("#cfgBtSymbol", "qqq")
@@ -1964,10 +1928,10 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     p.fill("#cfgBtWorkers", "2")
     p.click("#cfgBtSave")
     p.wait_for_function("document.querySelector('#cfgBtMsg').textContent.startsWith('Saved')")
-    assert json.loads((data / "user" / "config.json").read_text())["paper"]["backtest"] == \
+    assert json.loads((data / "user" / "config.json").read_text())["backtesting"]["backtest"] == \
         {"symbol": "QQQ", "account": "Tests", "baseline_runs": 1, "missing": "skip", "workers": 2}
-    # backtest it over the cached days, and save the trades into the account
-    p = tab.goto("/paper?tab=backtests", 1500)
+    # backtest it over the cached days
+    p = tab.goto("/backtesting", 1500)
     assert [p.locator(x).input_value() for x in ("#ppRunRule", "#ppRunSymbol", "#ppRunAccount", "#ppRunBase")] == ["Strategy 1", "QQQ", "Tests", "1"]
     assert p.locator("#ppRunMissing").input_value() == "skip"
     p.fill("#ppRunFrom", min(days))
@@ -2001,21 +1965,12 @@ def test_config_writes_a_rule_the_paper_page_backtests_it_and_opens_a_trade_on_a
     frame.wait_for_function("window.__intraday?.chart?.panels?.[0]?.view && window.__intraday.chart.panels[0].studies.length === 2", timeout=20000)
     assert frame.evaluate(f"{a}.studies.map((s) => s.type)") == ["vwap", "rsi"]
     p.click(".pp-review-x")
-    p.select_option("#ppReport select", "Tests")
-    p.click("#ppReport button.pp-save")
-    p.wait_for_function("document.querySelector('#ppRunMsg').textContent.startsWith('Saved')")
-    # the trades, and one opened on a chart in the account
-    p.click(".cfg-tabs button[data-sec=trades]")
-    p.wait_for_selector("#ppTrades tr[data-key]")
-    assert p.locator("#ppEquity canvas").count() > 0
-    p.locator("#ppTrades tr[data-key] input.pp-note").first.fill("Testing the notes")
-    p.locator("#ppTrades tr[data-key] input.pp-note").first.press("Tab")
-    p.wait_for_function("document.querySelector('#cfgStatus').textContent === 'Note saved.'")
-    href = p.locator("#ppTrades a.pp-open").first.get_attribute("href")
-    p.screenshot(path="/tmp/paper-page.png", full_page=True)
-    p = tab.goto(href, 2500)
-    wait_state(p, "a.panels[0].paperView && a.panels[0].paperView.fills.length > 0")
-    assert app_state(p, "a.panels[0].symbol") == "QQQ" and "Tests" in p.inner_text(".panel .paperbar")
+    assert p.locator("#ppReport button.pp-save").count() == 0                   # saving into an account is gone (#83)
+    p.screenshot(path="/tmp/backtesting-page.png", full_page=True)
+    # the same strategy on any chart, by address: its arrows on that day
+    p = tab.goto(f"/QQQs?symbol=QQQ&day={first_day}&signals=Strategy%201", 2500)
+    wait_state(p, "a.panels[0].markers && a.panels[0].markers.length > 0")
+    assert app_state(p, "a.panels[0].symbol") == "QQQ" and "Strategy 1" in p.inner_text(".panel .sigbar")
     assert "?" not in p.url                                                     # the address is tidied
 
 
@@ -2035,9 +1990,9 @@ def test_backtest_queue_delete_acknowledgement_and_interrupted_report(tab, data)
             route.fulfill(content_type="application/json", body=json.dumps(run))
         else:
             route.fulfill(content_type="application/json", body=json.dumps({"runs": [run] if state["exists"] else []}))
-    p.route("**/api/paper/backtests", handle)
-    p.route("**/api/paper/backtests/queuedjob", handle)
-    tab.goto("/paper?tab=backtests", 100)
+    p.route("**/api/backtests", handle)
+    p.route("**/api/backtests/queuedjob", handle)
+    tab.goto("/backtesting", 100)
     p.locator("#ppRuns .pp-report-btn").click()
     p.wait_for_function("document.querySelector('#ppReport').textContent.includes('Queued: waiting')")
     p.locator("#ppRuns button.danger").click()
@@ -2048,6 +2003,6 @@ def test_backtest_queue_delete_acknowledgement_and_interrupted_report(tab, data)
     p.wait_for_function("document.querySelector('#ppRuns').textContent.includes('No backtests yet')")
     run.update(status="interrupted", error="Worker stopped; submit a new run.")
     state["exists"] = True
-    tab.goto("/paper?tab=backtests", 100)
+    tab.goto("/backtesting", 100)
     p.locator("#ppRuns .pp-report-btn").click()
     p.wait_for_function("document.querySelector('#ppReport').textContent.includes('Worker stopped')")

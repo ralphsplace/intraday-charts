@@ -1,8 +1,8 @@
-/* The chart page's review mode (/review?run=<backtest id>&day=<day>, opened from the Paper page's backtest trades):
+/* The chart page's review mode (/review?run=<backtest id>&day=<day>, opened from the Backtesting page's backtest trades):
    one chart of the backtest's symbol and day at its strategy's timeframe, with the studies its rules read and its
    trades as entry and exit arrows. Studies added here (the f(x) button) stay for the next trade reviewed, so a rule
    can be refined against them; the ones the rules read are replaced by the next run's. Its window is its own in
-   each browser (never a dashboard's). Data: /api/paper/backtests/<id>/review. */
+   each browser (never a dashboard's). Data: /api/backtests/<id>/review. */
 import { fillDays } from "./data.js";
 import { DASH, app, normStudies } from "./state.js";
 import { $, api, el } from "./util.js";
@@ -15,7 +15,7 @@ export const reviewing = () => !!DASH.settings?.review;
 // the review window: the run's chart, from what this browser kept (saved: { layout, configs, prefs } or null)
 export async function reviewWindow(saved) {
   const q = new URLSearchParams(location.search);
-  const v = await api(`/api/paper/backtests/${enc(q.get("run") || "")}/review?day=${enc(q.get("day") || "")}`);
+  const v = await api(`/api/backtests/${enc(q.get("run") || "")}/review?day=${enc(q.get("day") || "")}`);
   const kept = saved?.configs?.[0] || {};
   const before = new Set(saved?.prefs?.reviewRule || []);
   const ruled = normStudies(v.studies);

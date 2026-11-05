@@ -2,7 +2,7 @@
 import { refreshAll, requestData } from "./data.js";
 import { buildGrid, setActive, showLayout } from "./grid.js";
 import { layoutSection } from "./layout-actions.js";
-import { paperSection } from "./paper-practice.js";
+import { signalsSection } from "./chart-signals.js";
 import { isLayout, layoutLabel } from "./layouts.js";
 import { defaultSpan, isPeriod, rangeLabel, tfLabel } from "./timeframes.js";
 import { app, normStudies, save } from "./state.js";
@@ -110,8 +110,8 @@ export async function openSavedMenu(anchor, kind, panel) {
   name.onkeydown = (e) => { if (e.key === "Enter") doSave(); if (e.key === "Escape") closeMenu(); };
   if (kind === "views") {
     m.appendChild(layoutSection(panel));                         // add a chart or watch list next to it, or remove it
-    const spot = m.appendChild(el("div"));                       // the chart's paper account (paper-practice.js)
-    paperSection(panel).then((box) => { if (spot.isConnected) { spot.replaceWith(box); placeMenu(m, anchor); } });
+    const spot = m.appendChild(el("div"));                       // the chart's signal strategy (chart-signals.js)
+    signalsSection(panel).then((box) => { if (spot.isConnected) { spot.replaceWith(box); placeMenu(m, anchor); } });
   }
   renderList();
   placeMenu(m, anchor);

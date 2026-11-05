@@ -1,4 +1,4 @@
-"""App-wide named things kept in a section of the application config (app/app_config.py): watch lists, paper
+"""App-wide named things kept in a section of the application config (app/app_config.py): watch lists, backtesting
 accounts, and any later kind. One set for the whole app, so every dashboard, browser and device sees the same.
 
 One job, the rules every kind shares: a name is unique (it's the key); a new one without a name is called

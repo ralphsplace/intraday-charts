@@ -1,11 +1,11 @@
 /* The Config page: everything set up once and kept on the NAS. Sections: the dashboards (config/dashboards.js,
    with the environment check), the named watch lists (rename, delete), each watch list type's default columns,
-   every study's default settings and colours, and paper trading's accounts, rules, strategies and backtest
-   defaults (config/paper.js, rules.js, strategies.js, backtests.js). Changes are saved as they're made. */
+   every study's default settings and colours, the backtesting accounts, the signal rules and strategies, and the
+   backtest defaults (config/accounts.js, rules.js, strategies.js, backtests.js). Changes are saved as they're made. */
 import { fillForm, readForm } from "../settings-form.js";
 import { initBacktestDefaults, loadBacktestDefaults } from "./backtests.js";
 import { initDashboards } from "./dashboards.js";
-import { initPaper, loadPaper } from "./paper.js";
+import { initAccounts, loadAccounts } from "./accounts.js";
 import { initPresets, loadPresets } from "./presets.js";
 import { initRules, loadRules } from "./rules.js";
 import { initStrategies, loadStrategies } from "./strategies.js";
@@ -25,7 +25,7 @@ async function reload() {
   $("cfgPath").textContent = cfg.path;
   renderLists(); renderColumns(); renderStudyList();
   if (study) showStudy(study);
-  await Promise.all([loadPaper(say), loadRules(sayRule), loadStrategies(sayStrat), loadBacktestDefaults(say), loadPresets()]);
+  await Promise.all([loadAccounts(say), loadRules(sayRule), loadStrategies(sayStrat), loadBacktestDefaults(say), loadPresets()]);
 }
 
 // ---------------------------------------------------------------- watch lists
@@ -215,16 +215,17 @@ $("cfgStudyReset").onclick = resetStudy;
 $("cfgStudyForm").onsubmit = (e) => { e.preventDefault(); saveStudy(); };
 $("sec-studies").querySelector(".cfg-sform").hidden = true;
 
-initPaper(say);
+initAccounts(say);
 initRules(sayRule);
-initPresets(say, () => { loadRules(sayRule); document.dispatchEvent(new Event("paper:rules")); });
+initPresets(say, () => { loadRules(sayRule); document.dispatchEvent(new Event("signals:rules")); });
 initStrategies(sayStrat);
 for (const a of document.querySelectorAll("a[data-goto]")) a.onclick = (e) => { e.preventDefault(); showSection(a.dataset.goto); };
 initBacktestDefaults(say);
 initDashboards();
 // the section asked for in the address (?tab=dashboards), else the last one shown in this browser
 const SECTIONS = [...document.querySelectorAll(".cfg-tabs button")].map((b) => b.dataset.sec);
-const asked = new URLSearchParams(location.search).get("tab");
+const OLD_TABS = { paper: "accounts" };   // ?tab=paper                    // addresses from before #83
+const asked = OLD_TABS[new URLSearchParams(location.search).get("tab")] || new URLSearchParams(location.search).get("tab");
 showSection(SECTIONS.includes(asked) ? asked : SECTIONS.includes(load(TAB_KEY)) ? load(TAB_KEY) : "dashboards");
 if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();   // e.g. #environment: shown now
 reload().catch((e) => say("cfgStatus", "Error: " + e.message, true));

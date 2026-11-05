@@ -185,7 +185,7 @@ def _dc(ctx, p):
        lambda p: f"Trend ({p['length']})",
        "A straight channel over the last N bars: the mid is the best-fit (least-squares) line through the source; the "
        "high and low are the same line moved up to the highest high and down to the lowest low, so every bar is "
-       "inside. It's redrawn as each bar arrives, so a paper trading rule can't read it.",
+       "inside. It's redrawn as each bar arrives, so a signal rule can't read it.",
        plots=[plot("upper", "High", BLUE), plot("mid", "Mid", BLUE, 1, "dashed"), plot("lower", "Low", BLUE)],
        warmup=lambda p: p["length"])
 def _trend_channel(ctx, p):

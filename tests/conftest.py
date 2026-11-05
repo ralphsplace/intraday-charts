@@ -32,10 +32,10 @@ def demo(synthetic_dir, monkeypatch):
 
 
 @pytest.fixture
-def paper_runner():
+def backtest_runner():
     """Start the separate runner explicitly after a test selects its DATA_DIR; join before fixture teardown."""
     import threading
-    from app.paper import worker
+    from app.backtesting import worker
     running = []
 
     def start(workers=5):
@@ -56,5 +56,5 @@ def paper_runner():
     for stop, thread, errors in running:
         stop.set()
         thread.join(10)
-        assert not thread.is_alive(), "paper runner did not stop"
+        assert not thread.is_alive(), "backtest runner did not stop"
         assert not errors, errors
