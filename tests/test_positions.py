@@ -133,8 +133,8 @@ def test_positions_endpoint(client, cache, monkeypatch):
 
 def test_the_environment_check_says_whether_positions_are_read(monkeypatch):
     monkeypatch.delenv("HOLDINGS", raising=False)
-    ro = next(c for c in envcheck.run() if c["name"] == "Read-only trading data")
+    ro = next(c for c in envcheck.run() if c["name"] == "Orders")
     assert "never read" in ro["detail"]
     monkeypatch.setenv("HOLDINGS", "on")
-    ro = next(c for c in envcheck.run() if c["name"] == "Read-only trading data")
+    ro = next(c for c in envcheck.run() if c["name"] == "Orders")
     assert "reads the account's positions" in ro["detail"] and ro["status"] == "ok"

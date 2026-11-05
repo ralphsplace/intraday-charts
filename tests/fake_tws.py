@@ -319,3 +319,91 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+
+# ---------------------------------------------------------------- a paper TWS that takes orders (tools/trader.py)
+class _Obj:
+    def __init__(self, **kw):
+        self.__dict__.update(kw)
+
+
+class FakeTrade:
+    def __init__(self, contract, order):
+        self.contract, self.order = contract, order
+        self.orderStatus = _Obj(status="Submitted")
+
+    def isDone(self):
+        return self.orderStatus.status in ("Filled", "Cancelled")
+
+
+class FakeTradingIB:
+    """What tools/trader.py uses of ib_async's IB: the accounts TWS reports, orders placed and cancelled, positions
+    and fills. fill(order_id, price) fills an order as TWS would."""
+
+    def __init__(self, accounts=("DU1234567",)):
+        self.accounts = list(accounts)
+        self.trades: list[FakeTrade] = []
+        self.placed: list = []                     # (contract, order) in the order they were sent
+        self.cancelled: list[int] = []
+        self.pos: dict = {}                         # symbol -> qty
+        self.avg: dict = {}
+        self.fill_list: list = []
+        self.connected = True
+        self._next = 100
+        self.client = _Obj(getReqId=self._req_id)
+
+    def _req_id(self):
+        self._next += 1
+        return self._next
+
+    def isConnected(self):
+        return self.connected
+
+    def disconnect(self):
+        self.connected = False
+
+    def managedAccounts(self):
+        return list(self.accounts)
+
+    def qualifyContracts(self, *contracts):
+        out = []
+        for c in contracts:
+            if c.symbol.startswith("ZZZ"):
+                continue
+            c.conId = abs(hash(c.symbol)) % 10_000_000
+            out.append(c)
+        return out
+
+    def placeOrder(self, contract, order):
+        if not getattr(order, "orderId", 0):
+            order.orderId = self._req_id()
+        self.placed.append((contract, order))
+        t = FakeTrade(contract, order)
+        self.trades.append(t)
+        return t
+
+    def cancelOrder(self, order):
+        self.cancelled.append(order.orderId)
+        for t in self.trades:
+            if t.order.orderId == order.orderId:
+                t.orderStatus.status = "Cancelled"
+
+    def openTrades(self):
+        return [t for t in self.trades if not t.isDone()]
+
+    def positions(self, account=""):
+        return [_Obj(account=self.accounts[0], contract=_Obj(symbol=s, secType="STK"), position=q, avgCost=self.avg.get(s, 0.0))
+                for s, q in self.pos.items() if q]
+
+    def fills(self):
+        return list(self.fill_list)
+
+    def fill(self, order_id, price):
+        t = next(t for t in self.trades if t.order.orderId == order_id)
+        q = t.order.totalQuantity * (1 if t.order.action == "BUY" else -1)
+        s = t.contract.symbol
+        self.pos[s] = self.pos.get(s, 0) + q
+        self.avg[s] = price
+        t.orderStatus.status = "Filled"
+        self.fill_list.append(_Obj(contract=t.contract, execution=_Obj(
+            side="BOT" if q > 0 else "SLD", shares=abs(q), price=price, time=None, orderId=order_id, acctNumber=self.accounts[0])))

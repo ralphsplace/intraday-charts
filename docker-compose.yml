@@ -31,6 +31,12 @@ x-hardening: &hardening
     SEC_CONTACT: ${SEC_CONTACT:-}               # earnings page: see .env.example
     HOLDINGS: ${HOLDINGS:-}                     # "on": the watch list's Holdings list reads the account's positions
     FINVIZ: ${FINVIZ_TOKEN:+on}                 # FinViz watch lists turned on (the token itself goes to the collector only)
+    LIVE_ORDERS: ${LIVE_ORDERS:-}               # "paper": the trade panel's orders go to the IBKR paper account (docs/trading.md)
+    LIVE_MAX_SHARES: ${LIVE_MAX_SHARES:-1000}   # the most shares in one order
+    TRADE_HOST: ${TRADE_HOST:-}                 # the paper TWS (default: IB_HOST), its API port and client id
+    TRADE_PORT: ${TRADE_PORT:-7497}
+    TRADE_CLIENT_ID: ${TRADE_CLIENT_ID:-18}
+    TRADE_ACCOUNT: ${TRADE_ACCOUNT:-}           # which paper account, when TWS has several (DU...)
 
 services:
   chart:

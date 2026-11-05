@@ -93,7 +93,7 @@ def test_no_cross_site_headers(data):
 def test_environment_endpoint_and_checks(data):
     checks = {c["name"]: c for c in client().get("/api/environment").json()["checks"]}
     assert checks["Who can connect"]["status"] == "ok"
-    assert checks["Read-only trading data"]["status"] == "ok"
+    assert checks["Orders"]["status"] == "ok"
     assert checks["TWS connection"]["status"] == "warn"                     # no collector yet
     assert checks["Internet access"]["status"] == "ok"
     control.write_status({"host": "192.168.1.50", "port": 7496, "read_only": True})
@@ -133,7 +133,7 @@ def test_tools_refuse_a_public_tws_address(data):
 
 
 # ---------------------------------------------------------------- read-only, enforced
-def test_no_order_calls_anywhere():
+def test_no_order_calls_outside_the_trader():
     assert envcheck.order_calls() == []
     planted = ROOT / "tools" / "_planted_for_test.py"
     try:
@@ -143,16 +143,19 @@ def test_no_order_calls_anywhere():
         planted.unlink()
 
 
-def test_every_tws_connection_is_read_only():
-    calls = 0
-    for path in [*ROOT.glob("app/*.py"), *ROOT.glob("tools/*.py")]:
+def test_every_tws_connection_is_read_only_but_the_traders():
+    """The one connection that can place orders is the trader's, to the paper TWS (#84); every other is read-only."""
+    calls, trading = 0, []
+    for path in [*ROOT.rglob("app/**/*.py"), *ROOT.glob("tools/*.py")]:
         for node in ast.walk(ast.parse(path.read_text())):
             if isinstance(node, ast.Call) and getattr(node.func, "attr", None) in ("connect", "connectAsync"):
                 kw = {k.arg: k.value for k in node.keywords}
                 if "clientId" in kw:                                          # an IB connection
                     calls += 1
-                    assert isinstance(kw.get("readonly"), ast.Constant) and kw["readonly"].value is True, path
-    assert calls >= 3
+                    ro = isinstance(kw.get("readonly"), ast.Constant) and kw["readonly"].value is True
+                    if not ro:
+                        trading.append(path.relative_to(ROOT).as_posix())
+    assert calls >= 4 and trading == ["tools/trader.py"]
 
 
 def test_tws_address_defaults_to_host_docker_internal(monkeypatch):

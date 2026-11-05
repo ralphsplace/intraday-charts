@@ -643,7 +643,7 @@ def test_environment_check_on_the_dashboards_page(tab):
     rows = p.locator("#env .pill")
     assert rows.count() >= 6
     names = p.locator("#env div:nth-child(3n+2)").all_inner_texts()
-    assert "Who can connect" in names and "Read-only trading data" in names
+    assert "Who can connect" in names and "Orders" in names
     assert p.locator("#env .pill.fail").count() == 0
     p.click("#recheck")
     p.wait_for_timeout(500)
@@ -1742,14 +1742,63 @@ def test_a_chart_shows_a_signal_strategys_entries_and_exits(tab, data):
     wait_state(p, "!a.panels[0].markerApi || a.panels[0].markerApi.markers().length === 0")
 
 
-def test_a_trade_panel_follows_the_charts_symbol(tab):
-    """A trade panel next to the chart follows the active chart's symbol; Replay practice is gone (#83) and its
-    orders to the IBKR paper account come next (#84). It's kept with the window, and removed like any cell."""
+def test_a_trade_panel_sends_orders_to_the_ibkr_paper_account(tab):
+    """The trade panel next to the chart follows its symbol, shows what TWS says for the paper account (position,
+    working orders, fills) and sends Buy, cancel and flatten as actions (app/live_orders.py; the server's answers
+    stand in for TWS here). Orders go only in Live and only when the server says they can."""
+    import json as _json
     p = tab.goto("/QQQs", 2000)
+    view = {"on": False, "ready": False, "why_not": "Orders are off. Set LIVE_ORDERS=paper in .env", "account": None,
+            "paper": False, "max_shares": 1000, "symbol": "QQQ", "position": {"symbol": "QQQ", "qty": 0, "avg": None},
+            "orders": [], "fills": [], "updated": 1}
+    sent = []
+
+    def live(route):
+        if route.request.method == "POST":
+            body = _json.loads(route.request.post_data)
+            sent.append(body)
+            if body["action"] == "order":
+                view["orders"] = [{"id": 101, "symbol": "QQQ", "side": "buy", "type": "market", "qty": body["order"]["qty"],
+                                   "price": None, "parent": None, "status": "Submitted"}]
+            route.fulfill(content_type="application/json", body=_json.dumps({"ok": True, "message": f"{body['action']} sent", "view": view}))
+        else:
+            route.fulfill(content_type="application/json", body=_json.dumps(view))
+    p.route("**/api/live**", live)
     layout_action(p, 0, "trade-right")
     tp = p.locator(".panel.tp")
     assert tp.count() == 1 and tp.locator(".tpsym").inner_text() == "QQQ"
-    assert "IBKR paper account" in tp.inner_text() and tp.locator("button.tpbuy").count() == 0
+    p.wait_for_function("document.querySelector('.panel.tp .tpnotice').innerText.includes('LIVE_ORDERS=paper')")
+    assert tp.locator("button.tpbuy").is_disabled() and "Orders off" in tp.locator(".tpacct").inner_text()
+    # TWS logged into the paper account, in Live: Buy sends a market order of 25
+    view.update(on=True, ready=True, why_not=None, account="DU…4567", paper=True)
+    p.evaluate("""() => { const a = window.__intraday.chart; a.live = true;
+                          const v = a.panels[0].view; if (!v.bars.length) v.bars.push({ time: 1, close: 500 }); }""")
+    wait_state(p, "a.cells.some((c) => c.live && c.live.ready)", 10000)
+    p.wait_for_function("!document.querySelector('.panel.tp button.tpbuy').disabled", timeout=10000)
+    assert "IBKR paper DU…4567" in tp.locator(".tpacct").inner_text()
+    tp.locator(".tpqty input").fill("25")
+    tp.locator("button.tpbuy").click()
+    p.wait_for_selector(".panel.tp .tporders tr[data-id='101']")
+    assert sent[-1] == {"action": "order", "symbol": "QQQ", "order": {"side": "buy", "qty": 25, "type": "market"}}
+    assert p.locator(".toast", has_text="IBKR paper DU…4567: order sent").count() == 1
+    # a fill shows, with a message; × cancels the working order; Flatten
+    view["position"] = {"symbol": "QQQ", "qty": 25, "avg": 499.5}
+    view["fills"] = [{"symbol": "QQQ", "side": "buy", "qty": 25, "price": 499.5, "time": 1793800000, "order": 101}]
+    p.wait_for_function("document.querySelector('.panel.tp .tpinfo').innerText.includes('Long 25 @ 499.50')", timeout=10000)
+    p.wait_for_selector(".toast:has-text('IBKR paper: BUY 25 QQQ @ 499.50')")
+    tp.locator(".tporders .tpx").first.click()
+    p.wait_for_timeout(300)
+    assert sent[-1] == {"action": "cancel", "symbol": "QQQ", "order_id": 101}
+    tp.locator("button.tpflat").click()
+    p.wait_for_timeout(300)
+    assert sent[-1] == {"action": "flatten", "symbol": "QQQ"}
+    p.screenshot(path="/tmp/trade-panel.png")
+    # out of Live: no orders
+    p.evaluate("window.__intraday.chart.live = false")
+    p.wait_for_function("document.querySelector('.panel.tp button.tpbuy').disabled", timeout=10000)
+    assert "turn Live on" in tp.locator(".tpnotice").inner_text()
+    # kept with the window, and removed like any cell
+    p.unroute("**/api/live**")
     p = tab.goto("/QQQs", 2000)
     assert app_state(p, "a.configs.some((c) => c.kind === 'trade')")
     layout_action(p, 1, "remove")
