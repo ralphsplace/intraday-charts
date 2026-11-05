@@ -41,6 +41,7 @@ export class ChartSignals {
     catch (e) { if (key === this.sigKey) { this.sigInfo.textContent = `${this.signals}: ${e.message}`; this.markers = null; this.renderMarkers(); } return; }
     if (key !== this.sigKey || this.dead) return;
     this.markers = r.markers;
+    this.sigShown = key;                                  // the arrows on screen are for this (the tests wait on it)
     this.sigInfo.textContent = `${r.strategy_name} · ${r.trades} trade${r.trades === 1 ? "" : "s"} ${cursor != null ? "so far " : ""}today`;
     this.renderMarkers();
   }

@@ -1717,15 +1717,20 @@ def test_a_chart_shows_a_signal_strategys_entries_and_exits(tab, data):
     p.select_option("#savedMenu select.sigsel", "Crosses")
     p.keyboard.press("Escape")
     p.wait_for_function("document.querySelector('.panel .sigbar .siginfo')?.innerText.includes('trade')", timeout=20000)
+
+    def cursor(minute):                                                  # Replay, at that minute of the day
+        p.evaluate(f"""() => {{ const c = document.querySelector('#cursor'); c.value = {minute};
+                              c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }}""")
+        wait_state(p, f"a.panels[0].view && a.panels[0].view.cursor === {minute}")
+        wait_state(p, f"(a.panels[0].sigShown || '').includes('|{minute}|')", 20000)
+    cursor(16 * 60)                                                      # the whole session
     full = app_state(p, "a.panels[0].markers.length")
     assert full >= 2 and app_state(p, "a.panels[0].markerApi.markers().length") == full
     assert app_state(p, "a.panels[0].config().signals") == "Crosses" and "Crosses" in p.inner_text(".panel .sigbar")
     assert app_state(p, "a.panels[0].markers.every((m) => m.shape.startsWith('arrow'))")
     # in Replay, at 10:00: only the arrows before it
-    p.evaluate("""() => { const c = document.querySelector('#cursor'); c.value = 600;
-                          c.dispatchEvent(new Event('input')); c.dispatchEvent(new Event('change')); }""")
-    wait_state(p, "a.panels[0].view && a.panels[0].view.cursor === 600")
-    p.wait_for_function("document.querySelector('.panel .sigbar .siginfo').innerText.includes('so far')", timeout=20000)
+    cursor(600)
+    assert "so far" in p.inner_text(".panel .sigbar")
     assert app_state(p, "a.panels[0].markers.length") < full
     assert app_state(p, "a.panels[0].markers.every((m) => Math.floor((m.time % 86400) / 60) < 600)")
     p.screenshot(path="/tmp/signals.png")
