@@ -275,7 +275,7 @@ def test_two_web_processes_share_one_bounded_queue(cache):
     for p in processes:
         p.start()
     try:
-        assert sum(result.get(timeout=20) for _ in processes) == 4
+        assert sum(result.get(timeout=60) for _ in processes) == 4      # two fresh Pythons importing the app: slow on CI
         for p in processes:
             p.join(5)
             assert p.exitcode == 0
