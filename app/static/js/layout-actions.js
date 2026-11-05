@@ -22,7 +22,7 @@ async function newWatchlistConfig() {
 }
 
 // a new trade panel: no account yet (it asks), following the active chart
-const newTradeConfig = () => ({ kind: "trade", id: uid(), link: "", account: "" });
+const newTradeConfig = () => ({ kind: "trade", id: uid(), link: "" });
 
 // the kinds of cell the Layout section adds: their names, and how a new one starts
 const KINDS = {

@@ -1,7 +1,7 @@
-/* The Config page's Backtests section: what a new backtest starts with on the Paper page (symbol, whose cash and
+/* The Config page's Backtests section: what a new backtest starts with on the Backtesting page (symbol, whose cash and
    costs, how many random-entry runs, and what to do about days without cached bars: fetch, skip or stop). Kept in the application
-   config. Data: /api/paper/backtest-defaults. */
-import { missingSelect } from "../paper/missing.js";
+   config. Data: /api/backtest-defaults. */
+import { missingSelect } from "../backtesting/missing.js";
 import { $, api, el } from "../util.js";
 
 let say = () => {}, edited = false;      // changed here and not saved yet: a refresh keeps what's on screen
@@ -21,7 +21,7 @@ function fill(d, accounts) {
 
 export async function loadBacktestDefaults(sayFn) {
   say = sayFn;
-  const [d, a] = await Promise.all([api("/api/paper/backtest-defaults"), api("/api/paper/accounts")]);
+  const [d, a] = await Promise.all([api("/api/backtest-defaults"), api("/api/backtest-accounts")]);
   fill(d, a.accounts);
 }
 
@@ -31,7 +31,7 @@ async function save() {
                  workers: parseInt($("cfgBtWorkers").value, 10) };
   if (Number.isNaN(body.baseline_runs)) { say("cfgBtMsg", "Random runs are 0 to 20.", true); return; }
   if (Number.isNaN(body.workers)) { say("cfgBtMsg", "Workers are 1 to 16.", true); return; }
-  try { await api("/api/paper/backtest-defaults", body, "PUT"); say("cfgBtMsg", "Saved. New backtests start with these."); }
+  try { await api("/api/backtest-defaults", body, "PUT"); say("cfgBtMsg", "Saved. New backtests start with these."); }
   catch (e) { say("cfgBtMsg", e.message, true); return; }
   edited = false;
   await loadBacktestDefaults(say);
@@ -43,7 +43,7 @@ export function initBacktestDefaults(sayFn) {
   $("cfgBt").onsubmit = (e) => { e.preventDefault(); save(); };
   $("cfgBt").oninput = $("cfgBt").onchange = () => { edited = true; };
   $("cfgBtReset").onclick = async () => {
-    try { await api("/api/paper/backtest-defaults", null, "DELETE"); say("cfgBtMsg", "Back to the built-in defaults."); }
+    try { await api("/api/backtest-defaults", null, "DELETE"); say("cfgBtMsg", "Back to the built-in defaults."); }
     catch (e) { say("cfgBtMsg", e.message, true); }
     edited = false;
     await loadBacktestDefaults(say);

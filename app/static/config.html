@@ -20,9 +20,9 @@
     <button type="button" role="tab" data-sec="lists">Watch lists</button>
     <button type="button" role="tab" data-sec="columns">Watch list columns</button>
     <button type="button" role="tab" data-sec="studies">Study defaults</button>
-    <button type="button" role="tab" data-sec="paper">Paper accounts</button>
-    <button type="button" role="tab" data-sec="rules">Paper rules</button>
-    <button type="button" role="tab" data-sec="strategies">Paper strategies</button>
+    <button type="button" role="tab" data-sec="accounts">Backtesting accounts</button>
+    <button type="button" role="tab" data-sec="rules">Signal rules</button>
+    <button type="button" role="tab" data-sec="strategies">Signal strategies</button>
     <button type="button" role="tab" data-sec="backtests">Backtests</button>
   </nav>
 
@@ -103,29 +103,29 @@
     </div>
   </section>
 
-  <section id="sec-paper" class="cfg-sec" hidden>
-    <h2>Paper accounts</h2>
-    <p class="muted small">Accounts for practising in Replay and for backtests. They're simulated on the NAS from the
-      cached bars and never talk to TWS or your IBKR account. Names are unique; renaming keeps the history; a reset puts
-      the balance back to the starting cash and keeps the history.</p>
-    <table id="cfgPaper" class="cfg-table"></table>
-    <div class="cfg-row"><button id="cfgPaperNew" type="button">New account</button>
-      <span id="cfgPaperMsg" class="muted small" role="status"></span></div>
+  <section id="sec-accounts" class="cfg-sec" hidden>
+    <h2>Backtesting accounts</h2>
+    <p class="muted small">The starting cash and costs a backtest runs with (the <a href="/backtesting">Backtesting</a>
+      page's "Cash and costs of"). Backtests are simulated on the NAS from the cached bars; nothing here trades. Names
+      are unique.</p>
+    <table id="cfgAcct" class="cfg-table"></table>
+    <div class="cfg-row"><button id="cfgAcctNew" type="button">New account</button>
+      <span id="cfgAcctMsg" class="muted small" role="status"></span></div>
     <h3>Settings</h3>
-    <div class="cfg-row"><label for="cfgPaperFor">For</label> <select id="cfgPaperFor"></select>
-      <span id="cfgPaperNote" class="muted small"></span></div>
-    <form id="cfgPaperForm" class="settings cfg-paperform" autocomplete="off"></form>
+    <div class="cfg-row"><label for="cfgAcctFor">For</label> <select id="cfgAcctFor"></select>
+      <span id="cfgAcctNote" class="muted small"></span></div>
+    <form id="cfgAcctForm" class="settings cfg-acctform" autocomplete="off"></form>
     <div class="cfg-row">
-      <button id="cfgPaperSave" type="button" class="primary">Save</button>
-      <button id="cfgPaperReset" type="button">Built-in defaults</button>
+      <button id="cfgAcctSave" type="button" class="primary">Save</button>
+      <button id="cfgAcctReset" type="button">Built-in defaults</button>
     </div>
   </section>
 
   <section id="sec-rules" class="cfg-sec" hidden>
-    <h2>Paper rules</h2>
+    <h2>Signal rules</h2>
     <p class="muted small">A rule is a true / false condition, read at each bar's close: lettered conditions on prices, study
       lines and levels (VWAP, the opening range high, the prior day's high…), combined with AND, OR, NOT and other rules.
-      <a href="#" data-goto="strategies">Paper strategies</a> trade on rules. A study whose past values change as new
+      <a href="#" data-goto="strategies">Signal strategies</a> act on rules. A study whose past values change as new
       bars arrive is refused, as a rule would otherwise look ahead.</p>
     <details id="ppPresets" class="pp-presets">
       <summary>Recommended rules: price above or below VWAP, the moving averages and the opening range, breakouts, trend, slope, momentum</summary>
@@ -142,10 +142,11 @@
   </section>
 
   <section id="sec-strategies" class="cfg-sec" hidden>
-    <h2>Paper strategies</h2>
+    <h2>Signal strategies</h2>
     <p class="muted small">What to do on the rules: Buy if, Sell short if, Close a long if, Close a short if, each an expression
       of rules by name, e.g. ("Rule 1" AND NOT "Rule 3") OR Rule5. Then the bars, shares, entry order, exits and hours.
-      Strategies are run on the <a href="/paper">Paper trading</a> page (Backtests).</p>
+      Strategies are backtested on the <a href="/backtesting">Backtesting</a> page, and any chart can show one's entries
+      and exits as arrows (the chart's ≡ menu, Signals): signals only, nothing is traded.</p>
     <div class="cfg-row"><label for="ppStrat">Strategy</label> <select id="ppStrat"></select>
       <button id="ppStratRename" type="button">Rename</button> <button id="ppStratDelete" type="button" class="danger">Delete</button></div>
     <form id="ppStratForm" class="pp-rule" autocomplete="off"></form>
@@ -155,7 +156,7 @@
 
   <section id="sec-backtests" class="cfg-sec" hidden>
     <h2>Backtests</h2>
-    <p class="muted small">What the Run form on the <a href="/paper">Paper trading</a> page starts with. Each run can
+    <p class="muted small">What the Run form on the <a href="/backtesting">Backtesting</a> page starts with. Each run can
       still change them.</p>
     <form id="cfgBt" class="pp-run" autocomplete="off">
       <label>Symbol <input id="cfgBtSymbol" maxlength="12" spellcheck="false"></label>

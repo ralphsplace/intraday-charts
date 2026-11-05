@@ -68,3 +68,17 @@ def valid_expiry(raw: str) -> str:
         raise HTTPException(400, "expiry must be YYYYMMDD")
     valid_date(f"{raw[:4]}-{raw[4:6]}-{raw[6:]}")
     return raw
+
+
+def call(fn, *a, errors=()):
+    """fn(*a), with its errors as the HTTP answers the pages expect: KeyError 404, ValueError 400 (409 for a name
+    already taken or something in use), and each (exception class, status) in `errors`."""
+    try:
+        return fn(*a)
+    except tuple(e for e, _ in errors) as e:
+        status = next(s for cls, s in errors if isinstance(e, cls))
+        raise HTTPException(status, str(e), headers={"Retry-After": "5"} if status == 429 else None) from None
+    except KeyError as e:
+        raise HTTPException(404, str(e.args[0])) from None
+    except ValueError as e:
+        raise HTTPException(409 if "already" in str(e) or "is used by" in str(e) else 400, str(e)) from None

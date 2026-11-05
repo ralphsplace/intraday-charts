@@ -1,13 +1,13 @@
-/* The Config page's recommended paper rules (app/paper/presets.py): price above or below VWAP, SMA 50 / 200,
+/* The Config page's recommended signal rules (app/signals/presets.py): price above or below VWAP, SMA 50 / 200,
    EMA 9 / 21 and the opening range, breakouts, trend, slope, momentum, and two trend rules made of those. Tick them
    and add them; each becomes an ordinary saved rule (a rule of the same name already saved is kept as it is).
-   Data: /api/paper/rules/presets. */
+   Data: /api/signal-rules/presets. */
 import { $, api, el } from "../util.js";
 
 let say = () => {}, after = () => {};
 
 export async function loadPresets() {
-  const { presets } = await api("/api/paper/rules/presets");
+  const { presets } = await api("/api/signal-rules/presets");
   const box = $("ppPresetList");
   box.innerHTML = "";
   let group = null, ul = null;
@@ -32,7 +32,7 @@ export async function loadPresets() {
 
 async function add(names) {
   try {
-    const r = await api("/api/paper/rules/presets", { names });
+    const r = await api("/api/signal-rules/presets", { names });
     say("ppPresetMsg", (r.added.length ? `Added ${r.added.length}: ${r.added.join(", ")}.` : "Nothing new to add.") +
         (r.kept.length ? ` Kept your own: ${r.kept.join(", ")}.` : ""));
   } catch (e) { say("ppPresetMsg", e.message, true); return; }

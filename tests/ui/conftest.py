@@ -88,7 +88,7 @@ def data(ui_data):
     for sub in ("user", "control", "lists", "account"):
         shutil.rmtree(ui_data / sub, ignore_errors=True)
     env = {**os.environ, "DATA_DIR": str(ui_data), "PYTHONPATH": str(ROOT)}
-    worker = subprocess.Popen([sys.executable, "-m", "app.paper.worker"], cwd=ROOT, env=env)
+    worker = subprocess.Popen([sys.executable, "-m", "app.backtesting.worker"], cwd=ROOT, env=env)
     try:
         yield ui_data
     finally:

@@ -69,8 +69,8 @@ expose("priceTypes", PT);
   if (!review) await replay.restoreMode();  // Live, if this tab was in Live on the dashboard or page before
 })();
 
-// an address that opens the first chart at a symbol, day and replay time, practising in a paper account (the Paper
-// page's "open on the chart"): ?symbol=QQQ&day=2026-10-16&at=630&paper=<account id>. The address is then tidied.
+// an address that opens the first chart at a symbol, day and replay time: ?symbol=QQQ&day=2026-10-16&at=630, and
+// optionally &signals=<signal strategy> to show its arrows. The address is then tidied.
 function openAt(q) {
   if (!q.has("symbol") && !q.has("day")) return;
   const chart = app.panels[0];
@@ -81,7 +81,7 @@ function openAt(q) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(day)) { app.day = day; app.extraDays.add(day); fillDays(); }
   const at = parseInt(q.get("at"), 10);
   if (at >= 0 && at <= 24 * 60) app.cursor = at;
-  if (q.get("paper")) chart.paper = q.get("paper");
+  if (q.get("signals")) chart.signals = q.get("signals");
   save();
   history.replaceState(null, "", location.pathname);
 }

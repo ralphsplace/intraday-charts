@@ -120,3 +120,40 @@ def test_a_broken_config_never_stops_the_server_starting(user):
     done = upgrade.run()
     assert any(line.startswith("skipped: config.json") for line in done)
     assert (user / "watchlists.json").exists() and (user / "config.json").read_text() == '{"watchlists": {},'
+
+
+def test_paper_trading_becomes_backtesting(user):
+    """#83: the config sections and the data folder get their new names; backtests move; the accounts' practice
+    history is kept aside, never deleted; an existing new-named entry wins; a second run changes nothing."""
+    acct = {"id": "a1", "start_cash": 30000.0, "settings": {"commission": {"per_share": 0.005, "minimum": 1.0, "max_pct": 1.0},
+                                                             "slippage": 0.01, "shorting": True}, "created": 1}
+    write(user / "config.json", {"paper_accounts": {"Morning": acct}, "paper": {"backtest": {"symbol": "SPY"}},
+                                 "paper_rules": {"Up": {"id": "r1", "conditions": [], "when": "A"}},
+                                 "paper_strategies": {"S": {"id": "s1", "buy": "Up"}},
+                                 "signal_rules": {"Up": {"id": "r2", "conditions": [], "when": "B"}}})
+    old = user / "paper"
+    (old / "backtests").mkdir(parents=True)
+    write(old / "backtests" / "abc123.json", {"id": "abc123", "status": "done"})
+    write(old / "a1.json", {"sessions": [{"id": "x"}]})
+    (old / "a2.json.deleted").write_text("{}")
+    done = upgrade.run()
+    assert 'config section "paper_accounts" is now "backtest_accounts"' in done and len(done) == 6
+    cfg = read(user / "config.json")
+    assert not any(k.startswith("paper") for k in cfg)
+    assert cfg["backtest_accounts"]["Morning"] == acct and cfg["backtesting"] == {"backtest": {"symbol": "SPY"}}
+    assert cfg["signal_rules"]["Up"]["id"] == "r2" and cfg["signal_strategies"]["S"]["buy"] == "Up"   # the new one won
+    new = user / "backtesting"
+    assert read(new / "backtests" / "abc123.json")["status"] == "done"
+    assert read(new / "practice-history-archive" / "a1.json") == {"sessions": [{"id": "x"}]}
+    assert (new / "practice-history-archive" / "a2.json.deleted").exists() and not old.exists()
+    assert upgrade.run() == []
+
+
+def test_the_old_paper_page_address_still_works(user):
+    from fastapi.testclient import TestClient
+
+    from app.server import app
+    c = TestClient(app, client=("192.168.1.20", 50000))
+    r = c.get("/paper?tab=backtests", follow_redirects=False)
+    assert r.status_code == 301 and r.headers["location"] == "/backtesting?tab=backtests"
+    assert "<title>Backtesting</title>" in c.get("/backtesting").text

@@ -8,7 +8,7 @@ import json
 import os
 import re
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -76,9 +76,16 @@ def options_page():
     return _page("options.html")
 
 
+@router.get("/backtesting")
+def backtesting_page():
+    return _page("backtesting.html")
+
+
 @router.get("/paper")
-def paper_page():
-    return _page("paper.html")
+def paper_page(request: Request):
+    """The page's address before it became Backtesting (#83): bookmarks still work."""
+    q = request.url.query
+    return RedirectResponse("/backtesting" + (f"?{q}" if q else ""), status_code=301)
 
 
 @router.get("/config")

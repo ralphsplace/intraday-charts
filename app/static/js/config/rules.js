@@ -1,8 +1,8 @@
-/* The Config page's Paper rules section: a rule is a named true / false condition, read at each bar's close
-   (app/paper/rules.py). It has lettered conditions (A: Close crosses above OR high, B: ...) and says when it's true
+/* The Config page's Signal rules section: a rule is a named true / false condition, read at each bar's close
+   (app/signals/rules.py). It has lettered conditions (A: Close crosses above OR high, B: ...) and says when it's true
    as an expression of them and of other saved rules: (A OR B) AND NOT (C OR "Trend down"), typed or built in
    groups (expr-editor.js). Strategies (strategies.js) trade on rules. Saved app-wide by name; the server checks
-   everything and says what's wrong. Data: /api/paper/rules, the study catalog (/api/studies). */
+   everything and says what's wrong. Data: /api/signal-rules, the study catalog (/api/studies). */
 import { $, api, btn, el } from "../util.js";
 import { conditionRow, describe, firstLine } from "./conditions.js";
 import { exprEditor, exprText, mapLeaves } from "./expr-editor.js";
@@ -15,7 +15,7 @@ const allOf = (n) => (n === 0 ? null : n === 1 ? { cond: "A" } : { and: [...LETT
 
 export async function loadRules(sayFn) {
   say = sayFn;
-  const [m, cat] = await Promise.all([api("/api/paper/rules"), api("/api/studies").then((c) => c.studies)]);
+  const [m, cat] = await Promise.all([api("/api/signal-rules"), api("/api/studies").then((c) => c.studies)]);
   meta = { ...m, catalog: cat };
   menu.fill();
   pick(menu.current());
@@ -81,20 +81,20 @@ async function saveRule() {
   const tree = editor.tree();
   const name = menu.current() === NEW ? null : menu.current();
   try {
-    const r = await api("/api/paper/rules", { name, rule: { conditions: rule.conditions, when: tree ? exprText(tree) : "" } });
+    const r = await api("/api/signal-rules", { name, rule: { conditions: rule.conditions, when: tree ? exprText(tree) : "" } });
     meta.rules = r.rules;
     say(`Saved "${r.name}".`);
     menu.show(r.name);
   } catch (e) { say(e.message, true); return; }
-  document.dispatchEvent(new Event("paper:rules"));
+  document.dispatchEvent(new Event("signals:rules"));
 }
 
 export function initRules(sayFn) {
   say = sayFn;
-  menu = namedMenu({ sel: $("ppRule"), renameBtn: $("ppRuleRename"), deleteBtn: $("ppRuleDelete"), base: "/api/paper/rules",
+  menu = namedMenu({ sel: $("ppRule"), renameBtn: $("ppRuleRename"), deleteBtn: $("ppRuleDelete"), base: "/api/signal-rules",
                      what: "rule", say: (t, bad) => say(t, bad), items: () => meta?.rules || {},
                      set: (r) => { meta.rules = r.rules; },
-                     pick, changed: () => document.dispatchEvent(new Event("paper:rules")) });
+                     pick, changed: () => document.dispatchEvent(new Event("signals:rules")) });
   $("ppRuleSave").onclick = saveRule;
   $("ppRuleForm").onsubmit = (e) => { e.preventDefault(); saveRule(); };
 }

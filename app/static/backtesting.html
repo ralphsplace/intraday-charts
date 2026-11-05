@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backtesting</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="cfg-page">
+<header class="toolbar">
+  <div class="group"><span id="dashNav" class="dashnav"></span></div>
+  <span id="cfgStatus" class="muted small" role="status"></span>
+</header>
+<main class="cfg">
+  <p class="muted small cfg-intro">Backtests run a signal strategy over past days, <b>simulated on the NAS from the cached
+    bars</b>: nothing here trades through TWS or your IBKR account (a backtest can ask the collector for price history
+    it doesn't have, as a chart does). How fills are modelled, and the limits: user guide, Backtesting. Accounts,
+    rules, strategies and backtest defaults are set up on the Config page:
+    <a href="/config?tab=accounts">Backtesting accounts</a>, <a href="/config?tab=rules">Signal rules</a>,
+    <a href="/config?tab=strategies">Signal strategies</a>,
+    <a href="/config?tab=backtests">Backtests</a>.</p>
+
+  <section id="sec-backtests" class="cfg-sec">
+    <h2>Backtests</h2>
+    <form id="ppRun" class="pp-run" autocomplete="off">
+      <label>Strategy <select id="ppRunRule"></select></label>
+      <label>Symbol <input id="ppRunSymbol" value="QQQ" maxlength="12" spellcheck="false"></label>
+      <label>From <input id="ppRunFrom" type="date"></label>
+      <label>To <input id="ppRunTo" type="date"></label>
+      <label>Cash and costs of <select id="ppRunAccount"></select></label>
+      <label>Random runs <input id="ppRunBase" type="number" min="0" max="20" value="5"></label>
+      <label>Days without cached bars <select id="ppRunMissing"></select></label>
+      <button type="submit" class="primary">Run</button>
+      <a class="small" href="/config?tab=strategies">Edit strategies in Config</a>
+    </form>
+    <div id="ppRunMsg" class="muted small" role="status"></div>
+    <table id="ppRuns" class="cfg-table"></table>
+    <div class="cfg-row"><button id="ppCompare" type="button">Compare the ticked runs</button></div>
+    <div id="ppReport" class="pp-report"></div>
+  </section>
+
+</main>
+<script src="/static/vendor/lightweight-charts.standalone.production.js"></script>
+<script src="/static/dash.js"></script>
+<script type="module" src="/static/js/backtesting/main.js"></script>
+</body>
+</html>

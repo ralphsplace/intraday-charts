@@ -1,6 +1,6 @@
-/* The menu at the top of a Config section that edits named things (paper rules, paper strategies): pick one or
+/* The menu at the top of a Config section that edits named things (signal rules, signal strategies): pick one or
    "New …", Rename in place (the menu becomes a box while typing), and Delete (asks once). The server keeps them
-   (base: /api/paper/rules, /api/paper/strategies); each answer carries the new list (key: "rules", "strategies"). */
+   (base: /api/signal-rules, /api/signal-strategies); each answer carries the new list (key: "rules", "strategies"). */
 import { api, el } from "../util.js";
 
 export const NEW = "\u0000new";

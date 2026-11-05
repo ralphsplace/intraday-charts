@@ -47,7 +47,7 @@ Drawn on price.
 - **Trend channel (straight: mid, high, low).** A straight channel over the last N bars (50 by default): the
   **mid** is the best-fit line through the closes (or another source); the **high** and **low** are the same line
   moved up to the highest high and down to the lowest low, so every bar in the window is inside. The legend says
-  its slope, a bar and over the window. It's redrawn as each bar arrives (the window moves), so paper trading rules
+  its slope, a bar and over the window. It's redrawn as each bar arrives (the window moves), so signal rules
   can't use it: a rule on it would be looking ahead.
 - Parabolic SAR
 

@@ -1,8 +1,8 @@
-/* A true / false expression, edited two ways that stay in step (app/paper/expr.py has the language):
+/* A true / false expression, edited two ways that stay in step (app/signals/expr.py has the language):
      typed:   (A OR B) AND NOT (X OR (S AND H)), ("Rule 1" AND !"Rule 3") OR Rule5
      groups:  nested boxes, each "All of" (AND) or "Any of" (OR), each part with Not and "within N bars"
-   Typing is checked on the server as you type (/api/paper/expr), and a mistake says where; the groups show the last
-   expression that was right. Used by Config's Paper rules (conditions and rules) and Paper strategies (rules). */
+   Typing is checked on the server as you type (/api/signal-expr), and a mistake says where; the groups show the last
+   expression that was right. Used by Config's Signal rules (conditions and rules) and Signal strategies (rules). */
 import { btn, el } from "../util.js";
 
 const KEYWORDS = new Set(["and", "or", "not", "within"]);
@@ -36,7 +36,7 @@ export function mapLeaves(t, fn) {
 }
 
 async function check(body) {
-  const r = await fetch("/api/paper/expr", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch("/api/signal-expr", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw Object.assign(new Error(j.detail?.message || j.detail || r.statusText), { pos: j.detail?.pos });
   return j;

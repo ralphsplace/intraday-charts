@@ -202,7 +202,7 @@ def _tpo(ctx, p):
     return out
 
 
-# what paper trading rules can read (rules.py)
+# what signal rules can read (rules.py)
 rule_levels("volume_profile", ("POC", "poc_line", "lines"), ("VAH", "va_lines", "lines"), ("VAL", "va_lines", "lines"),
             settings=("range", "va_pct"))
 rule_levels("tpo", ("TPO POC", "poc_line", "lines"), ("TPO VAH", "va_lines", "lines"), ("TPO VAL", "va_lines", "lines"),

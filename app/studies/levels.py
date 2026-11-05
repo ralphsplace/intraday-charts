@@ -354,7 +354,7 @@ def countdown(minutes: int) -> str:
     return f"{minutes // 60}h {minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
 
 
-# ---------------------------------------------------------------- what paper trading rules can read (rules.py)
+# ---------------------------------------------------------------- what signal rules can read (rules.py)
 rule_levels("prior_day", ("PH", "ph", "ph"), ("PL", "pl", "pl"), ("PC", "pc", "pc"), ("PO", "po", "po"),
             ("PW high", "pw", "pw"), ("PW low", "pw", "pw"))
 rule_levels("sr_ladder", ("Pivot", "pivot", "pivot"), ("R1", "r1", "resistance"), ("R2", "r2", "resistance"),

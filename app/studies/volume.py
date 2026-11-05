@@ -108,4 +108,4 @@ def _cvd_estimate(ctx, p):
             "note": "estimated from 1-minute bars, not exchange order flow"}
 
 
-rule_levels("rvol")          # bars against their usual volume: nothing a paper trading rule can read
+rule_levels("rvol")          # bars against their usual volume: nothing a signal rule can read

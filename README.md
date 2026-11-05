@@ -26,8 +26,8 @@ filled from Trader Workstation (TWS): type a symbol into a chart, or pick symbol
 | [Studies](docs/studies.md) | Every study, the support / resistance ladder |
 | [Earnings view](docs/earnings.md) | A stock's last 6 earnings reports, drawn over each other |
 | [Expected move view](docs/expected-move.md) | The options' expected move by a date, with diagonal legs |
-| [Config page](docs/config.md) | Named watch lists, default columns, study defaults, paper accounts (the application config) |
-| [Paper trading](docs/paper.md) | Practise trades in Replay with a simulated paper account (never the broker) |
+| [Config page](docs/config.md) | Named watch lists, default columns, study defaults, backtesting accounts, signal rules and strategies (the application config) |
+| [Backtesting](docs/backtesting.md) | Test signal strategies on past days; a strategy's entries and exits on any chart |
 | [Option chain view](docs/option-chain.md) | Build and evaluate option structures; the strike profile |
 | [Connecting to TWS](docs/tws.md) | TWS settings, the collector, market internals, watchlists |
 | [Configuration](docs/configuration.md) | `.env`, `config.json`, `data/events.json` |
