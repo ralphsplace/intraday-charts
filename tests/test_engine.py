@@ -287,6 +287,26 @@ def test_pfe_study(demo):
     assert [h["price"] for h in v["hlines"]] == [50, 0, -50]
 
 
+def test_alma_stoch_rsi_and_bop_studies(demo):
+    """ALMA on the price, Stochastic RSI and Balance of Power in their own panes, each from today's first bar
+    (earlier days warm them up), and readable by signal rules (their lines)."""
+    for t, pane, ids in (("alma", "price", ["alma"]), ("stoch_rsi", "own", ["k", "d"]), ("bop", "own", ["bop"])):
+        spec = studies.REGISTRY[t]
+        assert spec["pane"] == pane and set(ids) <= {o["id"] for o in studies.base.rule_outputs(spec)}
+        r = view("QQQ-DEMO", "2026-10-16", 640, t)
+        v = r["studies"][t]
+        assert v["ok"], v.get("error")
+        lines = {x["id"]: x["data"] for x in v["lines"]}
+        first = min(b["time"] for b in r["bars"] if b.get("current", True))
+        assert all(lines[i] and lines[i][0]["time"] <= first for i in ids), t
+    k = view("QQQ-DEMO", "2026-10-16", 640, "stoch_rsi")["studies"]["stoch_rsi"]
+    assert [h["price"] for h in k["hlines"]] == [80, 20]
+    assert all(0 <= p["value"] <= 100 for line in k["lines"] for p in line["data"])
+    b = view("QQQ-DEMO", "2026-10-16", 640, "bop")["studies"]["bop"]
+    assert all(-1 <= p["value"] <= 1 for p in b["lines"][0]["data"]) and b["label"] == "BOP"
+    assert view("QQQ-DEMO", "2026-10-16", 640, "bop", params={"bop": {"smooth": 14}})["studies"]["bop"]["label"] == "BOP (14)"
+
+
 def test_dmi_stochastic_study_draws_lines_only(demo):
     spec = studies.REGISTRY["dmi_stoch"]
     assert spec["category"] == "Oscillators" and spec["pane"] == "own"
