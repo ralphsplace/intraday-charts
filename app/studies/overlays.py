@@ -1,4 +1,5 @@
-"""Studies drawn over the price: moving averages, VWAP, bands and channels, Parabolic SAR, moving average cloud."""
+"""Studies drawn over the price: moving averages (SMA, EMA, WMA, ALMA), VWAP, bands and channels, Parabolic SAR,
+moving average cloud."""
 from __future__ import annotations
 
 import pandas as pd
@@ -34,6 +35,19 @@ def _ema(ctx, p):
 def _wma(ctx, p):
     w = bars_for(ctx, p["length"])
     return {"lines": [ln("wma", f"WMA {p['length']}", ctx.points(w, ind.wma(ind.source(w, p["source"]), p["length"])))]}
+
+
+@study("alma", "Arnaud Legoux moving average (ALMA)", "Overlays", "price",
+       [P("length", "Length", "int", 9, min=2, max=500), src_param(),
+        P("offset", "Offset", "float", 0.85, min=0, max=1, step=0.01),
+        P("sigma", "Sigma", "float", 6.0, min=0.5, max=50, step=0.5)],
+       lambda p: f"ALMA ({p['length']}, {p['offset']:g}, {p['sigma']:g})",
+       "Gaussian-weighted average: offset moves the weight toward recent bars (1) or older ones (0), sigma sharpens it.",
+       plots=[plot("alma", "ALMA", "#22c7d6")], warmup=lambda p: p["length"])
+def _alma(ctx, p):
+    w = bars_for(ctx, p["length"])
+    v = ind.alma(ind.source(w, p["source"]), p["length"], p["offset"], p["sigma"])
+    return {"lines": [ln("alma", f"ALMA {p['length']}", ctx.points(w, v))]}
 
 
 @study("vwap", "VWAP", "Overlays", "price",

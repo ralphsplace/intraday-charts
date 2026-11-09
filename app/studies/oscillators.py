@@ -1,5 +1,5 @@
-"""Oscillators, each in its own pane: RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO, PFE,
-DMI Stochastic Extreme."""
+"""Oscillators, each in its own pane: RSI, MACD, Stochastic, Stochastic RSI, Balance of Power, ATR, ADX, CCI,
+Williams %R, OBV, VZO, PFE, DMI Stochastic Extreme."""
 from __future__ import annotations
 
 import math
@@ -57,6 +57,34 @@ def _stoch(ctx, p):
     k, d = ind.stochastic(w, p["k"], p["smooth"], p["d"])
     return {"lines": [ln("k", "%K", ctx.points(w, k, 2), last_value=True), ln("d", "%D", ctx.points(w, d, 2))],
             "hlines": [hl(p["upper"], "upper"), hl(p["lower"], "lower")]}
+
+
+@study("stoch_rsi", "Stochastic RSI", "Oscillators", "own",
+       [P("k", "%K smoothing", "int", 3, min=1, max=20), P("d", "%D length", "int", 3, min=1, max=20),
+        P("rsi_length", "RSI length", "int", 14, min=2, max=100), P("stoch_length", "Stochastic length", "int", 14, min=2, max=100),
+        src_param(), P("upper", "Upper band", "int", 80, min=50, max=100), P("lower", "Lower band", "int", 20, min=0, max=50)],
+       lambda p: f"Stoch RSI ({p['k']}, {p['d']}, {p['rsi_length']}, {p['stoch_length']})",
+       "A Stochastic of the RSI: where the RSI sits within its own recent range, 0 to 100.",
+       plots=[plot("k", "%K", BLUE), plot("d", "%D", ORANGE), plot("upper", "Upper band line", GRAY, 1, "dashed"),
+              plot("lower", "Lower band line", GRAY, 1, "dashed")],
+       warmup=lambda p: p["rsi_length"] * 5 + p["stoch_length"] + p["k"] + p["d"])
+def _stoch_rsi(ctx, p):
+    w = bars_for(ctx, p["rsi_length"] * 5 + p["stoch_length"] + p["k"] + p["d"])
+    k, d = ind.stoch_rsi(ind.source(w, p["source"]), p["rsi_length"], p["stoch_length"], p["k"], p["d"])
+    return {"lines": [ln("k", "%K", ctx.points(w, k, 2), last_value=True), ln("d", "%D", ctx.points(w, d, 2))],
+            "hlines": [hl(p["upper"], "upper"), hl(p["lower"], "lower")]}
+
+
+@study("bop", "Balance of Power", "Oscillators", "own",
+       [P("smooth", "Smoothing (SMA bars; 1 = none)", "int", 1, min=1, max=100)],
+       lambda p: "BOP" + (f" ({p['smooth']})" if p["smooth"] > 1 else ""),
+       "Who controlled each bar: (close - open) / (high - low), from -1 (sellers) to +1 (buyers).",
+       plots=[plot("bop", "BOP", RED), plot("zero", "Zero line", DIM, 1, "dotted")],
+       warmup=lambda p: p["smooth"])
+def _bop(ctx, p):
+    w = bars_for(ctx, p["smooth"])
+    return {"lines": [ln("bop", "BOP", ctx.points(w, ind.balance_of_power(w, p["smooth"]), 3), last_value=True)],
+            "hlines": [hl(0, "zero")]}
 
 
 @study("atr", "Average True Range (ATR)", "Oscillators", "own",

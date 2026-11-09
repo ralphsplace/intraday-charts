@@ -338,3 +338,21 @@ def test_a_studys_direction_uses_its_own_line(demo, monkeypatch):
     line = s[R._key(S.studies(r)[0])]
     want = [i for i in range(1, len(line)) if line[i] is not None and line[i - 1] is not None and line[i] > -40 and line[i] > line[i - 1]]
     assert [x["bar"] for x in S.signals(r, s)] == want and want
+
+
+def test_rules_read_alma_stoch_rsi_and_bop(demo, monkeypatch):
+    """The new studies' lines are rule operands like any other: close crossing above ALMA (9), with Stochastic
+    RSI %K below 50 and Balance of Power above 0; adding conditions only narrows the signals."""
+    monkeypatch.setattr(store, "DATA_DIR", demo)
+    alma = {"study": {"type": "alma", "params": {"length": 9}, "output": "alma"}}
+    k = {"study": {"type": "stoch_rsi", "params": {}, "output": "k"}}
+    bop = {"study": {"type": "bop", "params": {}, "output": "bop"}}
+    cross = {"a": CLOSE, "op": "crosses_above", "b": alma}
+    counts = []
+    for conds in ([cross], [cross, {"a": k, "op": "below", "b": {"value": 50}}],
+                  [cross, {"a": k, "op": "below", "b": {"value": 50}}, {"a": bop, "op": "above", "b": {"value": 0}}]):
+        r = strategy(long=conds)
+        s = R.day_series("QQQ-DEMO", DAY, 3, S.studies(r))
+        R.check_no_repaint("QQQ-DEMO", DAY, 3, S.studies(r))           # none of them changes its past
+        counts.append(len(S.signals(r, s)))
+    assert counts[0] > counts[2] > 0 and counts[0] >= counts[1] >= counts[2]

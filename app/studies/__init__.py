@@ -1,9 +1,11 @@
 """Chart studies. The interface is in base.py; each other module is one family of studies:
 
-    overlays     moving averages, VWAP and anchored VWAP, bands, channels, Parabolic SAR, moving average cloud
+    overlays     moving averages (SMA, EMA, WMA, ALMA), VWAP and anchored VWAP, bands, channels, Parabolic SAR,
+                 moving average cloud
     volume       volume, relative volume by time of day
     profiles     volume profile and TPO / Market Profile (shared rows, value area and drawing)
-    oscillators  RSI, MACD, Stochastic, ATR, ADX, CCI, Williams %R, OBV, VZO
+    oscillators  RSI, MACD, Stochastic, Stochastic RSI, Balance of Power, ATR, ADX, CCI, Williams %R, OBV, VZO, PFE,
+                 DMI Stochastic Extreme
     levels       prior day, support/resistance, session levels, Initial Balance, ATR levels, events
     internals    NYSE TICK and cumulative TICK
 

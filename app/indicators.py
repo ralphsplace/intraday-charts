@@ -34,6 +34,15 @@ def wma(s: pd.Series, n: int) -> pd.Series:
     return s.rolling(n, min_periods=n).apply(lambda x: float(np.dot(x, w) / w.sum()), raw=True)
 
 
+def alma(s: pd.Series, n: int, offset: float = 0.85, sigma: float = 6.0) -> pd.Series:
+    """Arnaud Legoux moving average (TradingView's ta.alma): Gaussian weights over the last n bars, centred at
+    offset (0 the oldest bar, 1 the newest) and sigma wide (larger is sharper, n / sigma bars of spread)."""
+    m, width = offset * (n - 1), n / sigma
+    w = np.exp(-((np.arange(n) - m) ** 2) / (2 * width * width))      # oldest bar first, as in a rolling window
+    w /= w.sum()
+    return s.rolling(n, min_periods=n).apply(lambda x: float(np.dot(x, w)), raw=True)
+
+
 def rma(s: pd.Series, n: int) -> pd.Series:
     """Wilder's moving average."""
     return s.ewm(alpha=1 / n, adjust=False, min_periods=n).mean()
@@ -102,6 +111,24 @@ def trend_channel(df: pd.DataFrame, src: pd.Series, n: int):
     mid, upper, lower = nan.copy(), nan.copy(), nan.copy()
     mid.iloc[-k:], upper.iloc[-k:], lower.iloc[-k:] = line, line + up, line + dn
     return mid, upper, lower, float(slope)
+
+
+def stoch_rsi(s: pd.Series, rsi_len: int, stoch_len: int, k: int, d: int):
+    """Stochastic RSI (TradingView's): where the RSI sits within its range over the last stoch_len bars, 0 to 100,
+    %K smoothed by a k-bar SMA and %D a d-bar SMA of %K. A flat RSI (no range) gives no value."""
+    r = rsi(s, rsi_len)
+    lo, hi = r.rolling(stoch_len, min_periods=stoch_len).min(), r.rolling(stoch_len, min_periods=stoch_len).max()
+    raw = 100 * (r - lo) / (hi - lo).replace(0, np.nan)
+    kline = raw.rolling(k, min_periods=k).mean()
+    return kline, kline.rolling(d, min_periods=d).mean()
+
+
+def balance_of_power(df: pd.DataFrame, smooth: int = 1) -> pd.Series:
+    """Balance of Power (Igor Livshin): (close - open) / (high - low), from -1 (sellers took the bar from its high
+    to its low) to +1; a bar with no range is 0. smooth > 1: its smooth-bar SMA."""
+    rng = df["high"] - df["low"]
+    bop = ((df["close"] - df["open"]) / rng.replace(0, np.nan)).where(rng != 0, 0.0)
+    return bop if smooth <= 1 else bop.rolling(smooth, min_periods=smooth).mean()
 
 
 def stochastic(df: pd.DataFrame, k: int, smooth: int, d: int):

@@ -109,3 +109,40 @@ def test_trend_channel_is_a_straight_line_with_every_bar_inside():
     assert np.isclose((up - df["high"]).iloc[30:].min(), 0) and np.isclose((df["low"] - lo).iloc[30:].min(), 0)   # touching
     short = ind.trend_channel(df.iloc[:1], df["close"].iloc[:1], 50)
     assert short[3] is None and short[0].isna().all()
+
+
+def test_alma_is_tradingviews_gaussian_average():
+    rng = np.random.default_rng(7)
+    s = pd.Series(100 + rng.normal(0, 1, 60).cumsum())
+    n, offset, sigma = 9, 0.85, 6.0
+    v = ind.alma(s, n, offset, sigma)
+    assert v.iloc[: n - 1].isna().all() and v.iloc[n - 1:].notna().all()
+    m, sd = offset * (n - 1), n / sigma                  # by hand, as Pine's ta.alma: weight i on series[n - 1 - i]
+    x = s.to_numpy()[-n:]
+    w = [np.exp(-((i - m) ** 2) / (2 * sd * sd)) for i in range(n)]
+    assert v.iloc[-1] == pytest.approx(sum(wi * xi for wi, xi in zip(w, x, strict=True)) / sum(w))
+    flat = ind.alma(pd.Series([5.0] * 20), 9)
+    assert flat.dropna().tolist() == pytest.approx([5.0] * 12)
+    up = ind.alma(pd.Series(np.arange(30, dtype=float)), 9)                        # leans to the newest bars:
+    assert ind.sma(pd.Series(np.arange(30, dtype=float)), 9).iloc[-1] < up.iloc[-1] < 29   # above the SMA, below the close
+    assert ind.alma(pd.Series(np.arange(30, dtype=float)), 9, offset=0.5).iloc[-1] == pytest.approx(25)   # centred: the middle
+
+
+def test_stoch_rsi_is_a_stochastic_of_the_rsi():
+    rng = np.random.default_rng(11)
+    s = pd.Series(100 + rng.normal(0, 1, 200).cumsum())
+    k, d = ind.stoch_rsi(s, 14, 14, 3, 3)
+    r = ind.rsi(s, 14).to_numpy()
+    raw = [100 * (r[j] - r[j - 13:j + 1].min()) / (r[j - 13:j + 1].max() - r[j - 13:j + 1].min()) for j in (197, 198, 199)]
+    assert k.iloc[-1] == pytest.approx(sum(raw) / 3)                      # %K: a 3-bar SMA of the raw stochastic
+    assert d.iloc[-1] == pytest.approx(k.iloc[-3:].mean())                # %D: a 3-bar SMA of %K
+    assert k.dropna().between(0, 100).all() and d.dropna().between(0, 100).all()
+    assert k.iloc[:14 + 13 + 2].isna().all()                              # RSI, then its range, then the smoothing
+
+
+def test_balance_of_power():
+    df = pd.DataFrame({"open": [10, 10, 12, 11, 10], "high": [12, 11, 12, 11, 14], "low": [9, 10, 8, 11, 10],
+                       "close": [12, 10.5, 8, 11, 13]}, dtype=float)
+    assert ind.balance_of_power(df).tolist() == pytest.approx([2 / 3, 0.5, -1, 0, 0.75])   # no range: 0
+    sm = ind.balance_of_power(df, 2)
+    assert np.isnan(sm.iloc[0]) and sm.iloc[-1] == pytest.approx(0.375)

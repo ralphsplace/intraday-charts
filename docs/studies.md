@@ -26,6 +26,9 @@ chart; drag the pane separators to resize.
 Drawn on price.
 
 - SMA, EMA and WMA (length, source, color)
+- **Arnaud Legoux moving average (ALMA).** A moving average with Gaussian weights, as TradingView's: **Offset**
+  places the peak weight (0.85 by default: toward the newest bars, so it lags less than an SMA of the same
+  length; 0.5: centred), **Sigma** sets its width (6 by default; larger is sharper). Length 9 by default.
 - VWAP (regular or extended session, two standard-deviation bands)
 - **Anchored VWAP.** A VWAP that starts at a bar you choose instead of the open, with its own σ bands
   measured from the anchor (so they start at zero width and widen):
@@ -115,6 +118,12 @@ Each in its own pane below the price.
 - RSI
 - MACD
 - Stochastic
+- **Stochastic RSI.** A Stochastic of the RSI rather than the price, as TradingView's: where the RSI (14) sits
+  within its own range over the last 14 bars, 0 to 100, %K a 3-bar SMA of that and %D a 3-bar SMA of %K, with
+  bands at 80 and 20. It swings faster than the RSI; a flat RSI (no range) leaves a gap.
+- **Balance of Power (BOP).** Who controlled each bar (Igor Livshin): (close − open) ÷ (high − low), from −1
+  (it opened at the high and closed at the low) to +1; a bar with no range reads 0. Unsmoothed by default, as
+  TradingView draws it; **Smoothing** averages it over that many bars. A dotted zero line.
 - ATR
 - ADX / DMI
 - CCI
