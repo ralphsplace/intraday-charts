@@ -143,6 +143,14 @@ def test_no_study_draws_signal_arrows(tab):
     vzo = app_state(p, "Object.values(a.panels[0].view.studies)[0]")
     assert vzo["ok"] and vzo["lines"][0]["data"] and not vzo.get("markers")
     assert app_state(p, "a.panels[0].chart.panes().length") == 2
+    # Draw as: dots (the default), a line, or both
+    for choice, line, dots in (("Dots", False, True), ("Line & dots", True, True), ("Line", True, False)):
+        p.evaluate(f"""() => {{ const pn = window.__intraday.chart.panels[0];
+                              pn.studies[0].params.draw = {choice!r}; pn.changed(); }}""")
+        wait_state(p, f"Object.values(a.panels[0].rendered)[0]?.res?.lines?.[0]?.draw === {dict(Dots='dots', Line='line').get(choice, 'both')!r}")
+        o = app_state(p, "Object.values(a.panels[0].rendered)[0].lines.vzo.options()")
+        assert (o["lineVisible"], o["pointMarkersVisible"]) == (line, dots), choice
+    p.screenshot(path="/tmp/vzo-line-dots.png")
     # every study at once: none of them puts a marker (arrow) on the chart
     p.locator(".panel").first.locator(".fxbtn").click()
     for name in app_state(p, "a.catalog.map((s) => s.name)"):
