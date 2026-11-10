@@ -248,8 +248,21 @@ def catalog(user: bool = True) -> list[dict]:
 
 
 def ln(id, title, data, **kw):
-    """A line output; color, style and width are filled in from the study's plot settings."""
+    """A line output; color, style and width are filled in from the study's plot settings. draw: "line" (the
+    default), "dots" (a dot at each value, no line) or "both" (draw_of)."""
     return {"id": id, "title": title, "color": GRAY, "width": 1, "style": "solid", "data": data, **kw}
+
+
+# how a study's main line is drawn, for the studies that offer the choice (VZO, Parabolic SAR)
+DRAW_AS = {"Dots": "dots", "Line": "line", "Line & dots": "both"}
+
+
+def draw_param(default: str = "Dots"):
+    return P("draw", "Draw as", "choice", default, options=list(DRAW_AS))
+
+
+def draw_of(p) -> str:
+    return DRAW_AS.get(p.get("draw"), "line")
 
 
 def hl(price, plot_id):

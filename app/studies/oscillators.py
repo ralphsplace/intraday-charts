@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from .. import indicators as ind
-from .base import P, src_param, color, plot, study, ln, hl, bars_for, rule_settings, GRAY, PURPLE, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN, DIM
+from .base import P, src_param, color, plot, study, ln, hl, bars_for, rule_settings, draw_param, draw_of, GRAY, PURPLE, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN, DIM
 
 
 @study("rsi", "Relative Strength Index (RSI)", "Oscillators", "own",
@@ -146,7 +146,7 @@ VZO_COLOR_MODES = ["Levels (thinkorswim STO_VZO)", "Zone (above/below +/-40)", "
 
 @study("vzo", "Volume Zone Oscillator (VZO)", "Oscillators", "own",
        [P("length", "Length", "int", 20, min=2, max=200),
-        P("draw", "Draw as", "choice", "Dots", options=["Dots", "Line"]),
+        draw_param("Dots"),
         P("color_mode", "Color by", "choice", VZO_COLOR_MODES[0], options=VZO_COLOR_MODES),
         P("green_above", "Levels: green above", "float", 15.0, min=-100, max=100),
         P("red_below", "Levels: red below", "float", -5.0, min=-100, max=100),
@@ -179,7 +179,7 @@ def _vzo(ctx, p):
             else:
                 pt["color"] = p["mid_color"] if prev is None else (p["up_color"] if x >= prev else p["dn_color"])
             prev = x
-    lines = [ln("vzo", "VZO", pts, last_value=True, markers_only=p["draw"] == "Dots")]
+    lines = [ln("vzo", "VZO", pts, last_value=True, draw=draw_of(p))]
     if p["signal"]:
         lines.append(ln("sig", "Signal", ctx.points(w, ind.ema(v, p["signal"]), 2)))
     out = {"lines": lines, "hlines": [hl(60, "p60"), hl(40, "p40"), hl(0, "zero"), hl(-40, "m40"), hl(-60, "m60")]}

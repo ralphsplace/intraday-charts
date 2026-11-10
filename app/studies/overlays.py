@@ -7,7 +7,7 @@ import pandas as pd
 from .. import engine as en
 from .. import indicators as ind
 from .base import (P, src_param, color, plot, with_alpha, study, ln, bars_for, level, fill_params, fill_between,
-                   channel_fill, rule_levels, rule_settings, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
+                   channel_fill, rule_levels, rule_settings, draw_param, draw_of, TEAL, AMBER, ORANGE, BLUE, PINK, RED, GREEN)
 
 
 @study("sma", "Simple moving average (SMA)", "Overlays", "price",
@@ -215,13 +215,13 @@ def _trend_channel(ctx, p):
 @study("psar", "Parabolic SAR", "Overlays", "price",
        [P("step", "Step", "float", 0.02, min=0.001, max=0.2, step=0.001),
         P("max", "Maximum", "float", 0.2, min=0.01, max=1, step=0.01),
-        P("draw", "Draw as", "choice", "Dots", options=["Dots", "Line"])],
+        draw_param("Dots")],
        lambda p: f"SAR ({p['step']:g}, {p['max']:g})",
-       "Trailing stop-and-reverse. Drawn as dots (thickness sets dot size) or as a line (line type applies).",
+       "Trailing stop-and-reverse. Drawn as dots (thickness sets dot size), a line (line type applies), or both.",
        plots=[plot("sar", "Dots", AMBER, 2)], warmup=lambda p: 50)
 def _psar(ctx, p):
     w = bars_for(ctx, 50)
-    return {"lines": [ln("sar", "SAR", ctx.points(w, ind.psar(w, p["step"], p["max"])), markers_only=p["draw"] == "Dots")]}
+    return {"lines": [ln("sar", "SAR", ctx.points(w, ind.psar(w, p["step"], p["max"])), draw=draw_of(p))]}
 
 
 MA_TYPES = ["SMA", "EMA"]

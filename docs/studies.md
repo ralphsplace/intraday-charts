@@ -10,7 +10,7 @@ sell signals.
 | Action | How |
 |---|---|
 | Add | **f(x) Studies** → search or browse by category → **Add**. The same study can be added more than once (e.g. EMA 9 and EMA 21). |
-| Configure | Hover the study's name at the top-left of its pane → **Settings**, or use **Settings** in the Studies dialog. Inputs are on top; under **Style**, every line the study draws has its own **color, line type, thickness and transparency** (0% = solid): indicator lines and bands, oscillator reference lines (e.g. RSI 70 / 50 / 30 each separately), level lines, event lines and the opening-range box. Parabolic SAR can be drawn as dots or as a line. **Defaults** restores factory settings. |
+| Configure | Hover the study's name at the top-left of its pane → **Settings**, or use **Settings** in the Studies dialog. Inputs are on top; under **Style**, every line the study draws has its own **color, line type, thickness and transparency** (0% = solid): indicator lines and bands, oscillator reference lines (e.g. RSI 70 / 50 / 30 each separately), level lines, event lines and the opening-range box. Parabolic SAR and VZO can be drawn as dots, a line, or a line with a dot at each value (**Draw as**). **Defaults** restores factory settings. |
 | Hide / show | **Hide** keeps the study and its settings but stops drawing it. |
 | Remove | **×** on the legend entry, or **Remove** in the Studies dialog. |
 | Copy | **Copy to all charts** gives every chart in the layout the active chart's studies. |
@@ -129,8 +129,8 @@ Each in its own pane below the price.
 - CCI
 - Williams %R
 - OBV
-- **Volume Zone Oscillator (VZO).** Direction-signed volume as a % of total volume, as dots (default) or
-  a line, colored like thinkorswim's STO_VZO_Lower (green above +15, yellow, red below −5), by zone
+- **Volume Zone Oscillator (VZO).** Direction-signed volume as a % of total volume, as dots (default), a
+  line, or a line with a dot at each value (**Draw as**: Line & dots; the dots take each value's colour), colored like thinkorswim's STO_VZO_Lower (green above +15, yellow, red below −5), by zone
   (±40) or by slope. Lines at ±60, ±40 and 0, shaded zones from ±40 to ±60, and an optional signal
   line. It is an indicator only: it draws nothing on the price chart.
 - **DMI Stochastic Extreme.** A stochastic of the DMI oscillator (+DI minus −DI, Wilder smoothing), as in

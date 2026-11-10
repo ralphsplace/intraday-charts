@@ -278,6 +278,21 @@ def test_vzo_is_an_indicator_only(demo):
     assert [h["price"] for h in v["hlines"]] == [60, 40, 0, -40, -60]
 
 
+def test_vzo_and_sar_draw_as_dots_a_line_or_both(demo):
+    """VZO and Parabolic SAR share the Draw as setting: Dots (their default), Line, or Line & dots; the values are
+    the same whichever is picked, so rules read them alike."""
+    for t, line_id in (("vzo", "vzo"), ("psar", "sar")):
+        opts = next(p for p in studies.REGISTRY[t]["params"] if p["key"] == "draw")
+        assert opts["options"] == ["Dots", "Line", "Line & dots"] and opts["default"] == "Dots"
+        seen = {}
+        for choice, want in (("Dots", "dots"), ("Line", "line"), ("Line & dots", "both")):
+            v = view("QQQ-DEMO", "2026-10-16", 640, t, params={t: {"draw": choice}})["studies"][t]
+            line = next(x for x in v["lines"] if x["id"] == line_id)
+            assert line["draw"] == want, (t, choice)
+            seen[choice] = line["data"]
+        assert seen["Dots"] == seen["Line"] == seen["Line & dots"]
+
+
 def test_pfe_study(demo):
     spec = studies.REGISTRY["pfe"]
     assert spec["category"] == "Oscillators" and spec["pane"] == "own"
